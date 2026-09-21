@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_PALETTE } from "@/lib/theme/palette";
 import { contrastRatio } from "./color";
 
 const css = readFileSync(fileURLToPath(new URL("../app/globals.css", import.meta.url)), "utf8");
@@ -19,6 +20,16 @@ const MIN_TEXT_CONTRAST = 4.5;
 
 describe("design tokens", () => {
   const tokens = rootTokens();
+
+  it("keeps the TypeScript palette used for heatmap fills in sync with the CSS", () => {
+    expect(DEFAULT_PALETTE).toEqual({
+      good: tokens.good,
+      bad: tokens.bad,
+      missed: tokens.bad,
+      warn: tokens.warn,
+      accent: tokens.accent,
+    });
+  });
 
   it("defines every token named in the brief", () => {
     for (const name of [...TEXT_TOKENS, ...SURFACES, "border"]) {
