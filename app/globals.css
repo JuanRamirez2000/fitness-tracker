@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (dark only for V0). Components use the Tailwind names mapped below and
+ * never raw hex, so light mode or the color-blind palette is a variable swap.
+ * Every text color must keep >= 4.5:1 contrast on --bg and --card (see lib/tokens.test.ts).
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #0a0c0f;
+  --card: #12161b;
+  --border: #1f252d;
+  --ink: #e6e9ee;
+  --muted-1: #c3cad3;
+  --muted-2: #8b929d;
+  --muted-3: #7b838e;
+  --accent: #7fb2ff;
+  --good: #4fb783;
+  --warn: #d9a441;
+  --bad: #c9736b;
+
+  /* Structural neutrals read off the design frames. */
+  --divider: #1a1f26;
+  --border-strong: #262d36;
+  --raised: #171c22;
+  --inset: #0e1216;
+  --field-border: #242b34;
+  --track: #1b2129;
+  --scroll-thumb: #2a3038;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-muted-1: var(--muted-1);
+  --color-muted-2: var(--muted-2);
+  --color-muted-3: var(--muted-3);
+  --color-accent: var(--accent);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-divider: var(--divider);
+  --color-border-strong: var(--border-strong);
+  --color-raised: var(--raised);
+  --color-inset: var(--inset);
+  --color-field-border: var(--field-border);
+  --color-track: var(--track);
+
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  /* Every number in the UI is tabular so columns and deltas line up. */
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
