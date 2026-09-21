@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfig } from "./config";
+import { devLoginCredentials, isLoginSkipped } from "./dev-login";
 
 export const LOGIN_PATH = "/login";
 
@@ -31,13 +33,26 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   // getUser() re-validates the token with Supabase Auth; getSession() would trust the cookie.
   const {
-    data: { user },
+    data: { user: sessionUser },
   } = await supabase.auth.getUser();
+  const user = sessionUser ?? (await devSignIn(supabase));
   const onLogin = request.nextUrl.pathname === LOGIN_PATH;
 
-  if (!user && !onLogin) return redirect(request, LOGIN_PATH, response);
+  if (!user && !onLogin && !isLoginSkipped()) return redirect(request, LOGIN_PATH, response);
   if (user && onLogin) return redirect(request, "/", response);
   return response;
+}
+
+/** Temporary dev shortcut (see dev-login.ts): sign in as the configured account, if any. */
+async function devSignIn(supabase: SupabaseClient): Promise<User | null> {
+  const credentials = devLoginCredentials();
+  if (!credentials) return null;
+  const { data, error } = await supabase.auth.signInWithPassword(credentials);
+  if (error) {
+    console.warn(`DEV_SKIP_LOGIN: could not sign in as ${credentials.email}: ${error.message}`);
+    return null;
+  }
+  return data.user;
 }
 
 /** A redirect must carry the refreshed auth cookies, or the browser keeps the stale ones. */
