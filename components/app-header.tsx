@@ -6,10 +6,10 @@ import { AccountMenu } from "./account-menu";
 function contextLabel(viewer: Viewer | null): string {
   // No viewer only happens while the temporary dev login skip is on (lib/supabase/dev-login.ts).
   if (!viewer) return "Login off · dev";
-  if (!viewer.readOnly) return "Private · 2 people";
-  return viewer.athlete
-    ? `Viewing ${viewer.athlete.display_name}'s data · read-only`
-    : "No athlete linked";
+  if (viewer.profile.role !== "coach") return "Private · 2 people";
+  // The coach has the same edit access as the owner, so this names whose data it is
+  // without saying "read-only".
+  return viewer.athlete ? `Viewing ${viewer.athlete.display_name}'s data` : "No athlete linked";
 }
 
 // Desktop (frame 2A): name and context sit together on the left. Mobile (frame 2B): the

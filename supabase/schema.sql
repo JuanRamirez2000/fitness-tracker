@@ -1,5 +1,5 @@
 -- =====================================================================
--- Weight & logging tracker (schema v2): Supabase / Postgres 15+
+-- Weight & logging tracker (schema v3): Supabase / Postgres 15+
 -- Run once in the Supabase SQL editor (or save as a migration).
 -- BEFORE running: Auth > Providers > Email > turn OFF "Allow new users to sign up".
 -- =====================================================================
@@ -22,7 +22,9 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Coach reads an athlete's data only if a row exists here (managed via SQL, no UI).
+-- Coach reads AND writes an athlete's data only if a row exists here (managed via SQL,
+-- no UI). Product decision for this app: the coach is one trusted, known second account
+-- with full parity, not a stranger with read-only access.
 create table public.coach_access (
   athlete_id uuid not null references public.profiles(id) on delete cascade,
   coach_id uuid not null references public.profiles(id) on delete cascade,
@@ -170,9 +172,19 @@ from base
 window w as (partition by user_id order by local_date);
 
 -- ---------- Row level security ----------
--- Owner: full access to own rows. Coach: read-only on athletes listed in coach_access.
+-- Owner and coach have identical access to the owner's rows (see coach_access above).
+--
+-- can_read() lives in the `private` schema, not `public`: PostgREST only auto-exposes
+-- functions in the schemas it serves (public, by default), so a function in `private` is
+-- unreachable as a REST endpoint (no POST /rest/v1/rpc/can_read) while remaining callable
+-- from inside RLS policies on public tables, which Postgres evaluates directly. This is
+-- Supabase's own recommended fix for a SECURITY DEFINER helper that should only ever run
+-- inside a policy: https://supabase.com/docs/guides/database/database-linter?lint=0028
+-- Functions get PUBLIC execute by default, so grants must be set explicitly.
 
-create or replace function public.can_read(target uuid)
+create schema if not exists private;
+
+create function private.can_read(target uuid)
 returns boolean
 language sql stable security definer set search_path = public as $$
   select target = auth.uid()
@@ -181,6 +193,8 @@ language sql stable security definer set search_path = public as $$
       where coach_id = auth.uid() and athlete_id = target
     );
 $$;
+revoke all on function private.can_read(uuid) from public;
+grant execute on function private.can_read(uuid) to authenticated;
 
 do $$
 declare t text;
@@ -188,19 +202,20 @@ begin
   foreach t in array array['weigh_ins', 'nutrition_days', 'activities', 'injections', 'daily_metrics']
   loop
     execute format('alter table public.%I enable row level security', t);
+    -- for all: the coach can insert, update and delete here too, not just read.
     execute format(
-      'create policy "read own or coached" on public.%I for select to authenticated using (public.can_read(user_id))', t);
-    execute format(
-      'create policy "write own" on public.%I for all to authenticated
-         using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
+      'create policy "own or coached" on public.%I for all to authenticated
+         using (private.can_read(user_id)) with check (private.can_read(user_id))', t);
   end loop;
 end $$;
 
 alter table public.profiles enable row level security;
 create policy "read own or coached" on public.profiles
-  for select to authenticated using (public.can_read(id));
-create policy "update own" on public.profiles
-  for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
+  for select to authenticated using (private.can_read(id));
+-- update only (not "for all"): profiles cascade-deletes all of that user's tracking data,
+-- so this deliberately never grants delete or insert, even to a coach.
+create policy "update own or coached" on public.profiles
+  for update to authenticated using (private.can_read(id)) with check (private.can_read(id));
 
 alter table public.coach_access enable row level security;
 create policy "see own links" on public.coach_access
@@ -235,6 +250,11 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Nothing calls this directly; auth.users insert triggers it regardless of grants
+-- (trigger firing isn't gated by the querying role's EXECUTE privilege on the trigger
+-- function). Revoking it here just closes the same PostgREST RPC exposure as can_read.
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+
 -- =====================================================================
 -- ONE-TIME SETUP after creating the two users in Auth > Users
 -- (replace the UUIDs; run separately):
@@ -252,7 +272,7 @@ create trigger on_auth_user_created
 -- =====================================================================
 
 -- =====================================================================
--- ALREADY RAN THE FIRST VERSION? Apply this migration instead of re-running everything:
+-- ALREADY RAN v1? Apply this migration instead of re-running everything:
 --
 --   alter table public.profiles
 --     add column goal_weight_lb numeric(5,1),
@@ -267,4 +287,42 @@ create trigger on_auth_user_created
 --
 --   delete from public.metric_definitions where key = 'calories_in';
 --   delete from public.activity_types where key = 'steps_10k';
+--
+-- Then also apply the v2 -> v3 migration below.
+-- =====================================================================
+
+-- =====================================================================
+-- ALREADY RAN v2 (the version with `create policy "write own" ... using (user_id = ...)`)?
+-- Apply this instead of re-running everything: it moves the RLS helper out of the schema
+-- PostgREST exposes (an advisor-recommended fix, not a behavior change on its own) and
+-- gives the coach full read/write parity with the owner (a real access change: a coach
+-- account could previously only read, and could still write rows under its own user_id;
+-- now it can insert, update and delete the athlete's rows too).
+--
+--   create schema if not exists private;
+--   alter function public.can_read(uuid) set schema private;
+--   revoke all on function private.can_read(uuid) from public;
+--   grant execute on function private.can_read(uuid) to authenticated;
+--
+--   revoke all on function public.handle_new_user() from public, anon, authenticated;
+--
+--   do $$
+--   declare t text;
+--   begin
+--     foreach t in array array['weigh_ins', 'nutrition_days', 'activities', 'injections', 'daily_metrics']
+--     loop
+--       execute format('drop policy "read own or coached" on public.%I', t);
+--       execute format('drop policy "write own" on public.%I', t);
+--       execute format(
+--         'create policy "own or coached" on public.%I for all to authenticated
+--            using (private.can_read(user_id)) with check (private.can_read(user_id))', t);
+--     end loop;
+--   end $$;
+--
+--   drop policy "read own or coached" on public.profiles;
+--   drop policy "update own" on public.profiles;
+--   create policy "read own or coached" on public.profiles
+--     for select to authenticated using (private.can_read(id));
+--   create policy "update own or coached" on public.profiles
+--     for update to authenticated using (private.can_read(id)) with check (private.can_read(id));
 -- =====================================================================
