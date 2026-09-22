@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { HeatmapCard } from "@/components/heatmap/heatmap-card";
+import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { getViewer } from "@/lib/auth/viewer";
 import { loadDashboardData } from "@/lib/dashboard/load";
 import { isLoginSkipped } from "@/lib/supabase/dev-login";
@@ -26,7 +27,10 @@ export default async function DashboardPage() {
       <AppHeader viewer={viewer} />
       <main className="flex flex-1 flex-col gap-6 px-5 py-6 md:px-10 md:py-7">
         {data ? (
-          <HeatmapCard data={data} />
+          <>
+            <KpiGrid data={data} />
+            <HeatmapCard data={data} />
+          </>
         ) : (
           <p className="text-sm text-muted-2">
             {viewer ? "No athlete linked yet." : "Sign in to see the dashboard."}

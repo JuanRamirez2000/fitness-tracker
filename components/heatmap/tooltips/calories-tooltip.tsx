@@ -1,7 +1,7 @@
 import { TooltipEmpty, TooltipShell } from "@/components/heatmap/tooltip-shell";
 import type { HeatmapCell } from "@/lib/dashboard/types";
 import type { CaloriesTooltipData } from "@/lib/heatmap/modes/calories";
-import { fmtDate } from "@/lib/heatmap/format-date";
+import { fmtDate } from "@/lib/dates/format";
 
 const STATUS_LABEL = { accurate: "Accurate", uncertain: "May be off", missed: "Missed" } as const;
 

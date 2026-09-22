@@ -1,6 +1,6 @@
 import { TooltipShell } from "@/components/heatmap/tooltip-shell";
 import type { HeatmapCell } from "@/lib/dashboard/types";
-import { fmtDate } from "@/lib/heatmap/format-date";
+import { fmtDate } from "@/lib/dates/format";
 import type { LoggedTooltipData } from "@/lib/heatmap/modes/logged";
 
 export function LoggedTooltip({ cell }: { cell: HeatmapCell }) {

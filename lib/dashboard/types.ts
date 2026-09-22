@@ -98,3 +98,49 @@ export interface HeatmapMode {
   legend(ctx: ModeContext, data: DashboardData): LegendItem[];
   Tooltip: FC<{ cell: HeatmapCell }>;
 }
+
+/** Extends the brief's literal 'good'|'bad'|'neutral': calories needs an amber "may be off"
+ * state distinct from both, matching the warn token everywhere else in the app. */
+export type KpiTone = "good" | "bad" | "warn" | "neutral";
+
+/**
+ * What a KpiDefinition.compute() returns: the semantic value plus everything the card needs
+ * besides the two strings format() produces. The brief's format() signature only asks for
+ * `{ primary, delta?, tone? }` (text for the two numeric slots); `sub`, `series` and
+ * `progress` are already display-ready here because they are not really "numbers to format"
+ * — a caption, a list of points, a fraction.
+ */
+export interface KpiValue {
+  /** The number format() renders as the primary text; null when there is no number in V0
+   * (calories today — format() returns a literal "—" for that KPI regardless of this field). */
+  value: number | null;
+  unit: string;
+  delta?: number;
+  deltaUnit?: string;
+  /** Replaces a numeric delta chip with fixed text (calories status, steps hit/under). */
+  deltaText?: string;
+  tone: KpiTone;
+  /** Caption under the value, e.g. "Logged Sep 20 · tap to edit". */
+  sub: string;
+  /** Recent values, oldest first, for the sparkline. */
+  series?: number[];
+  /** 0..1, for a progress bar. */
+  progress?: number;
+}
+
+export interface KpiDefinition {
+  id: string;
+  label: string;
+  /** The hero card spans 2 grid columns (frame 2A); only todaysWeight sets this. */
+  hero?: boolean;
+  visual?: "sparkline" | "progress" | "none";
+  /** PURE, unit-tested. null = the empty state ("Set a goal", no shot ever logged, etc). */
+  compute(data: DashboardData): KpiValue | null;
+  format(value: KpiValue): { primary: string; delta?: string; tone?: KpiTone };
+  /**
+   * Shown, with the card's own label still visible, when compute() returns null (e.g.
+   * "Set a goal"). Distinct from the grid's own empty-slot padding for a position with no
+   * KpiDefinition at all, which is generic and unlabeled — see KpiGrid.
+   */
+  emptyMessage?: string;
+}

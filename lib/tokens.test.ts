@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PALETTE } from "@/lib/theme/palette";
-import { CARD_BG } from "@/lib/theme/surfaces";
+import { CARD_BG, MUTED_2 } from "@/lib/theme/surfaces";
 import { contrastRatio } from "./color";
 
 const css = readFileSync(fileURLToPath(new URL("../app/globals.css", import.meta.url)), "utf8");
@@ -32,8 +32,9 @@ describe("design tokens", () => {
     });
   });
 
-  it("keeps CARD_BG in sync with the CSS", () => {
+  it("keeps CARD_BG and MUTED_2 in sync with the CSS", () => {
     expect(CARD_BG).toBe(tokens.card);
+    expect(MUTED_2).toBe(tokens["muted-2"]);
   });
 
   it("defines every token named in the brief", () => {
