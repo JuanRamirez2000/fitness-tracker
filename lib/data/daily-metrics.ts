@@ -43,3 +43,31 @@ export function fetchSteps(
     return query.order("local_date").range(from, to);
   });
 }
+
+/** The table's real primary key is (user_id, local_date, metric), so one steps row a day. */
+export async function upsertSteps(
+  supabase: SupabaseClient,
+  userId: string,
+  values: StepsInput,
+): Promise<DailyMetric> {
+  const { data, error } = await supabase
+    .from("daily_metrics")
+    .upsert(
+      { user_id: userId, local_date: values.local_date, metric: STEPS_METRIC, value: values.value, source: "manual" },
+      { onConflict: "user_id,local_date,metric" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return dailyMetricRowSchema.parse(data);
+}
+
+export async function deleteSteps(supabase: SupabaseClient, userId: string, localDate: string): Promise<void> {
+  const { error } = await supabase
+    .from("daily_metrics")
+    .delete()
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .eq("metric", STEPS_METRIC);
+  if (error) throw error;
+}

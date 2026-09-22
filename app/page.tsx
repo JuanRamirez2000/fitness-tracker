@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { HeatmapCard } from "@/components/heatmap/heatmap-card";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
+import { DataTableSection } from "@/components/dashboard/data-table-section";
 import { getViewer } from "@/lib/auth/viewer";
 import { loadDashboardData } from "@/lib/dashboard/load";
 import { parseRangeParams } from "@/lib/range/url";
@@ -44,12 +45,24 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         range={data?.dateRange ?? null}
         rangeExplicit={parsedRange !== null}
         today={data?.today ?? null}
+        quickLog={
+          data
+            ? {
+                userId: data.profile.id,
+                timezone: data.profile.timezone,
+                today: data.today,
+                activityTypes: data.activityTypes,
+                stepsGoal: data.profile.steps_goal,
+              }
+            : null
+        }
       />
-      <main className="flex flex-1 flex-col gap-6 px-5 py-6 md:px-10 md:py-7">
+      <main className="flex flex-1 flex-col gap-6 px-5 pt-6 pb-24 md:px-10 md:py-7">
         {data ? (
           <>
             <KpiGrid data={data} />
             <HeatmapCard data={data} />
+            <DataTableSection data={data} />
           </>
         ) : (
           <p className="text-sm text-muted-2">

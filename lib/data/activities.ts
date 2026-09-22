@@ -35,3 +35,32 @@ export function fetchActivities(
     return query.order("local_date").order("created_at").range(from, to);
   });
 }
+
+export async function insertActivity(
+  supabase: SupabaseClient,
+  userId: string,
+  values: ActivityInput,
+): Promise<Activity> {
+  const { data, error } = await supabase
+    .from("activities")
+    .insert({ user_id: userId, ...values, source: "manual" })
+    .select()
+    .single();
+  if (error) throw error;
+  return activityRowSchema.parse(data);
+}
+
+export async function updateActivity(
+  supabase: SupabaseClient,
+  id: string,
+  values: ActivityInput,
+): Promise<Activity> {
+  const { data, error } = await supabase.from("activities").update(values).eq("id", id).select().single();
+  if (error) throw error;
+  return activityRowSchema.parse(data);
+}
+
+export async function deleteActivity(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("activities").delete().eq("id", id);
+  if (error) throw error;
+}

@@ -34,3 +34,24 @@ export function fetchNutritionDays(
     return query.order("local_date").range(from, to);
   });
 }
+
+/** The table's real primary key is (user_id, local_date), so there is only ever one row a
+ * day to edit — add row and inline/dialog edit are the same upsert. */
+export async function upsertNutritionDay(
+  supabase: SupabaseClient,
+  userId: string,
+  values: NutritionDayInput,
+): Promise<NutritionDay> {
+  const { data, error } = await supabase
+    .from("nutrition_days")
+    .upsert({ user_id: userId, ...values }, { onConflict: "user_id,local_date" })
+    .select()
+    .single();
+  if (error) throw error;
+  return nutritionDayRowSchema.parse(data);
+}
+
+export async function deleteNutritionDay(supabase: SupabaseClient, userId: string, localDate: string): Promise<void> {
+  const { error } = await supabase.from("nutrition_days").delete().eq("user_id", userId).eq("local_date", localDate);
+  if (error) throw error;
+}

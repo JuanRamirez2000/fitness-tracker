@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eachDay } from "./calendar";
-import { instantAt, localDateIn, todayIn } from "./timezone";
+import { defaultMeasuredAt, instantAt, localDateIn, todayIn } from "./timezone";
 
 const LA = "America/Los_Angeles";
 
@@ -109,5 +109,26 @@ describe("instantAt", () => {
         }
       }
     }
+  });
+});
+
+describe("defaultMeasuredAt", () => {
+  it("lands on the target local date even when that date is not today", () => {
+    // "Now" is 2026-09-20 14:00 PDT; backfilling a weigh-in for 2026-09-15.
+    const now = new Date("2026-09-20T21:00:00Z");
+    const instant = defaultMeasuredAt("2026-09-15", LA, now);
+    expect(localDateIn(instant, LA)).toBe("2026-09-15");
+  });
+
+  it("carries today's clock time onto the backfilled date", () => {
+    const now = new Date("2026-09-20T21:07:00Z"); // 14:07 PDT
+    const instant = defaultMeasuredAt("2026-09-10", LA, now);
+    expect(instant.toISOString()).toBe(instantAt("2026-09-10", 14, 7, LA).toISOString());
+  });
+
+  it("matches 'now' exactly (to the minute) when the target date is today", () => {
+    const now = new Date("2026-09-20T21:07:00Z");
+    const instant = defaultMeasuredAt("2026-09-20", LA, now);
+    expect(Math.abs(instant.getTime() - now.getTime())).toBeLessThan(60_000);
   });
 });

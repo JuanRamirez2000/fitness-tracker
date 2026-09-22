@@ -87,3 +87,15 @@ export function instantAt(date: LocalDate, hour: number, minute: number, timeZon
   // between the two, so measure it again there.
   return new Date(wallAsUtc - offsetMinutes(new Date(first), timeZone) * 60_000);
 }
+
+/**
+ * measured_at for a weigh-in the app itself is creating (add row, the entry dialog, quick
+ * log) — today's real clock time, applied to whatever local_date the entry is FOR, which may
+ * be a backfilled past day. Exact minute only matters for ordering same-day duplicates, so
+ * "now's time of day, on the target date" is a reasonable default without asking the user
+ * to also pick a time.
+ */
+export function defaultMeasuredAt(date: LocalDate, timeZone: string, now: Date = new Date()): Date {
+  const { hour, minute } = wallClock(now, timeZone);
+  return instantAt(date, hour, minute, timeZone);
+}

@@ -31,3 +31,24 @@ export function fetchInjections(
     return query.order("local_date").range(from, to);
   });
 }
+
+/** injections.id is the real primary key, but unique(user_id, local_date) means at most one
+ * shot a day in practice — upsert on that pair so "add" and "edit" are the same call. */
+export async function upsertInjection(
+  supabase: SupabaseClient,
+  userId: string,
+  values: InjectionInput,
+): Promise<Injection> {
+  const { data, error } = await supabase
+    .from("injections")
+    .upsert({ user_id: userId, ...values }, { onConflict: "user_id,local_date" })
+    .select()
+    .single();
+  if (error) throw error;
+  return injectionRowSchema.parse(data);
+}
+
+export async function deleteInjection(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("injections").delete().eq("id", id);
+  if (error) throw error;
+}

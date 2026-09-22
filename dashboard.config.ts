@@ -29,3 +29,20 @@ export const CRITICAL_NUMBERS: KpiDefinition[] = [
   caloriesToday,
   stepsToday,
 ];
+
+/**
+ * Metadata for the data table's tab bar. Each tab's real TableTab<Row, Values> — Row and
+ * Values differ per table, so five of them cannot live in one array without an `any` at the
+ * seam — is built by its own factory in lib/dashboard/table-tabs/ and switched on by id in
+ * DataTableSection, which is the one place (besides this list) a new tab needs a line added.
+ */
+export const TABLE_TAB_IDS = ["weigh-ins", "calories", "activity", "steps", "shots"] as const;
+export type TableTabId = (typeof TABLE_TAB_IDS)[number];
+
+export const TABLE_TAB_LABELS: Record<TableTabId, string> = {
+  "weigh-ins": "Weigh-ins",
+  calories: "Calories",
+  activity: "Activity",
+  steps: "Steps",
+  shots: "Shots",
+};

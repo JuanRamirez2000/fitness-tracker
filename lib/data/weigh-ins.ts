@@ -41,3 +41,35 @@ export function fetchWeighIns(
     return query.order("local_date").order("measured_at").range(from, to);
   });
 }
+
+/** `measuredAt` comes from defaultMeasuredAt() (lib/dates/timezone.ts) — the caller owns
+ * timezone handling, this module stays timezone-agnostic like the rest of lib/data. */
+export async function insertWeighIn(
+  supabase: SupabaseClient,
+  userId: string,
+  values: WeighInInput,
+  measuredAt: Date,
+): Promise<WeighIn> {
+  const { data, error } = await supabase
+    .from("weigh_ins")
+    .insert({ user_id: userId, ...values, measured_at: measuredAt.toISOString(), source: "manual" })
+    .select()
+    .single();
+  if (error) throw error;
+  return weighInRowSchema.parse(data);
+}
+
+export async function updateWeighIn(
+  supabase: SupabaseClient,
+  id: string,
+  values: WeighInInput,
+): Promise<WeighIn> {
+  const { data, error } = await supabase.from("weigh_ins").update(values).eq("id", id).select().single();
+  if (error) throw error;
+  return weighInRowSchema.parse(data);
+}
+
+export async function deleteWeighIn(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("weigh_ins").delete().eq("id", id);
+  if (error) throw error;
+}
