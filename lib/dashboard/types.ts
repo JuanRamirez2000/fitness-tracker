@@ -59,6 +59,11 @@ export interface HeatmapCell {
   /** Resolved fill for a solid cell. null for a state HeatmapGrid renders without one:
    * pre_program (faint, borderless) and future (dashed outline) — see components/heatmap. */
   fill: string | null;
+  /** A second color for a split "multiple" cell (activity mode, two-or-more sessions). */
+  secondFill?: string;
+  /** A cut corner marking two conditions met at once (activity "multiple"; Logged's
+   * weight + steps). Purely visual — see CellPaint in lib/heatmap/colors.ts. */
+  notch?: boolean;
   state: HeatmapCellState;
   /** false = outside the selected dateRange, dimmed by HeatmapGrid. */
   inRange: boolean;
@@ -88,7 +93,8 @@ export interface HeatmapMode {
   label: string;
   toCells(data: DashboardData, ctx: ModeContext): HeatmapCell[];
   /** A function, not a static array: legend colors depend on the active palette (the
-   * color-blind toggle), which the brief's literal type does not have room for. */
-  legend(ctx: ModeContext): LegendItem[];
+   * color-blind toggle) and, for activity, on the DB-driven activity types — neither of
+   * which the brief's literal type has room for. */
+  legend(ctx: ModeContext, data: DashboardData): LegendItem[];
   Tooltip: FC<{ cell: HeatmapCell }>;
 }

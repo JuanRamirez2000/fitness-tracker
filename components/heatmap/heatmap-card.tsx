@@ -31,6 +31,14 @@ const HM_TITLES: Record<HeatmapModeId, string> = {
   logged: "Logged",
 };
 
+const LEGEND_TITLES: Record<HeatmapModeId, string> = {
+  weight: "Weight change",
+  calories: "Tracking state",
+  activity: "Activity type",
+  steps: "Daily steps",
+  logged: "What got logged",
+};
+
 export function HeatmapCard({ data }: { data: DashboardData }) {
   const [modeId, setModeId] = useState<HeatmapModeId>(HEATMAP_MODES[0].id);
   const [weightSubMode, setWeightSubMode] = useState<WeightMode>("avg7");
@@ -77,7 +85,7 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
 
       <HeatmapGrid data={data} mode={mode} ctx={ctx} />
 
-      <HeatmapLegend title={`${mode.label} change`} items={mode.legend(ctx)} accent={palette.accent} />
+      <HeatmapLegend title={LEGEND_TITLES[mode.id]} items={mode.legend(ctx, data)} accent={palette.accent} />
     </div>
   );
 }

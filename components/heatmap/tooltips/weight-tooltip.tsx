@@ -1,12 +1,7 @@
-import type { HeatmapCell } from "@/lib/dashboard/types";
-import type { WeightTooltipData } from "@/lib/heatmap/modes/weight";
 import { TooltipEmpty, TooltipShell } from "@/components/heatmap/tooltip-shell";
-
-const fmtDate = (date: string) => {
-  const [, month, day] = date.split("-");
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${MONTHS[Number(month) - 1]} ${Number(day)}`;
-};
+import type { HeatmapCell } from "@/lib/dashboard/types";
+import { fmtDate } from "@/lib/heatmap/format-date";
+import type { WeightTooltipData } from "@/lib/heatmap/modes/weight";
 
 const signed = (n: number) => (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(1);
 

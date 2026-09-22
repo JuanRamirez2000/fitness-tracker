@@ -36,9 +36,10 @@ export function activityPaint(colors: readonly string[]): CellPaint | null {
 
 export type LoggedState = "none" | "steps_only" | "weight_only" | "weight_steps";
 
-// Blend weights toward the accent, from the design.
-const LOGGED_STEPS_ONLY = 0.24;
-const LOGGED_WEIGHT_ONLY = 0.62;
+// Blend weights toward the accent, from the design. Exported so the Logged legend can use
+// the exact same values loggedPaint does, rather than a second, driftable copy.
+export const LOGGED_STEPS_ONLY = 0.24;
+export const LOGGED_WEIGHT_ONLY = 0.62;
 
 export function loggedState(weightLogged: boolean, stepsHit: boolean): LoggedState {
   if (weightLogged && stepsHit) return "weight_steps";

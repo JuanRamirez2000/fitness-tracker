@@ -57,6 +57,7 @@ export const WEIGHT_MODE: HeatmapMode = {
     });
   },
   legend(ctx: ModeContext): LegendItem[] {
+    // Weight's legend does not depend on `data`; only ctx.palette.
     return [
       { label: "down", swatch: ctx.palette.good },
       { label: "flat", swatch: CELL_FLAT },

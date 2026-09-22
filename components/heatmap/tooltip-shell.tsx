@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 
 export interface TooltipRow {
+  /** The narrow left-column label, e.g. "Weight" or an activity's name. Also the React key
+   * unless `id` is given — pass `id` when two rows could share the same label. */
   key: string;
+  id?: string;
   value: string;
   dot?: string;
 }
@@ -18,7 +21,7 @@ export function TooltipShell({ date, rows }: { date: string; rows: TooltipRow[] 
       </div>
       <div className="flex flex-col gap-1">
         {rows.map((row) => (
-          <div key={row.key} className="flex items-center gap-[7px] whitespace-nowrap text-[11.5px] leading-[15px]">
+          <div key={row.id ?? row.key} className="flex items-center gap-[7px] whitespace-nowrap text-[11.5px] leading-[15px]">
             {row.dot && (
               <span
                 className="inline-block size-[11px] shrink-0 rounded-[3px]"

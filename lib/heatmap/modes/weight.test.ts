@@ -113,7 +113,7 @@ describe("WEIGHT_MODE.toCells", () => {
 
 describe("WEIGHT_MODE.legend", () => {
   it("has five entries and follows the active palette", () => {
-    const items = WEIGHT_MODE.legend(ctx());
+    const items = WEIGHT_MODE.legend(ctx(), data([]));
     expect(items).toHaveLength(5);
     expect(items.find((i) => i.label === "down")?.swatch).toBe(DEFAULT_PALETTE.good);
     expect(items.find((i) => i.label === "up")?.swatch).toBe(DEFAULT_PALETTE.bad);
