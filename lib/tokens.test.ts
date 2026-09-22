@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PALETTE } from "@/lib/theme/palette";
+import { CARD_BG } from "@/lib/theme/surfaces";
 import { contrastRatio } from "./color";
 
 const css = readFileSync(fileURLToPath(new URL("../app/globals.css", import.meta.url)), "utf8");
@@ -29,6 +30,10 @@ describe("design tokens", () => {
       warn: tokens.warn,
       accent: tokens.accent,
     });
+  });
+
+  it("keeps CARD_BG in sync with the CSS", () => {
+    expect(CARD_BG).toBe(tokens.card);
   });
 
   it("defines every token named in the brief", () => {
