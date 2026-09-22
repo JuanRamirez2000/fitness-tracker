@@ -4,27 +4,47 @@ import { HeatmapCard } from "@/components/heatmap/heatmap-card";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { getViewer } from "@/lib/auth/viewer";
 import { loadDashboardData } from "@/lib/dashboard/load";
+import { parseRangeParams } from "@/lib/range/url";
 import { isLoginSkipped } from "@/lib/supabase/dev-login";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/supabase/session";
 
-// The last-used range belongs in the URL and localStorage (build step 6); "month" is the
-// documented default until that control exists.
+// "The last-used range is remembered in localStorage and used when the URL has none.
+// Default: month." (RangeControl applies the localStorage part client-side after mount.)
 const DEFAULT_RANGE_KEY = "month" as const;
 
-export default async function DashboardPage() {
+function firstOf(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const viewer = await getViewer();
   // proxy.ts already routes signed-out visitors to /login; this narrows the type and only
   // lets a missing viewer through while the temporary dev login skip is on.
   if (!viewer && !isLoginSkipped()) redirect(LOGIN_PATH);
 
+  const rawParams = await searchParams;
+  const parsedRange = parseRangeParams({
+    range: firstOf(rawParams.range),
+    from: firstOf(rawParams.from),
+    to: firstOf(rawParams.to),
+  });
+
   const data = viewer?.athlete
-    ? await loadDashboardData(await createClient(), viewer.athlete, { rangeKey: DEFAULT_RANGE_KEY })
+    ? await loadDashboardData(await createClient(), viewer.athlete, {
+        rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
+        custom: parsedRange?.custom,
+      })
     : null;
 
   return (
     <>
-      <AppHeader viewer={viewer} />
+      <AppHeader
+        viewer={viewer}
+        range={data?.dateRange ?? null}
+        rangeExplicit={parsedRange !== null}
+        today={data?.today ?? null}
+      />
       <main className="flex flex-1 flex-col gap-6 px-5 py-6 md:px-10 md:py-7">
         {data ? (
           <>

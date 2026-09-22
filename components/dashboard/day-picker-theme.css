@@ -1,0 +1,63 @@
+/* Restyles react-day-picker's default circular-day look to match frame 2F's rounded-
+ * rectangle cells and the app's dark tokens, rather than fighting its own defaults. */
+
+.tracker-day-picker.rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  --rdp-today-color: var(--accent);
+  --rdp-day-width: 34px;
+  --rdp-day-height: 34px;
+  --rdp-day_button-width: 30px;
+  --rdp-day_button-height: 30px;
+  --rdp-day_button-border-radius: 8px;
+  --rdp-day_button-border: none;
+  --rdp-selected-border: none;
+  --rdp-outside-opacity: 0.35;
+  --rdp-disabled-opacity: 0.3;
+  --rdp-months-gap: 22px;
+  --rdp-nav_button-width: 26px;
+  --rdp-nav_button-height: 26px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.tracker-day-picker .rdp-weekday {
+  color: var(--muted-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.tracker-day-picker .rdp-caption_label {
+  font-family: var(--font-serif);
+  font-size: 13px;
+}
+
+.tracker-day-picker .rdp-day_button:hover:not([disabled]) {
+  background: var(--raised);
+}
+
+/* The start/end day gets the solid accent fill; the design's half-rounded "pill" look. */
+.tracker-day-picker .rdp-range_start .rdp-day_button,
+.tracker-day-picker .rdp-range_end .rdp-day_button {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.tracker-day-picker .rdp-range_middle .rdp-day_button {
+  border-radius: 0;
+}
+
+.tracker-day-picker .rdp-range_start:not(.rdp-range_end) {
+  border-radius: 8px 0 0 8px;
+}
+.tracker-day-picker .rdp-range_end:not(.rdp-range_start) {
+  border-radius: 0 8px 8px 0;
+}
+
+.tracker-day-picker .rdp-nav_button {
+  color: var(--muted-2);
+  border-radius: 6px;
+}
+.tracker-day-picker .rdp-nav_button:hover {
+  background: var(--raised);
+}

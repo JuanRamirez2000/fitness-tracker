@@ -6,6 +6,7 @@ import type { DashboardData, HeatmapModeId, ModeContext } from "@/lib/dashboard/
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import { heatmapStats } from "@/lib/heatmap/caption";
 import { DEFAULT_PALETTE } from "@/lib/theme/palette";
+import { ChipRow } from "@/components/ui/chip-row";
 import { Segmented } from "@/components/ui/segmented";
 import { HeatmapGrid } from "./heatmap-grid";
 import { HeatmapLegend } from "./heatmap-legend";
@@ -51,20 +52,30 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
   const rangeLabel = data.dateRange.key === "custom"
     ? `${data.dateRange.from} – ${data.dateRange.to}`
     : RANGE_LABEL[data.dateRange.key];
+  const modeOptions = HEATMAP_MODES.map((m) => ({ value: m.id, label: m.label }));
 
   return (
-    <div className="relative flex flex-col gap-[18px] rounded-xl border border-border bg-card px-6 pb-5 pt-[22px]">
-      <div className="flex flex-wrap items-start justify-between gap-5">
+    <div className="relative flex flex-col gap-4 rounded-xl border border-border bg-card px-4 pb-4 pt-4 md:gap-[18px] md:px-6 md:pb-5 md:pt-[22px]">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <span className="font-serif text-[17px]">{HM_TITLES[mode.id]}</span>
+          <span className="font-serif text-[16px] md:text-[17px]">{HM_TITLES[mode.id]}</span>
           <span className="text-[12px] text-muted-2">
             {`Day ${stats.elapsed} of your journey · ${stats.weighIns} weigh-ins · ${stats.shots} shots`}
           </span>
-          <span className="font-mono text-[10.5px] text-muted-2">
+          <span className="hidden font-mono text-[10.5px] text-muted-2 md:inline">
             {`Showing ${rangeLabel} · days outside the range are dimmed`}
           </span>
         </div>
-        <div className="flex items-center gap-2.5">
+
+        {/* Mobile: horizontally-scrollable chip rows. Desktop: the boxed segmented pills,
+            right-aligned in their own row. */}
+        <div className="flex flex-col gap-2 md:hidden">
+          {mode.id === "weight" && (
+            <ChipRow aria-label="Weight cell coloring" options={WEIGHT_SUB_MODES} value={weightSubMode} onChange={setWeightSubMode} />
+          )}
+          <ChipRow aria-label="Heatmap metric" options={modeOptions} value={modeId} onChange={setModeId} />
+        </div>
+        <div className="hidden items-center justify-end gap-2.5 md:flex">
           {mode.id === "weight" && (
             <Segmented
               aria-label="Weight cell coloring"
@@ -74,16 +85,13 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
             />
           )}
           <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-3">heatmap shows</span>
-          <Segmented
-            aria-label="Heatmap metric"
-            options={HEATMAP_MODES.map((m) => ({ value: m.id, label: m.label }))}
-            value={modeId}
-            onChange={setModeId}
-          />
+          <Segmented aria-label="Heatmap metric" options={modeOptions} value={modeId} onChange={setModeId} />
         </div>
       </div>
 
-      <HeatmapGrid data={data} mode={mode} ctx={ctx} />
+      <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
+        <HeatmapGrid data={data} mode={mode} ctx={ctx} />
+      </div>
 
       <HeatmapLegend title={LEGEND_TITLES[mode.id]} items={mode.legend(ctx, data)} accent={palette.accent} />
     </div>
