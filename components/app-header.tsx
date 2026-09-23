@@ -5,6 +5,7 @@ import type { DateRange } from "@/lib/dashboard/types";
 import type { LocalDate } from "@/lib/dates/calendar";
 import { AccountMenu } from "./account-menu";
 import { RangeControl } from "./dashboard/range-control";
+import { GarminRefreshButton } from "./dashboard/garmin-refresh-button";
 import { QuickLogLauncher, type QuickLogLauncherProps } from "./dashboard/quick-log-launcher";
 import { FeatureRequestsPanel } from "./feature-requests/feature-requests-panel";
 
@@ -73,7 +74,8 @@ export function AppHeader({ viewer, range, rangeExplicit, today, quickLog }: App
       )}
 
       {quickLog && (
-        <div className="md:order-3">
+        <div className="flex items-center gap-2.5 md:order-3">
+          <GarminRefreshButton />
           <QuickLogLauncher {...quickLog} />
         </div>
       )}

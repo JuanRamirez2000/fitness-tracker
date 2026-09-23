@@ -130,6 +130,20 @@ create table public.daily_metrics (
   primary key (user_id, local_date, metric)
 );
 
+-- Lets scripts/garmin/import_garmin.py share one Garmin login session between the local
+-- Mac and the GitHub Actions nightly job, instead of the session only ever living in
+-- ~/.garminconnect on one machine. RLS enabled with zero policies: unreachable via the
+-- anon/authenticated REST API on purpose, only the service-role key (which bypasses RLS
+-- entirely) can read or write it — same "service-role only" posture as every other script
+-- in this repo, just persisted in Postgres instead of a local file.
+create table public.garmin_token_cache (
+  id int primary key default 1,
+  tokens jsonb not null,
+  updated_at timestamptz not null default now(),
+  constraint garmin_token_cache_single_row check (id = 1)
+);
+alter table public.garmin_token_cache enable row level security;
+
 create table public.feature_requests (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles(id) on delete cascade,

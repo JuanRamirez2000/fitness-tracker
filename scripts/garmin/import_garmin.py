@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
-"""Nightly Garmin Connect import: steps, weigh-ins (body composition) and
+"""Garmin Connect import: steps, weigh-ins (body composition) and
 activities, upserted into Supabase as source='garmin' rows.
+
+Three ways this runs:
+  - Nightly, in the cloud (GitHub Actions, .github/workflows/garmin-nightly.yml):
+    `--yesterday` — the previous day only, once it's had all night to finish
+    syncing from the watch/scale to Garmin's servers. Does not depend on
+    this Mac being on at all.
+  - On demand, from the app's "Refresh" button (app/api/garmin/refresh/route.ts):
+    `--days 1` — today only, whenever the button is clicked.
+  - By hand, for a backfill: `--days N` for any other trailing window.
 
 Idempotent by design, not by convention: schema.sql's own comment says
 "(user_id, source, external_id) unique indexes make future Garmin / Apple
@@ -9,28 +18,35 @@ exist for exactly this script, and daily_metrics' primary key
 (user_id, local_date, metric) does the same job for steps. Re-running this
 script for a day it already imported just overwrites with the same values.
 
-Every run re-pulls a trailing window (7 days by default) rather than only
-"since last run", because Garmin's own data can sync late — a scale
-reading or a watch activity uploaded a day or two after the fact would
-otherwise be silently missed by a script that only looked at yesterday.
+Garmin login session: cached tokens are pulled from and pushed back to the
+garmin_token_cache table (service-role only, see supabase/schema.sql)
+before and after every run, not just read from the local
+~/.garminconnect file — so a login made once, by hand, on this Mac
+(login_check.py) is also usable by the nightly GitHub Actions job, which
+has no local disk to persist a token on between runs. Whichever
+environment refreshes the token first "wins"; the other picks up the
+refreshed one on its next run.
 
-Requires:
-  - A cached Garmin login: run login_check.py once, interactively, first.
-    This script never prompts for a Garmin password — it is meant to run
-    unattended (nightly via launchd/cron), and a login prompt would just
-    hang forever with no one there to answer it.
-  - NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SEED_USER_ID in
-    ../../.env.seed.local (the same file scripts/seed-demo.ts reads — one
-    place for these dev-script secrets, never duplicated).
+This script never prompts for a Garmin password itself — it is meant to
+run unattended, and a login prompt would just hang forever with no one
+there to answer it. Run login_check.py by hand first if there's no valid
+session yet.
+
+Config: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SEED_USER_ID,
+read from ../../.env.seed.local locally (the same file scripts/seed-demo.ts
+reads) or from the real environment in CI (see the GitHub Actions workflow).
 
 Usage:
     source .venv/bin/activate
-    python import_garmin.py                # last 7 days, real write
+    python import_garmin.py --yesterday     # the nightly job's own window
+    python import_garmin.py --days 1        # today only (the Refresh button's call)
     python import_garmin.py --days 365      # one-off historical backfill
     python import_garmin.py --dry-run       # fetch + map, print, write nothing
 """
 
 import argparse
+import json
+import os
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -49,7 +65,8 @@ GRAMS_PER_LB = 453.59237
 DEFAULT_DAYS = 7
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / ".env.seed.local"
-TOKEN_STORE = str(Path("~/.garminconnect").expanduser())
+TOKEN_DIR = Path("~/.garminconnect").expanduser()
+TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
 
 # Garmin's own activity typeKeys -> this app's activity_types.key (run / lift
 # / walk / ride / swim / other). Snapshot taken from a real account's
@@ -95,28 +112,70 @@ def classify_activity_type(garmin_type_key: str) -> str:
     return result
 
 
+REQUIRED_CONFIG = ("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SEED_USER_ID")
+
+
 def load_config() -> dict[str, str]:
-    if not ENV_FILE.exists():
-        sys.exit(f"Missing {ENV_FILE}. Copy the Supabase URL/service key/SEED_USER_ID scripts/seed-demo.ts already uses.")
-    values = dotenv_values(ENV_FILE)
-    missing = [k for k in ("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SEED_USER_ID") if not values.get(k)]
+    # Locally, .env.seed.local (gitignored) has these. In CI there is no such file — the
+    # GitHub Actions workflow injects the same three as real environment variables instead,
+    # from repo secrets. Either source works the same way from here on.
+    values = dict(dotenv_values(ENV_FILE)) if ENV_FILE.exists() else {}
+    for key in REQUIRED_CONFIG:
+        if not values.get(key) and os.environ.get(key):
+            values[key] = os.environ[key]
+    missing = [k for k in REQUIRED_CONFIG if not values.get(k)]
     if missing:
-        sys.exit(f"{ENV_FILE} is missing: {', '.join(missing)}")
+        sys.exit(
+            f"Missing config: {', '.join(missing)}. Set them in {ENV_FILE} locally, "
+            "or as environment variables (GitHub Actions secrets) in CI."
+        )
     return values
 
 
-def login_garmin() -> Garmin:
+def pull_token_from_supabase(supabase: Client) -> None:
+    """Before login: if there's no local token file yet (a fresh GitHub Actions runner,
+    every time — it has no persistent disk between runs), restore the last-known-good one
+    from garmin_token_cache. A Mac that already has a local token keeps using it as-is,
+    rather than risking clobbering a fresher local session with a stale remote one."""
+    if TOKEN_FILE.exists():
+        return
+    try:
+        row = supabase.table("garmin_token_cache").select("tokens").eq("id", 1).maybe_single().execute()
+    except Exception as err:  # noqa: BLE001 - fall through to login_check.py's own clear error
+        print(f"  note: could not read garmin_token_cache ({err}); continuing without it")
+        return
+    if not row or not row.data:
+        return
+    TOKEN_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    TOKEN_FILE.write_text(json.dumps(row.data["tokens"]))
+    TOKEN_FILE.chmod(0o600)
+    print(f"  restored a cached Garmin session from Supabase to {TOKEN_FILE}")
+
+
+def push_token_to_supabase(supabase: Client) -> None:
+    """After a successful login (garminconnect may have just refreshed the token), save it
+    back to garmin_token_cache so the next run — local or in CI — has the latest one."""
+    if not TOKEN_FILE.exists():
+        return
+    tokens = json.loads(TOKEN_FILE.read_text())
+    supabase.table("garmin_token_cache").upsert({"id": 1, "tokens": tokens}).execute()
+
+
+def login_garmin(supabase: Client) -> Garmin:
+    pull_token_from_supabase(supabase)
     try:
         client = Garmin()
-        client.login(TOKEN_STORE)
-        return client
+        client.login(str(TOKEN_DIR))
     except GarminConnectTooManyRequestsError as err:
         sys.exit(f"Garmin rate-limited this request: {err}")
     except (GarminConnectAuthenticationError, GarminConnectConnectionError):
         sys.exit(
-            "No valid cached Garmin login found. Run this first, in your own terminal:\n"
+            "No valid Garmin login found (checked the local cache and garmin_token_cache). "
+            "Run this once, by hand, in your own terminal:\n"
             "  source .venv/bin/activate && python login_check.py"
         )
+    push_token_to_supabase(supabase)
+    return client
 
 
 def fetch_window(garmin: Garmin, start: date, end: date) -> tuple[list, dict, list]:
@@ -256,7 +315,8 @@ def upsert_by_external_id(supabase: Client, table: str, user_id: str, rows: list
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"trailing days to re-pull (default {DEFAULT_DAYS})")
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"trailing days to re-pull, ending today (default {DEFAULT_DAYS})")
+    parser.add_argument("--yesterday", action="store_true", help="just yesterday — the nightly job's own window, distinct from --days")
     parser.add_argument("--dry-run", action="store_true", help="fetch and map, but write nothing to Supabase")
     args = parser.parse_args()
 
@@ -266,15 +326,18 @@ def main() -> None:
 
     profile = supabase.table("profiles").select("timezone,display_name").eq("id", user_id).single().execute().data
     today = datetime.now(ZoneInfo(profile["timezone"])).date()
-    start = today - timedelta(days=args.days - 1)
+    if args.yesterday:
+        start = end = today - timedelta(days=1)
+    else:
+        start, end = today - timedelta(days=args.days - 1), today
 
     print(f"Account: {profile['display_name']} ({user_id})")
-    print(f"Window: {start.isoformat()} .. {today.isoformat()} ({args.days} day(s), tz {profile['timezone']})")
+    print(f"Window: {start.isoformat()} .. {end.isoformat()} (tz {profile['timezone']})")
     if args.dry_run:
         print("DRY RUN — nothing will be written to Supabase.\n")
 
-    garmin = login_garmin()
-    steps, body, activities = fetch_window(garmin, start, today)
+    garmin = login_garmin(supabase)
+    steps, body, activities = fetch_window(garmin, start, end)
 
     print(f"\nFetched from Garmin: {len(steps)} step-day(s), {len(body.get('dateWeightList', []))} weigh-in(s), {len(activities)} activit(y/ies)")
 

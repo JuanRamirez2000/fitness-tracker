@@ -1,0 +1,41 @@
+name: Garmin nightly import
+
+# Runs scripts/garmin/import_garmin.py --yesterday on GitHub's own runners, not the
+# developer's Mac — see scripts/garmin/README.md for the full picture (why Supabase Edge
+# Functions can't run this: they're Deno-only, and this library needs Python + curl_cffi's
+# TLS impersonation to get past Garmin's own bot detection). The Garmin login session is
+# shared with the local Mac through the garmin_token_cache table (supabase/schema.sql),
+# not a repo secret — whichever environment refreshes the token first "wins", the other
+# picks up the refreshed one on its next run.
+
+on:
+  schedule:
+    # 1:00 AM PST (UTC-8). GitHub Actions cron is fixed-UTC with no daylight-saving
+    # awareness, so this lands at 2:00 AM PDT (UTC-7) roughly March-November instead of
+    # 1:00 AM — a known, accepted drift rather than a bug. Move to "0 8 * * *" if 1:00 AM
+    # summer / midnight winter is preferred over the current 1:00 AM winter / 2:00 AM summer.
+    - cron: "0 9 * * *"
+  # Lets you (or the app, later) trigger a run on demand from the Actions tab or `gh
+  # workflow run garmin-nightly.yml`, without waiting for the schedule.
+  workflow_dispatch: {}
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/garmin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install -r requirements.txt
+
+      - run: python import_garmin.py --yesterday
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SEED_USER_ID: ${{ secrets.GARMIN_IMPORT_USER_ID }}

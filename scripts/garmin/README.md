@@ -47,7 +47,8 @@ TypeScript side (and reads the exact same `.env.seed.local`).
 
 ```bash
 source .venv/bin/activate
-python import_garmin.py                # last 7 days (the nightly default)
+python import_garmin.py --yesterday     # the nightly job's own window
+python import_garmin.py --days 1        # today only (the Refresh button's call)
 python import_garmin.py --days 365      # a wider one-off backfill
 python import_garmin.py --dry-run       # fetch + map, print, write nothing
 ```
@@ -56,37 +57,60 @@ Idempotent by design: `weigh_ins`/`activities` are matched on Garmin's own
 per-record ID (`external_id`) and `daily_metrics` on its
 `(user_id, local_date, metric)` primary key, so re-running any window is
 always safe — it updates existing rows in place rather than duplicating.
-Every run re-pulls a trailing window (not "since last run") because
-Garmin's own data can sync a day or two late.
 
-## Nightly schedule
+## Where each window runs
 
-A macOS LaunchAgent (`~/Library/LaunchAgents/com.tracker.garmin-import.plist`,
-not part of this repo — it lives in your user Library) runs
-`import_garmin.py` with the default 7-day window every night at 3:00 AM. If
-the Mac is asleep or off at that time, launchd runs it at the next wake
-instead of skipping it.
+- **Yesterday, nightly**: `.github/workflows/garmin-nightly.yml`, on GitHub's
+  own runners — not this Mac. Scheduled for 1:00 AM PST (drifts an hour
+  with daylight saving, see the workflow file's own comment). Looks at
+  yesterday specifically, not "since last run", because Garmin's own data
+  can sync a day or two late and a fixed one-day window run every night
+  still catches that the next night or the one after.
+- **Today, on demand**: the dashboard's "Refresh" button
+  (`components/dashboard/garmin-refresh-button.tsx` →
+  `app/api/garmin/refresh/route.ts`), for "I just logged a run and want it
+  to show up now" rather than waiting. This one *does* run on whichever
+  machine is serving the app (currently your Mac, since the app isn't
+  deployed yet — see app/api/garmin/refresh/route.ts's own comment for
+  what has to change once it is).
+- **Anything else** (a backfill, a dry run): by hand, from this directory.
+
+### Why GitHub Actions and not literally a Supabase feature
+
+Supabase's own compute (Edge Functions) is Deno/TypeScript-only and cannot
+run this Python library or its `curl_cffi`-based TLS impersonation, which
+is what gets past Garmin's bot detection — there's no way to run
+`garminconnect` *inside* Supabase. GitHub Actions is the practical
+substitute: free, already tied to this repo, and Python-capable. Supabase
+still does the part that matters for "not tied to one machine": the
+Garmin login session lives in the `garmin_token_cache` table (see
+`supabase/schema.sql`), not a local file or a GitHub secret, so the nightly
+job and any local run share one session and whichever refreshes the token
+first is picked up by the other next time.
+
+### One-time setup for the nightly job
+
+The workflow needs three repository secrets (Settings → Secrets and
+variables → Actions → New repository secret, or `gh secret set`) — **not
+yet set, since setting secrets is outside what this session's tooling is
+allowed to do on your behalf:**
 
 ```bash
-# Check it's loaded
-launchctl print gui/$(id -u)/com.tracker.garmin-import
-
-# Run it right now, without waiting for 3 AM
-launchctl kickstart -p gui/$(id -u)/com.tracker.garmin-import
-
-# Read the last run's output
-tail -50 import.log
-
-# Turn it off (keeps the plist; nothing runs until you load it again)
-launchctl bootout gui/$(id -u)/com.tracker.garmin-import
-
-# Turn it back on
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.tracker.garmin-import.plist
-
-# Remove entirely
-launchctl bootout gui/$(id -u)/com.tracker.garmin-import
-rm ~/Library/LaunchAgents/com.tracker.garmin-import.plist
+gh secret set SUPABASE_URL --body "$(grep NEXT_PUBLIC_SUPABASE_URL .env.seed.local | cut -d= -f2-)"
+gh secret set SUPABASE_SERVICE_ROLE_KEY --body "$(grep SUPABASE_SERVICE_ROLE_KEY .env.seed.local | cut -d= -f2-)"
+gh secret set GARMIN_IMPORT_USER_ID --body "$(grep SEED_USER_ID .env.seed.local | cut -d= -f2-)"
 ```
+
+Until those are set, the scheduled run will fail (visible in the repo's
+Actions tab) — the Refresh button and manual runs are unaffected, since
+they read the same values from the local `.env.seed.local` instead.
+
+Trigger a run without waiting for the schedule: Actions tab → "Garmin
+nightly import" → Run workflow, or `gh workflow run garmin-nightly.yml`.
+
+There is no local nightly job anymore — the macOS LaunchAgent from the
+previous version of this setup has been removed
+(`launchctl bootout` + deleted the plist).
 
 ## Real bugs this hit and fixed (2026-09-22, worth knowing if this ever needs touching again)
 
@@ -111,7 +135,9 @@ rm ~/Library/LaunchAgents/com.tracker.garmin-import.plist
 
 - [x] Python 3.13, venv, `garminconnect` + `curl_cffi` + `supabase` +
       `python-dotenv` installed (`requirements.txt` pinned).
-- [x] `login_check.py` — run once by the user, confirmed working.
+- [x] `login_check.py` — run once by the user, confirmed working; also
+      pushes the session to `garmin_token_cache` so the cloud job can use
+      it immediately.
 - [x] `import_garmin.py` — writes steps, weigh-ins and activities.
       Real-data backfill run once (700-day window, all data Garmin has:
       594 step-days, 472 weigh-ins, 226 activities).
@@ -120,5 +146,10 @@ rm ~/Library/LaunchAgents/com.tracker.garmin-import.plist
       real data for these three tables — `nutrition_days` and `injections`
       (calorie tracking, shots) still hold their original demo history,
       since Garmin has no data to replace those with.
-- [x] Nightly launchd schedule set up and test-triggered successfully
-      (3:00 AM daily, 7-day trailing window).
+- [x] "Refresh" button in the dashboard header — pulls today only, on
+      demand. Verified live.
+- [x] `.github/workflows/garmin-nightly.yml` — pulls yesterday only, once a
+      night. Written and the local launchd equivalent removed.
+- [ ] **The nightly workflow's 3 repo secrets are not set yet** (blocked on
+      the user — see "One-time setup for the nightly job" above). Until
+      then the schedule will fail; nothing else is affected.

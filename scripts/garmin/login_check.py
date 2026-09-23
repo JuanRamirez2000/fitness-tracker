@@ -12,9 +12,14 @@ What it does:
      uses (see cyberjunky/python-garminconnect's README).
   2. Caches an access/refresh token pair at ~/.garminconnect/garmin_tokens.json
      (file mode 0600, directory mode 0700) so every future run — including
-     the real import script we'll build next — reuses that session and
-     auto-refreshes it, with no more logins or MFA prompts.
-  3. Prints today's step count as a smoke test that the token actually
+     import_garmin.py — reuses that session and auto-refreshes it, with no
+     more logins or MFA prompts.
+  3. Best-effort pushes that same token to the garmin_token_cache table (see
+     supabase/schema.sql) so the nightly GitHub Actions job can use this
+     same session immediately, without waiting on a local import run first.
+     A failure here is only printed, never fatal — the local file this
+     script just wrote is still the important part.
+  4. Prints today's step count as a smoke test that the token actually
      works against the real API.
 
 Usage:
@@ -22,12 +27,14 @@ Usage:
     python scripts/garmin/login_check.py
 """
 
+import json
 import os
 import sys
 from datetime import date
 from getpass import getpass
 from pathlib import Path
 
+from dotenv import dotenv_values
 from garminconnect import (
     Garmin,
     GarminConnectAuthenticationError,
@@ -36,6 +43,8 @@ from garminconnect import (
 )
 
 TOKEN_STORE = str(Path(os.getenv("GARMINTOKENS", "~/.garminconnect")).expanduser())
+TOKEN_FILE = Path(TOKEN_STORE) / "garmin_tokens.json"
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env.seed.local"
 
 
 def login() -> Garmin | None:
@@ -82,6 +91,24 @@ def login() -> Garmin | None:
             return None
 
 
+def push_token_to_supabase() -> None:
+    if not TOKEN_FILE.exists() or not ENV_FILE.exists():
+        return
+    try:
+        from supabase import create_client
+
+        config = dotenv_values(ENV_FILE)
+        url, key = config.get("NEXT_PUBLIC_SUPABASE_URL"), config.get("SUPABASE_SERVICE_ROLE_KEY")
+        if not url or not key:
+            return
+        supabase = create_client(url, key)
+        tokens = json.loads(TOKEN_FILE.read_text())
+        supabase.table("garmin_token_cache").upsert({"id": 1, "tokens": tokens}).execute()
+        print("Also pushed this session to garmin_token_cache for the nightly cloud job.")
+    except Exception as err:  # noqa: BLE001 - best effort only, never fatal
+        print(f"(Could not push the session to Supabase yet, not fatal: {err})")
+
+
 def main() -> None:
     client = login()
     if not client:
@@ -94,6 +121,8 @@ def main() -> None:
     except Exception as err:  # noqa: BLE001 - this is just a connectivity smoke test
         print(f"\nLogged in, but the test API call failed: {err}")
         sys.exit(1)
+
+    push_token_to_supabase()
 
 
 if __name__ == "__main__":
