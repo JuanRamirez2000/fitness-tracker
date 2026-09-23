@@ -17,6 +17,7 @@ export function HeatmapGrid({
   mode,
   ctx,
   onSelectDate,
+  cardBg,
 }: {
   data: DashboardData;
   mode: HeatmapMode;
@@ -24,6 +25,9 @@ export function HeatmapGrid({
   /** Opens the day editor for a clicked cell — omitted cells (future or before the program
    * started) simply render without a click handler. */
   onSelectDate?: (date: string) => void;
+  /** The active theme's real --card hex, for HeatmapCell's star-ink contrast math on a
+   * future/pre-program cell (which has no solid fill of its own to check against). */
+  cardBg: string;
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -96,6 +100,7 @@ export function HeatmapGrid({
               accent={ctx.palette.accent}
               isToday={cell.date === data.today}
               isProgramStart={cell.date === data.programStart}
+              cardBg={cardBg}
               onHover={setHovered}
               onSelect={onSelectDate && cell.state !== "future" && cell.state !== "pre_program" ? onSelectDate : undefined}
             />

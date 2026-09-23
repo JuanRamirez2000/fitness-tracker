@@ -6,7 +6,9 @@ import type { DashboardData, HeatmapModeId, ModeContext } from "@/lib/dashboard/
 import type { LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import { heatmapStats } from "@/lib/heatmap/caption";
-import { DEFAULT_PALETTE } from "@/lib/theme/palette";
+import { paletteFor } from "@/lib/theme/palette";
+import { cardBgFor } from "@/lib/theme/surfaces";
+import { useTheme } from "@/lib/theme/theme-context";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Segmented } from "@/components/ui/segmented";
 import { DayEditorSheet } from "../dashboard/day-editor-sheet";
@@ -45,8 +47,8 @@ const LEGEND_TITLES: Record<HeatmapModeId, string> = {
 export function HeatmapCard({ data }: { data: DashboardData }) {
   const [modeId, setModeId] = useState<HeatmapModeId>(HEATMAP_MODES[0].id);
   const [weightSubMode, setWeightSubMode] = useState<WeightMode>("avg7");
-  // Stretch item (last in the build order): color-blind swap goes here once settings exist.
-  const palette = DEFAULT_PALETTE;
+  const { mode: themeMode } = useTheme();
+  const palette = paletteFor(themeMode);
   // The day drawer (step 9): clicking any in-program, non-future cell opens the same sheet
   // the "+ Log today" launcher uses, for that cell's date instead of today — see
   // components/dashboard/day-editor-sheet.tsx.
@@ -96,7 +98,7 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
-        <HeatmapGrid data={data} mode={mode} ctx={ctx} onSelectDate={setEditingDate} />
+        <HeatmapGrid data={data} mode={mode} ctx={ctx} onSelectDate={setEditingDate} cardBg={cardBgFor(themeMode)} />
       </div>
 
       <HeatmapLegend title={LEGEND_TITLES[mode.id]} items={mode.legend(ctx, data)} accent={palette.accent} />

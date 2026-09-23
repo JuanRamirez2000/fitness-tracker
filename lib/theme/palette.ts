@@ -35,3 +35,24 @@ export const COLOR_BLIND_PALETTE: Palette = {
   warn: "#d9a441",
   accent: "#7fb2ff",
 };
+
+/** The "Warm cream" light theme's semantic colors — mirrors the `[data-theme="light"]`
+ * block in app/globals.css (same tokens.test.ts-style sync this file's top comment
+ * describes for the dark default, just not machine-checked for this second theme). */
+export const LIGHT_PALETTE: Palette = {
+  good: "#1f6f92",
+  bad: "#af4a26",
+  missed: "#af4a26",
+  warn: "#8a5a10",
+  accent: "#2f5f9e",
+};
+
+/** The one place that decides which literal palette a piece of JS color math (heatmap fills,
+ * the calories chart's legend/bars) should use for the active theme — everything else that
+ * only ever needs a semantic color for a static inline style or SVG paint should reach for
+ * the CSS variable directly (`var(--good)`, etc.) instead, which re-themes for free and
+ * needs no theme state at all. This function exists for the handful of call sites that
+ * mix()/contrastRatio() a real hex value, which a CSS variable string can't do. */
+export function paletteFor(mode: "dark" | "light"): Palette {
+  return mode === "light" ? LIGHT_PALETTE : DEFAULT_PALETTE;
+}

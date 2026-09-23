@@ -1,16 +1,22 @@
 import type { KpiDefinition, KpiValue } from "@/lib/dashboard/types";
 import { sparklinePath } from "@/lib/kpis/sparkline";
 import { toneColor } from "@/lib/kpis/tone-color";
-import { DEFAULT_PALETTE } from "@/lib/theme/palette";
 
 const MIN_SPARKLINE_POINTS = 2;
 
 function DeltaChip({ text, tone }: { text: string; tone: KpiValue["tone"] }) {
-  const color = toneColor(tone, DEFAULT_PALETTE);
+  const color = toneColor(tone);
+  // color is a var(--x) reference, not a literal hex, since toneColor re-themes for free via
+  // the CSS cascade — the old `${color}1A` hex-alpha-suffix trick only works on a literal, so
+  // the translucent wash is color-mix() instead (~10%/~20%, matching the old 0x1A/0x33 alphas).
   return (
     <span
       className="whitespace-nowrap rounded-[5px] border px-[5px] py-px font-mono text-[10px]"
-      style={{ color, background: `${color}1A`, borderColor: `${color}33` }}
+      style={{
+        color,
+        background: `color-mix(in srgb, ${color} 10%, transparent)`,
+        borderColor: `color-mix(in srgb, ${color} 20%, transparent)`,
+      }}
     >
       {text}
     </span>
@@ -69,10 +75,7 @@ export function KpiCard({ def, value, compact = false }: KpiCardProps) {
 
       {def.visual === "progress" && value.progress !== undefined && (
         <div className="h-1.5 overflow-hidden rounded-[3px] bg-track">
-          <div
-            className="h-full rounded-[3px]"
-            style={{ width: `${(value.progress * 100).toFixed(1)}%`, background: DEFAULT_PALETTE.accent }}
-          />
+          <div className="h-full rounded-[3px] bg-accent" style={{ width: `${(value.progress * 100).toFixed(1)}%` }} />
         </div>
       )}
 
@@ -80,7 +83,7 @@ export function KpiCard({ def, value, compact = false }: KpiCardProps) {
         <svg width="100%" height="26" viewBox="0 0 120 26" fill="none">
           <path
             d={sparklinePath(value.series)}
-            stroke={DEFAULT_PALETTE.accent}
+            className="stroke-accent"
             strokeWidth={1.4}
             strokeLinejoin="round"
             strokeLinecap="round"

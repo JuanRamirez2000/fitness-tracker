@@ -3,7 +3,6 @@ import type { HeatmapCell as Cell } from "@/lib/dashboard/types";
 import type { ShotStar } from "@/lib/shots/match";
 import { starInk } from "@/lib/heatmap/star-ink";
 import { CELL_NO_DATA } from "@/lib/heatmap/colors";
-import { CARD_BG } from "@/lib/theme/surfaces";
 
 export const CELL_SIZE = 13;
 
@@ -18,13 +17,16 @@ interface HeatmapCellProps {
   accent: string;
   isToday: boolean;
   isProgramStart: boolean;
+  /** The active theme's real --card hex — this cell's fallback ink-contrast basis on a
+   * future/pre-program cell, which paints no solid fill of its own to check against. */
+  cardBg: string;
   onHover: (date: string | null) => void;
   /** Omitted for a cell outside the program (future or pre-program) — those have nothing to
    * open the day editor for. */
   onSelect?: (date: string) => void;
 }
 
-export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHover, onSelect }: HeatmapCellProps) {
+export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, cardBg, onHover, onSelect }: HeatmapCellProps) {
   const style: CSSProperties = {
     width: CELL_SIZE,
     height: CELL_SIZE,
@@ -36,12 +38,12 @@ export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHov
   // starInk takes every fill actually painted, so ink stays readable on a split cell too.
   let inkBasis = [cell.fill ?? CELL_NO_DATA, ...(cell.secondFill ? [cell.secondFill] : [])];
   if (cell.state === "pre_program") {
-    style.background = "rgba(255,255,255,0.03)";
-    inkBasis = [CARD_BG];
+    style.background = "color-mix(in srgb, var(--ink) 3%, transparent)";
+    inkBasis = [cardBg];
   } else if (cell.state === "future") {
     style.background = "transparent";
-    style.border = "1px dashed #2a313b";
-    inkBasis = [CARD_BG];
+    style.border = "1px dashed var(--border-strong)";
+    inkBasis = [cardBg];
   } else if (cell.secondFill) {
     // "Multiple" (two or more same-day activities): a diagonal split, not a blended color,
     // so neither activity's own color is lost.

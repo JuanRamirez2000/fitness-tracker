@@ -1,7 +1,11 @@
+"use client";
+
 import { scaleBand } from "@visx/scale";
 import { Bar } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
-import { buildCaloriesWeeks, CALORIES_LEGEND, CALORIES_STATUSES } from "@/lib/charts/calories";
+import { buildCaloriesLegend, buildCaloriesWeeks, CALORIES_STATUSES } from "@/lib/charts/calories";
+import { paletteFor } from "@/lib/theme/palette";
+import { useTheme } from "@/lib/theme/theme-context";
 import { ChartCard } from "./chart-card";
 
 const WIDTH = 400;
@@ -15,6 +19,8 @@ const SEGMENT_UNIT = 12;
  * — schema.sql's calories_kcal column is live but unused — so this keeps the design's own
  * "reserved" placeholder for the kcal-vs-target chart that comes later. */
 export function CaloriesChart({ data }: { data: DashboardData }) {
+  const { mode } = useTheme();
+  const legend = buildCaloriesLegend(paletteFor(mode));
   const weeks = buildCaloriesWeeks(data);
   const hasData = weeks.some((w) => Object.values(w.counts).some((c) => c > 0));
   const xScale = scaleBand<string>({ domain: weeks.map((w) => w.weekStart), range: [0, WIDTH], padding: 0.2 });
@@ -40,7 +46,7 @@ export function CaloriesChart({ data }: { data: DashboardData }) {
                       width={xScale.bandwidth()}
                       height={Math.max(height - 2, 0)}
                       rx={1.5}
-                      fill={CALORIES_LEGEND.find((l) => l.status === status)!.color}
+                      fill={legend.find((l) => l.status === status)!.color}
                     />
                   );
                 })}
@@ -53,7 +59,7 @@ export function CaloriesChart({ data }: { data: DashboardData }) {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        {CALORIES_LEGEND.map((l) => (
+        {legend.map((l) => (
           <span key={l.status} className="flex items-center gap-1.5 text-[10.5px] text-muted-2">
             <span className="inline-block size-[9px] rounded-[2px]" style={{ background: l.color }} />
             {l.label}

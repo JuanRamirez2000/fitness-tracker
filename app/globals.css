@@ -1,9 +1,11 @@
 @import "tailwindcss";
 
 /*
- * Design tokens (dark only for V0). Components use the Tailwind names mapped below and
- * never raw hex, so light mode or the color-blind palette is a variable swap.
- * Every text color must keep >= 4.5:1 contrast on --bg and --card (see lib/tokens.test.ts).
+ * Design tokens. Components use the Tailwind names mapped below and never raw hex, so
+ * switching themes is a variable swap — see lib/theme/theme-context.tsx for how
+ * [data-theme] gets set. Every text color must keep >= 4.5:1 contrast on --bg and --card
+ * in EVERY theme (see lib/tokens.test.ts, which only checks the dark defaults below —
+ * the light block further down was hand-validated the same way, see its own comment).
  */
 :root {
   color-scheme: dark;
@@ -28,6 +30,41 @@
   --field-border: #242b34;
   --track: #1b2129;
   --scroll-thumb: #2a3038;
+}
+
+/*
+ * "Warm cream" — one of four pastel light options shown to the user, picked 2026-09-23.
+ * Every text token (ink/muted-1/muted-2/muted-3/accent/good/warn/bad) was checked against
+ * both --bg and --card with the same WCAG formula lib/color.ts's contrastRatio() uses,
+ * confirming >= 4.5:1 everywhere before this was written down — see the palette-comparison
+ * artifact from that conversation for the numbers. The saturated accent/good/warn/bad hex
+ * values look darker than a literal "pastel" swatch on their own; the pastel character comes
+ * through in how the app already uses them — translucent low-opacity washes for chip/pill
+ * backgrounds, full saturation only for text and icons — the same pattern the dark theme
+ * already established, not a new one invented for this theme.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #faf7f2;
+  --card: #ffffff;
+  --border: #e8e2d8;
+  --ink: #2b2620;
+  --muted-1: #4a453d;
+  --muted-2: #6b655c;
+  --muted-3: #726c5f;
+  --accent: #2f5f9e;
+  --good: #1f6f92;
+  --warn: #8a5a10;
+  --bad: #af4a26;
+
+  --divider: #f0ebe2;
+  --border-strong: #d8d0c2;
+  --raised: #f3efe7;
+  --inset: #f6f2ea;
+  --field-border: #d9d2c4;
+  --track: #ece6da;
+  --scroll-thumb: #cfc7b7;
 }
 
 @theme inline {

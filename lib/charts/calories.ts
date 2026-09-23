@@ -1,7 +1,7 @@
 import type { TrackingStatus } from "@/lib/data/nutrition-days";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { caloriesPaint } from "@/lib/heatmap/paints";
-import { DEFAULT_PALETTE } from "@/lib/theme/palette";
+import type { Palette } from "@/lib/theme/palette";
 import { weeklyBuckets } from "./weekly-buckets";
 
 // Bottom-to-top stacking order, matching the design.
@@ -34,10 +34,14 @@ export function buildCaloriesWeeks(data: DashboardData): CaloriesWeek[] {
 }
 
 /** Colors reuse caloriesPaint (lib/heatmap/paints.ts) so the chart's legend never drifts from
- * the heatmap's Calories mode. Color-blind palette swap is a stretch item, same as the
- * heatmap (see components/heatmap/heatmap-card.tsx) — not wired up in V0. */
-export const CALORIES_LEGEND = CALORIES_STATUSES.map((status) => ({
-  status,
-  label: CALORIES_STATUS_LABEL[status],
-  color: caloriesPaint(status, DEFAULT_PALETTE)!.fill,
-}));
+ * the heatmap's Calories mode. A function of the active theme's palette, not a static
+ * export, since caloriesPaint's fills are real computed hex (used for both an SVG `fill`
+ * attribute and a legend swatch style) rather than a `var(--x)` string a CSS-only re-theme
+ * could resolve on its own — see lib/theme/palette.ts's paletteFor(). */
+export function buildCaloriesLegend(palette: Palette) {
+  return CALORIES_STATUSES.map((status) => ({
+    status,
+    label: CALORIES_STATUS_LABEL[status],
+    color: caloriesPaint(status, palette)!.fill,
+  }));
+}

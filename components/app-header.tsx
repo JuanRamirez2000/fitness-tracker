@@ -8,6 +8,7 @@ import { RangeControl } from "./dashboard/range-control";
 import { GarminRefreshButton } from "./dashboard/garmin-refresh-button";
 import { QuickLogLauncher, type QuickLogLauncherProps } from "./dashboard/quick-log-launcher";
 import { FeatureRequestsPanel } from "./feature-requests/feature-requests-panel";
+import { ThemeToggle } from "./theme-toggle";
 
 /** Both accounts are always exactly the viewer and the linked athlete — feature_requests has
  * no third author in this app, so this two-entry map is all "Ideas queue" ever needs. */
@@ -58,6 +59,7 @@ export function AppHeader({ viewer, range, rangeExplicit, today, quickLog }: App
             authors={authorNames(viewer)}
             timezone={viewer.profile.timezone}
           />
+          <ThemeToggle />
           <AccountMenu
             initials={initialsOf(viewer.profile.display_name)}
             displayName={viewer.profile.display_name}
