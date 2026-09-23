@@ -10,6 +10,12 @@ import { AddRow } from "./add-row";
 import { EntryFormDialog } from "./entry-form-dialog";
 import { InlineCell } from "./inline-cell";
 
+/** Not in the brief or the design (which shows at most 5 rows in its own review panel) — the
+ * user asked, after step 7 shipped, to cap the table at a page of 10 with a way for either
+ * the owner or the coach (both have equal access; see lib/dashboard/table-tab.ts) to reveal
+ * more, rather than rendering a whole range's rows at once. */
+const PAGE_SIZE = 10;
+
 /**
  * Generic across every tab: fetches `tab`'s rows for the current range, renders them through
  * TanStack Table, and wires up all three editing patterns (lib/dashboard/table-tab.ts) with
@@ -31,11 +37,13 @@ export function DataTable<Row extends { local_date: LocalDate }, Values extends 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     let cancelled = false;
     setRows(null);
     setLoadError(false);
+    setVisibleCount(PAGE_SIZE); // a new tab or range starts back at the first page
     tab
       .fetchRows(supabase, userId, range)
       .then((fetched) => {
@@ -51,8 +59,11 @@ export function DataTable<Row extends { local_date: LocalDate }, Values extends 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab.id, userId, range.from, range.to]);
 
+  const visibleRows = useMemo(() => (rows ?? []).slice(0, visibleCount), [rows, visibleCount]);
+  const hiddenCount = (rows?.length ?? 0) - visibleRows.length;
+
   const table = useReactTable({
-    data: rows ?? [],
+    data: visibleRows,
     columns: tab.columns,
     getRowId: (row) => tab.rowId(row),
     getCoreRowModel: getCoreRowModel(),
@@ -192,6 +203,21 @@ export function DataTable<Row extends { local_date: LocalDate }, Values extends 
           </tbody>
         </table>
       </div>
+
+      {hiddenCount > 0 && (
+        <div className="flex items-center justify-between border-t border-dashed border-border-strong px-[18px] py-2.5">
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-3">
+            Showing {visibleRows.length} of {rows?.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            className="text-[11.5px] text-accent hover:underline"
+          >
+            Show {Math.min(PAGE_SIZE, hiddenCount)} more
+          </button>
+        </div>
+      )}
 
       <AddRow<Values> fields={tab.fields} schema={tab.schema} defaultValues={tab.emptyValues(today)} onAdd={addRow} />
 

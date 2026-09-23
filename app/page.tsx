@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { ChartsSection } from "@/components/charts/charts-section";
 import { HeatmapCard } from "@/components/heatmap/heatmap-card";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { DataTableSection } from "@/components/dashboard/data-table-section";
@@ -62,6 +63,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
           <>
             <KpiGrid data={data} />
             <HeatmapCard data={data} />
+            <ChartsSection data={data} />
             <DataTableSection data={data} />
           </>
         ) : (
