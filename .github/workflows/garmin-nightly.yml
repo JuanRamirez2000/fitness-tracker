@@ -15,9 +15,17 @@ on:
     # 1:00 AM — a known, accepted drift rather than a bug. Move to "0 8 * * *" if 1:00 AM
     # summer / midnight winter is preferred over the current 1:00 AM winter / 2:00 AM summer.
     - cron: "0 9 * * *"
-  # Lets you (or the app, later) trigger a run on demand from the Actions tab or `gh
-  # workflow run garmin-nightly.yml`, without waiting for the schedule.
-  workflow_dispatch: {}
+  # Lets you trigger a run on demand from the Actions tab or `gh workflow run
+  # garmin-nightly.yml`, without waiting for the schedule — and, with mode=today, is what
+  # the dashboard's own Refresh button calls (app/api/garmin/refresh/route.ts), since a
+  # deployed server has no local Python venv to shell out to.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "yesterday (nightly default) or today (the Refresh button's window)"
+        type: choice
+        options: [yesterday, today]
+        default: yesterday
 
 jobs:
   import:
@@ -34,7 +42,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python import_garmin.py --yesterday
+      - run: python import_garmin.py ${{ inputs.mode == 'today' && '--days 1' || '--yesterday' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -69,10 +69,13 @@ always safe — it updates existing rows in place rather than duplicating.
 - **Today, on demand**: the dashboard's "Refresh" button
   (`components/dashboard/garmin-refresh-button.tsx` →
   `app/api/garmin/refresh/route.ts`), for "I just logged a run and want it
-  to show up now" rather than waiting. This one *does* run on whichever
-  machine is serving the app (currently your Mac, since the app isn't
-  deployed yet — see app/api/garmin/refresh/route.ts's own comment for
-  what has to change once it is).
+  to show up now" rather than waiting. Same as the nightly job: dispatches
+  `.github/workflows/garmin-nightly.yml` (with `mode=today`, so it runs
+  `--days 1` instead of `--yesterday`) and polls it to completion, rather
+  than running the script in-process — needs a `GARMIN_REFRESH_TOKEN` (see
+  `.env.example`), a fine-grained GitHub PAT scoped to just this repo with
+  Actions: Read and write, since dispatching and polling a workflow run
+  needs its own auth distinct from `gh`'s local CLI session.
 - **Anything else** (a backfill, a dry run): by hand, from this directory.
 
 ### Why GitHub Actions and not literally a Supabase feature
@@ -101,12 +104,14 @@ gh secret set SUPABASE_SERVICE_ROLE_KEY --body "$(grep SUPABASE_SERVICE_ROLE_KEY
 gh secret set GARMIN_IMPORT_USER_ID --body "$(grep SEED_USER_ID .env.seed.local | cut -d= -f2-)"
 ```
 
-Until those are set, the scheduled run will fail (visible in the repo's
-Actions tab) — the Refresh button and manual runs are unaffected, since
-they read the same values from the local `.env.seed.local` instead.
+Until those are set, the scheduled run (and the Refresh button, and any
+manual `gh workflow run`) will fail — they all run as this same GitHub
+Actions job now, so they share this one setup step. (As of 2026-09-23,
+these are set — the nightly job and manual dispatches both run clean.)
 
 Trigger a run without waiting for the schedule: Actions tab → "Garmin
-nightly import" → Run workflow, or `gh workflow run garmin-nightly.yml`.
+nightly import" → Run workflow (pick `mode`), or
+`gh workflow run garmin-nightly.yml -f mode=today`.
 
 There is no local nightly job anymore — the macOS LaunchAgent from the
 previous version of this setup has been removed
@@ -146,10 +151,15 @@ previous version of this setup has been removed
       real data for these three tables — `nutrition_days` and `injections`
       (calorie tracking, shots) still hold their original demo history,
       since Garmin has no data to replace those with.
-- [x] "Refresh" button in the dashboard header — pulls today only, on
-      demand. Verified live.
-- [x] `.github/workflows/garmin-nightly.yml` — pulls yesterday only, once a
-      night. Written and the local launchd equivalent removed.
-- [ ] **The nightly workflow's 3 repo secrets are not set yet** (blocked on
-      the user — see "One-time setup for the nightly job" above). Until
-      then the schedule will fail; nothing else is affected.
+- [x] "Refresh" button in the dashboard header — dispatches
+      `garmin-nightly.yml` with `mode=today` and polls it to completion, so
+      it works the same way from a deployed server as from a laptop.
+- [x] `.github/workflows/garmin-nightly.yml` — `mode=yesterday` (nightly
+      default) or `mode=today` (the Refresh button), once a night or on
+      demand. Written and the local launchd equivalent removed.
+- [x] The nightly workflow's 3 repo secrets are set (2026-09-23) — both the
+      schedule and manual dispatches run clean.
+- [ ] `GARMIN_REFRESH_TOKEN` (a GitHub fine-grained PAT, Actions: Read and
+      write, scoped to this repo only) needs to be created and set in both
+      `.env.local` and Vercel's production env vars before the Refresh
+      button itself will work — see `.env.example`.
