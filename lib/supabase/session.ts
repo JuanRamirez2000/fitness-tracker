@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfig } from "./config";
-import { devLoginCredentials, isLoginSkipped } from "./dev-login";
+import { devLoginCredentials, isAuthDisabled, isLoginSkipped } from "./dev-login";
 
 export const LOGIN_PATH = "/login";
 
@@ -38,7 +38,8 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const user = sessionUser ?? (await devSignIn(supabase));
   const onLogin = request.nextUrl.pathname === LOGIN_PATH;
 
-  if (!user && !onLogin && !isLoginSkipped()) return redirect(request, LOGIN_PATH, response);
+  if (!user && !onLogin && !isLoginSkipped() && !isAuthDisabled())
+    return redirect(request, LOGIN_PATH, response);
   if (user && onLogin) return redirect(request, "/", response);
   return response;
 }
