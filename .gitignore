@@ -51,3 +51,4 @@ next-env.d.ts
 /scripts/garmin/your_data/
 /scripts/garmin/response.json
 /scripts/garmin/__pycache__/
+/scripts/garmin/import.log
