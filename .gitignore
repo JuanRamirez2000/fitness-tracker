@@ -43,3 +43,11 @@ next-env.d.ts
 
 # local tooling
 /.claude/
+
+# Garmin import (scripts/garmin/README.md): the venv and any exported data,
+# never the scripts themselves. Garmin's own token cache lives outside the
+# repo entirely, at ~/.garminconnect.
+/scripts/garmin/.venv/
+/scripts/garmin/your_data/
+/scripts/garmin/response.json
+/scripts/garmin/__pycache__/
