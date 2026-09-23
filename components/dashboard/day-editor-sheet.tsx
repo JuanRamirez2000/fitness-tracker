@@ -9,7 +9,7 @@ import { deleteInjection, fetchInjections, upsertInjection } from "@/lib/data/in
 import { fetchNutritionDays, TRACKING_STATUSES, upsertNutritionDay, type TrackingStatus } from "@/lib/data/nutrition-days";
 import { fetchWeighIns, insertWeighIn, updateWeighIn } from "@/lib/data/weigh-ins";
 import type { LocalDate } from "@/lib/dates/calendar";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, weekdayName } from "@/lib/dates/format";
 import { defaultMeasuredAt } from "@/lib/dates/timezone";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -19,29 +19,38 @@ const STATUS_LABEL: Record<TrackingStatus, string> = {
   missed: "Missed",
 };
 
-interface QuickLogSheetProps {
+interface DayEditorSheetProps {
   onClose: () => void;
   userId: string;
   timezone: string;
+  /** The day being edited — today for the quick-log launcher, any in-program day for the
+   * heatmap's click-through (see components/heatmap/heatmap-card.tsx). */
+  date: LocalDate;
+  /** The account's real "today", only used to decide the subtitle ("Today" vs. a weekday)
+   * and to default the shot toggle's own date when switching it on. */
   today: LocalDate;
   activityTypes: ActivityType[];
   stepsGoal: number;
 }
 
 /**
- * Frame 2C: one form across five tables (weight, steps, calorie status, activities, shot),
- * all for `today`, target under 15 seconds. Loads whatever is already logged for today so
- * reopening it edits rather than duplicates — weigh-ins in particular has no natural upsert
- * key, so this looks up today's own earliest row first, matching how the table tab does.
+ * One form across five tables (weight, steps, calorie status, activities, shot) for a single
+ * day — frame 2C's quick-log sheet, generalized to any date so it also serves as the day
+ * drawer: clicking a heatmap cell (any day in the program, not in the future) opens this same
+ * sheet for that date instead of a second, differently-built "drawer" component. Loads
+ * whatever is already logged for that day so reopening it edits rather than duplicates —
+ * weigh-ins in particular has no natural upsert key, so this looks up the day's own earliest
+ * row first, matching how the table tab does.
  *
- * No `open` prop: QuickLogLauncher only mounts this while open, so `loading`/`error`'s own
- * useState initial values do the "fresh state each time it opens" work, rather than this
- * effect resetting them itself (a real anti-pattern: setState synchronously inside an effect,
+ * No `open` prop: callers only mount this while open, so `loading`/`error`'s own useState
+ * initial values do the "fresh state each time it opens" work, rather than this effect
+ * resetting them itself (a real anti-pattern: setState synchronously inside an effect,
  * cascading a render — same fix as entry-form-dialog.tsx, a different way to get there).
  */
-export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes, stepsGoal }: QuickLogSheetProps) {
+export function DayEditorSheet({ onClose, userId, timezone, date, today, activityTypes, stepsGoal }: DayEditorSheetProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const isToday = date === today;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,12 +63,12 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
   const [activityNotes, setActivityNotes] = useState("");
   const [existingActivityIds, setExistingActivityIds] = useState<string[]>([]);
   const [shotOn, setShotOn] = useState(false);
-  const [shotDate, setShotDate] = useState<LocalDate>(today);
+  const [shotDate, setShotDate] = useState<LocalDate>(date);
   const [existingInjectionId, setExistingInjectionId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const window = { from: today, to: today };
+    const window = { from: date, to: date };
     Promise.all([
       fetchWeighIns(supabase, userId, window),
       fetchSteps(supabase, userId, window),
@@ -77,20 +86,20 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
         setActivityNotes(activityRows.find((a) => a.notes)?.notes ?? "");
         setExistingActivityIds(activityRows.map((a) => a.id));
         setShotOn(injectionRows.length > 0);
-        setShotDate(injectionRows[0]?.local_date ?? today);
+        setShotDate(injectionRows[0]?.local_date ?? date);
         setExistingInjectionId(injectionRows[0]?.id ?? null);
         setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Could not load today's entry.");
+          setError("Could not load this day's entry.");
           setLoading(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [supabase, userId, today]);
+  }, [supabase, userId, date]);
 
   function toggleType(key: string) {
     setSelectedTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
@@ -102,22 +111,22 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
     try {
       const weightNum = weight.trim() === "" ? null : Number(weight);
       if (weightNum !== null && !Number.isNaN(weightNum)) {
-        if (weighInId) await updateWeighIn(supabase, weighInId, { local_date: today, weight_lb: weightNum });
-        else await insertWeighIn(supabase, userId, { local_date: today, weight_lb: weightNum }, defaultMeasuredAt(today, timezone));
+        if (weighInId) await updateWeighIn(supabase, weighInId, { local_date: date, weight_lb: weightNum });
+        else await insertWeighIn(supabase, userId, { local_date: date, weight_lb: weightNum }, defaultMeasuredAt(date, timezone));
       }
 
       const stepsNum = steps.trim() === "" ? null : Number(steps);
       if (stepsNum !== null && !Number.isNaN(stepsNum)) {
-        await upsertSteps(supabase, userId, { local_date: today, value: stepsNum });
+        await upsertSteps(supabase, userId, { local_date: date, value: stepsNum });
       }
 
-      await upsertNutritionDay(supabase, userId, { local_date: today, tracking_status: calStatus, calories_kcal: null, notes: null });
+      await upsertNutritionDay(supabase, userId, { local_date: date, tracking_status: calStatus, calories_kcal: null, notes: null });
 
-      // Simplest way to keep today's activity rows in sync with the chip selection: clear
+      // Simplest way to keep the day's activity rows in sync with the chip selection: clear
       // and re-insert, rather than diffing — there are at most a handful a day.
       for (const id of existingActivityIds) await deleteActivity(supabase, id);
       for (const key of selectedTypes) {
-        await insertActivity(supabase, userId, { local_date: today, activity_type: key, duration_min: null, notes: activityNotes.trim() || null });
+        await insertActivity(supabase, userId, { local_date: date, activity_type: key, duration_min: null, notes: activityNotes.trim() || null });
       }
 
       if (shotOn) await upsertInjection(supabase, userId, { local_date: shotDate, dose_mg: null, notes: null });
@@ -143,7 +152,7 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="quick-log-title"
+        aria-labelledby="day-editor-title"
         className="relative mx-auto flex w-full max-w-[420px] flex-col gap-[15px] rounded-t-[20px] border-t border-border-strong bg-card px-5 pb-[22px] pt-2.5 shadow-[0_-8px_30px_rgba(0,0,0,0.5)]"
       >
         <div className="mx-auto h-1 w-[38px] rounded-full bg-field-border" />
@@ -151,10 +160,12 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
         <div className="flex items-center justify-between">
           <span className="w-6" />
           <div className="flex flex-col items-center gap-0.5">
-            <span id="quick-log-title" className="font-serif text-[17px]">
-              {fmtDate(today)}
+            <span id="day-editor-title" className="font-serif text-[17px]">
+              {fmtDate(date)}
             </span>
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-muted-2">Today</span>
+            <span className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-muted-2">
+              {isToday ? "Today" : weekdayName(date)}
+            </span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="w-6 text-right text-[14px] text-muted-2">
             {"×"}
@@ -270,7 +281,7 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
                 aria-checked={shotOn}
                 onClick={() => {
                   setShotOn((v) => !v);
-                  if (!shotOn) setShotDate(today);
+                  if (!shotOn) setShotDate(date);
                 }}
                 className={`flex h-6 w-[42px] shrink-0 items-center rounded-full px-0.5 transition-colors ${shotOn ? "justify-end bg-accent" : "justify-start bg-field-border"}`}
               >
@@ -289,7 +300,7 @@ export function QuickLogSheet({ onClose, userId, timezone, today, activityTypes,
               >
                 {saving ? "Saving…" : "Save"}
               </button>
-              <span className="w-[70px] font-mono text-[10px] leading-[1.35] text-muted-2">{"≈14s to log"}</span>
+              {isToday && <span className="w-[70px] font-mono text-[10px] leading-[1.35] text-muted-2">{"≈14s to log"}</span>}
             </div>
           </>
         )}

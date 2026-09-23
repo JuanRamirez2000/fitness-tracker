@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { HEATMAP_MODES } from "@/dashboard.config";
 import type { DashboardData, HeatmapModeId, ModeContext } from "@/lib/dashboard/types";
+import type { LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import { heatmapStats } from "@/lib/heatmap/caption";
 import { DEFAULT_PALETTE } from "@/lib/theme/palette";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Segmented } from "@/components/ui/segmented";
+import { DayEditorSheet } from "../dashboard/day-editor-sheet";
 import { HeatmapGrid } from "./heatmap-grid";
 import { HeatmapLegend } from "./heatmap-legend";
 
@@ -45,6 +47,10 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
   const [weightSubMode, setWeightSubMode] = useState<WeightMode>("avg7");
   // Stretch item (last in the build order): color-blind swap goes here once settings exist.
   const palette = DEFAULT_PALETTE;
+  // The day drawer (step 9): clicking any in-program, non-future cell opens the same sheet
+  // the "+ Log today" launcher uses, for that cell's date instead of today — see
+  // components/dashboard/day-editor-sheet.tsx.
+  const [editingDate, setEditingDate] = useState<LocalDate | null>(null);
 
   const mode = HEATMAP_MODES.find((m) => m.id === modeId) ?? HEATMAP_MODES[0];
   const ctx: ModeContext = { range: data.dateRange, palette, weightSubMode };
@@ -90,10 +96,22 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
-        <HeatmapGrid data={data} mode={mode} ctx={ctx} />
+        <HeatmapGrid data={data} mode={mode} ctx={ctx} onSelectDate={setEditingDate} />
       </div>
 
       <HeatmapLegend title={LEGEND_TITLES[mode.id]} items={mode.legend(ctx, data)} accent={palette.accent} />
+
+      {editingDate && (
+        <DayEditorSheet
+          date={editingDate}
+          today={data.today}
+          onClose={() => setEditingDate(null)}
+          userId={data.profile.id}
+          timezone={data.profile.timezone}
+          activityTypes={data.activityTypes}
+          stepsGoal={data.profile.steps_goal}
+        />
+      )}
     </div>
   );
 }

@@ -31,3 +31,29 @@ export function fetchFeatureRequests(supabase: SupabaseClient): Promise<FeatureR
       .range(from, to),
   );
 }
+
+export async function insertFeatureRequest(
+  supabase: SupabaseClient,
+  authorId: string,
+  values: FeatureRequestInput,
+): Promise<FeatureRequest> {
+  const { data, error } = await supabase
+    .from("feature_requests")
+    .insert({ author_id: authorId, ...values })
+    .select()
+    .single();
+  if (error) throw error;
+  return featureRequestRowSchema.parse(data);
+}
+
+/** Either account can triage any request, including one the other person filed — "update
+ * any" in supabase/schema.sql, same coach/owner parity as the rest of the app. */
+export async function updateFeatureRequestStatus(
+  supabase: SupabaseClient,
+  id: string,
+  status: RequestStatus,
+): Promise<FeatureRequest> {
+  const { data, error } = await supabase.from("feature_requests").update({ status }).eq("id", id).select().single();
+  if (error) throw error;
+  return featureRequestRowSchema.parse(data);
+}

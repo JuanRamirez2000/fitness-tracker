@@ -6,6 +6,15 @@ import type { LocalDate } from "@/lib/dates/calendar";
 import { AccountMenu } from "./account-menu";
 import { RangeControl } from "./dashboard/range-control";
 import { QuickLogLauncher, type QuickLogLauncherProps } from "./dashboard/quick-log-launcher";
+import { FeatureRequestsPanel } from "./feature-requests/feature-requests-panel";
+
+/** Both accounts are always exactly the viewer and the linked athlete — feature_requests has
+ * no third author in this app, so this two-entry map is all "Ideas queue" ever needs. */
+function authorNames(viewer: Viewer): Record<string, string> {
+  const names: Record<string, string> = { [viewer.profile.id]: viewer.profile.display_name };
+  if (viewer.athlete) names[viewer.athlete.id] = viewer.athlete.display_name;
+  return names;
+}
 
 function contextLabel(viewer: Viewer | null): string {
   // No viewer only happens while the temporary dev login skip is on (lib/supabase/dev-login.ts).
@@ -43,10 +52,16 @@ export function AppHeader({ viewer, range, rangeExplicit, today, quickLog }: App
 
       {viewer && (
         <div className="ml-auto flex items-center gap-2.5 self-center md:order-4 md:ml-0">
+          <FeatureRequestsPanel
+            currentUserId={viewer.profile.id}
+            authors={authorNames(viewer)}
+            timezone={viewer.profile.timezone}
+          />
           <AccountMenu
             initials={initialsOf(viewer.profile.display_name)}
             displayName={viewer.profile.display_name}
             roleLabel={viewer.profile.role}
+            athlete={viewer.athlete}
           />
         </div>
       )}

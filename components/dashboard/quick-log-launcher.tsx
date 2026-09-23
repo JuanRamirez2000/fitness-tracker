@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ActivityType } from "@/lib/data/activity-types";
 import type { LocalDate } from "@/lib/dates/calendar";
-import { QuickLogSheet } from "./quick-log-sheet";
+import { DayEditorSheet } from "./day-editor-sheet";
 
 export interface QuickLogLauncherProps {
   userId: string;
@@ -36,7 +36,7 @@ export function QuickLogLauncher(props: QuickLogLauncherProps) {
       >
         +
       </button>
-      {open && <QuickLogSheet onClose={() => setOpen(false)} {...props} />}
+      {open && <DayEditorSheet onClose={() => setOpen(false)} date={props.today} {...props} />}
     </>
   );
 }

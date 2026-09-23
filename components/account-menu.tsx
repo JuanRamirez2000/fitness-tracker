@@ -1,16 +1,40 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth/actions";
+import { SETTINGS_FIELDS } from "@/lib/dashboard/settings-fields";
+import { profileSettingsSchema, updateProfile, type Profile, type ProfileSettings } from "@/lib/data/profiles";
+import { createClient } from "@/lib/supabase/browser";
+import { EntryFormDialog } from "./dashboard/entry-form-dialog";
 
 interface AccountMenuProps {
   initials: string;
   displayName: string;
   roleLabel: string;
+  /** Whose settings this menu edits — the viewer's own profile for an owner, or the linked
+   * athlete for a coach (same account the rest of the dashboard shows; see lib/auth/viewer.ts).
+   * Null only while a coach has no athlete linked yet, when there is nothing to edit. */
+  athlete: Profile | null;
 }
 
-export function AccountMenu({ initials, displayName, roleLabel }: AccountMenuProps) {
+function toSettings(profile: Profile): ProfileSettings {
+  return {
+    display_name: profile.display_name,
+    timezone: profile.timezone,
+    goal_weight_lb: profile.goal_weight_lb,
+    goal_pace_lb_per_week: profile.goal_pace_lb_per_week,
+    start_weight_lb: profile.start_weight_lb,
+    shot_weekday: profile.shot_weekday,
+    steps_goal: profile.steps_goal,
+  };
+}
+
+export function AccountMenu({ initials, displayName, roleLabel, athlete }: AccountMenuProps) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +76,21 @@ export function AccountMenu({ initials, displayName, roleLabel }: AccountMenuPro
               {roleLabel}
             </div>
           </div>
+          {athlete && (
+            <div className="border-t border-divider pt-1.5">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  setSettingsOpen(true);
+                }}
+                className="w-full rounded-md px-3 py-2 text-left text-[12.5px] text-muted-1 hover:bg-raised"
+              >
+                Settings
+              </button>
+            </div>
+          )}
           <form action={signOut} className="border-t border-divider pt-1.5">
             <button
               type="submit"
@@ -62,6 +101,21 @@ export function AccountMenu({ initials, displayName, roleLabel }: AccountMenuPro
             </button>
           </form>
         </div>
+      )}
+
+      {athlete && (
+        <EntryFormDialog<ProfileSettings>
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          title="Settings"
+          fields={SETTINGS_FIELDS}
+          schema={profileSettingsSchema}
+          defaultValues={toSettings(athlete)}
+          onSubmit={async (values) => {
+            await updateProfile(supabase, athlete.id, values);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

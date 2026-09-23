@@ -19,9 +19,12 @@ interface HeatmapCellProps {
   isToday: boolean;
   isProgramStart: boolean;
   onHover: (date: string | null) => void;
+  /** Omitted for a cell outside the program (future or pre-program) — those have nothing to
+   * open the day editor for. */
+  onSelect?: (date: string) => void;
 }
 
-export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHover }: HeatmapCellProps) {
+export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHover, onSelect }: HeatmapCellProps) {
   const style: CSSProperties = {
     width: CELL_SIZE,
     height: CELL_SIZE,
@@ -57,6 +60,8 @@ export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHov
   if (isToday) style.boxShadow = `0 0 0 1.5px ${accent}`;
   if (isProgramStart) style.outline = `1.5px solid ${accent}`;
 
+  if (onSelect) style.cursor = "pointer";
+
   return (
     <div
       style={style}
@@ -64,8 +69,20 @@ export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, onHov
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(cell.date)}
       onBlur={() => onHover(null)}
-      tabIndex={star ? 0 : -1}
-      aria-label={star ? `${cell.date}: shot ${star.state}` : undefined}
+      onClick={onSelect ? () => onSelect(cell.date) : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(cell.date);
+              }
+            }
+          : undefined
+      }
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect || star ? 0 : -1}
+      aria-label={onSelect ? `Edit ${cell.date}` : star ? `${cell.date}: shot ${star.state}` : undefined}
     >
       {star && (
         <span
