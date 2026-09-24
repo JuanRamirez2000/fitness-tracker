@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@/lib/data/activities";
 import type { ActivityType } from "@/lib/data/activity-types";
+import type { DailyMetric } from "@/lib/data/daily-metrics";
 import type { DashboardData, ModeContext } from "@/lib/dashboard/types";
+import { CELL_NO_DATA } from "@/lib/heatmap/colors";
 import { DEFAULT_PALETTE } from "@/lib/theme/palette";
 import { ACTIVITY_MODE, type ActivityTooltipData } from "./activity";
 
 const USER = "6f0c1c1e-1d0a-4b5e-9c3e-2f6a1d8b7c01";
 const PROGRAM_START = "2026-09-17";
 const TODAY = "2026-09-20";
+const STEPS_GOAL = 10_000;
 
 const TYPES: ActivityType[] = [
   { key: "run", label: "Run", color: "#F97316", sort_order: 1 },
@@ -29,16 +32,20 @@ function activity(local_date: string, over: Partial<Activity> = {}): Activity {
   };
 }
 
-function data(activities: Activity[], activityTypes = TYPES): DashboardData {
+function stepsRow(local_date: string, value: number): DailyMetric {
+  return { user_id: USER, local_date, metric: "steps", value, source: "manual", updated_at: "" };
+}
+
+function data(activities: Activity[], steps: DailyMetric[] = [], activityTypes = TYPES): DashboardData {
   return {
-    profile: {} as DashboardData["profile"],
+    profile: { steps_goal: STEPS_GOAL } as DashboardData["profile"],
     activityTypes,
     today: TODAY,
     programStart: PROGRAM_START,
     firstWeighIn: null,
     weightTrend: [],
     injections: [],
-    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, nutritionDays: [], activities, steps: [] },
+    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, nutritionDays: [], activities, steps },
     range: { window: { from: TODAY, to: TODAY }, nutritionDays: [], activities: [], steps: [] },
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };
@@ -85,11 +92,38 @@ describe("ACTIVITY_MODE.toCells", () => {
     expect(cellOn(cells, "2026-09-13")).toMatchObject({ state: "pre_program", fill: null });
     expect(cellOn(cells, "2026-09-21")).toMatchObject({ state: "future", fill: null });
   });
+
+  it("shows a Steps badge, solid accent, on a day the steps goal was hit with no other activity logged", () => {
+    const cells = ACTIVITY_MODE.toCells(data([], [stepsRow("2026-09-17", STEPS_GOAL)]), ctx);
+    const cell = cellOn(cells, "2026-09-17")!;
+    expect(cell).toMatchObject({ fill: DEFAULT_PALETTE.accent, secondFill: undefined, notch: undefined, state: "data" });
+    expect((cell.tooltip as ActivityTooltipData).items).toEqual([{ label: "Steps", color: DEFAULT_PALETTE.accent, notes: "goal met" }]);
+  });
+
+  it("does not add a Steps badge when steps fall short of the goal", () => {
+    const cells = ACTIVITY_MODE.toCells(data([], [stepsRow("2026-09-17", STEPS_GOAL - 1)]), ctx);
+    expect(cellOn(cells, "2026-09-17")).toMatchObject({ state: "none", fill: CELL_NO_DATA });
+  });
+
+  it("splits the cell between a real activity and a hit steps goal on the same day", () => {
+    const cells = ACTIVITY_MODE.toCells(
+      data([activity("2026-09-17", { activity_type: "run" })], [stepsRow("2026-09-17", STEPS_GOAL)]),
+      ctx,
+    );
+    const cell = cellOn(cells, "2026-09-17")!;
+    expect(cell.fill).toBe("#F97316");
+    expect(cell.secondFill).toBe(DEFAULT_PALETTE.accent);
+    expect(cell.notch).toBe(true);
+    expect((cell.tooltip as ActivityTooltipData).items).toEqual([
+      { label: "Run", color: "#F97316", notes: null },
+      { label: "Steps", color: DEFAULT_PALETTE.accent, notes: "goal met" },
+    ]);
+  });
 });
 
 describe("ACTIVITY_MODE.legend", () => {
-  it("lists every activity type from the DB plus multiple and none", () => {
+  it("lists every activity type from the DB plus Steps, multiple and none", () => {
     const items = ACTIVITY_MODE.legend(ctx, data([]));
-    expect(items.map((i) => i.label)).toEqual(["Run", "Lifting", "multiple", "none"]);
+    expect(items.map((i) => i.label)).toEqual(["Run", "Lifting", "Steps", "multiple", "none"]);
   });
 });

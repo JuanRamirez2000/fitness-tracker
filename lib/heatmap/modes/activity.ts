@@ -27,12 +27,23 @@ function groupByDate(activities: readonly Activity[]): Map<string, Activity[]> {
   return byDate;
 }
 
+/** Not a real activity_types row — schema.sql deliberately keeps steps a numeric daily_metrics
+ * value, never a loggable activity (see its own comment). This is a synthetic badge so hitting
+ * the day's steps goal shows up on this card the same way a logged session would, without ever
+ * writing to public.activities. Always the theme's accent, matching every other "steps goal
+ * met" cell in the app (Steps mode's own "goal+" swatch, Logged mode's "weight + steps"). */
+function stepsGoalItem(accent: string): ActivityTooltipItem {
+  return { label: "Steps", color: accent, notes: "goal met" };
+}
+
 export const ACTIVITY_MODE: HeatmapMode = {
   id: "activity",
   label: "Activity",
   toCells(data: DashboardData, ctx: ModeContext): HeatmapCell[] {
     const types = new Map(data.activityTypes.map((t) => [t.key, t] as const));
     const byDate = groupByDate(data.heatmap.activities);
+    const stepsByDate = new Map(data.heatmap.steps.map((row) => [row.local_date, row] as const));
+    const goal = data.profile.steps_goal;
 
     return eachDay(data.heatmap.window.from, data.heatmap.window.to).map((date) => {
       const dateState = cellDateState(date, data.programStart, data.today);
@@ -42,28 +53,30 @@ export const ACTIVITY_MODE: HeatmapMode = {
       }
 
       const dayActivities = byDate.get(date) ?? [];
-      const resolved: ActivityType[] = dayActivities.map(
-        (a) => types.get(a.activity_type) ?? { key: a.activity_type, label: a.activity_type, color: CELL_NO_DATA, sort_order: 0 },
-      );
-      const paint = activityPaint(resolved.map((t) => t.color));
-      const tooltip: ActivityTooltipData | null = dayActivities.length
-        ? { items: dayActivities.map((a, i) => ({ label: resolved[i].label, color: resolved[i].color, notes: a.notes })) }
-        : null;
+      const items: ActivityTooltipItem[] = dayActivities.map((a) => {
+        const type: ActivityType | undefined = types.get(a.activity_type);
+        return { label: type?.label ?? a.activity_type, color: type?.color ?? CELL_NO_DATA, notes: a.notes };
+      });
+      const stepsHit = (stepsByDate.get(date)?.value ?? 0) >= goal;
+      if (stepsHit) items.push(stepsGoalItem(ctx.palette.accent));
+
+      const paint = activityPaint(items.map((item) => item.color));
 
       return {
         date,
         fill: paint?.fill ?? CELL_NO_DATA,
         secondFill: paint?.secondFill,
         notch: paint?.notch,
-        state: dayActivities.length ? "data" : "none",
+        state: items.length ? "data" : "none",
         inRange,
-        tooltip,
+        tooltip: items.length ? { items } : null,
       };
     });
   },
   legend(ctx: ModeContext, data: DashboardData): LegendItem[] {
     return [
       ...data.activityTypes.map((t) => ({ label: t.label, swatch: t.color })),
+      { label: "Steps", swatch: ctx.palette.accent },
       {
         label: "multiple",
         swatch: `linear-gradient(135deg, ${ctx.palette.accent} 0 50%, ${ctx.palette.good} 50% 100%)`,
