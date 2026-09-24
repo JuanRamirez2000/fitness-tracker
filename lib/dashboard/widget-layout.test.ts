@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyItemMove,
   defaultDashboardLayout,
   findOpenSlot,
   GRID_COLS,
   GRID_ROWS,
+  hasOverlap,
   hiddenItemsOf,
-  mergeRglPositions,
   orderForMobile,
+  resolveMove,
   visibleItems,
   withItemHidden,
   withItemShown,
@@ -92,17 +94,18 @@ describe("withItemHidden / withItemShown", () => {
   });
 });
 
-describe("mergeRglPositions", () => {
-  it("applies new positions from react-grid-layout to matching visible items", () => {
-    const layout = [item({ i: "a", x: 0, y: 0, w: 1, h: 1 })];
-    const merged = mergeRglPositions(layout, [{ i: "a", x: 3, y: 1, w: 2, h: 2 }]);
-    expect(merged[0]).toMatchObject({ x: 3, y: 1, w: 2, h: 2 });
+describe("applyItemMove", () => {
+  it("applies the new position to only the named item", () => {
+    const layout = [item({ i: "a", x: 0, y: 0, w: 1, h: 1 }), item({ i: "b", x: 3, y: 1, w: 1, h: 1 })];
+    const moved = applyItemMove(layout, "a", { x: 3, y: 1, w: 2, h: 2 });
+    expect(moved.find((i) => i.i === "a")).toMatchObject({ x: 3, y: 1, w: 2, h: 2 });
+    expect(moved.find((i) => i.i === "b")).toMatchObject({ x: 3, y: 1, w: 1, h: 1 });
   });
 
-  it("leaves hidden items (absent from the RGL layout) untouched", () => {
+  it("leaves hidden items untouched", () => {
     const layout = [item({ i: "a", x: 0, y: 0 }), item({ i: "b", x: 5, y: 2, hidden: true })];
-    const merged = mergeRglPositions(layout, [{ i: "a", x: 1, y: 1, w: 1, h: 1 }]);
-    expect(merged.find((i) => i.i === "b")).toEqual(item({ i: "b", x: 5, y: 2, hidden: true }));
+    const moved = applyItemMove(layout, "a", { x: 1, y: 1, w: 1, h: 1 });
+    expect(moved.find((i) => i.i === "b")).toEqual(item({ i: "b", x: 5, y: 2, hidden: true }));
   });
 });
 
@@ -123,5 +126,53 @@ describe("defaultDashboardLayout", () => {
         if (x.i !== y.i) expect(x.x < y.x + y.w && y.x < x.x + x.w && x.y < y.y + y.h && y.y < x.y + x.h).toBe(false);
       }
     }
+  });
+});
+
+describe("hasOverlap", () => {
+  it("is false for a clean layout and true once two visible items collide", () => {
+    const clean = [item({ i: "a", x: 0, y: 0 }), item({ i: "b", x: 1, y: 0 })];
+    expect(hasOverlap(clean)).toBe(false);
+    const colliding = [item({ i: "a", x: 0, y: 0 }), item({ i: "b", x: 0, y: 0 })];
+    expect(hasOverlap(colliding)).toBe(true);
+  });
+
+  it("ignores collisions with hidden items", () => {
+    const layout = [item({ i: "a", x: 0, y: 0 }), item({ i: "b", x: 0, y: 0, hidden: true })];
+    expect(hasOverlap(layout)).toBe(false);
+  });
+});
+
+describe("resolveMove", () => {
+  it("stands as-is when the moved item lands on an empty cell", () => {
+    const merged = [item({ i: "a", x: 3, y: 1 }), item({ i: "b", x: 0, y: 0 })];
+    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, true);
+    expect(resolved).toEqual(merged);
+  });
+
+  it("swaps a drag onto exactly one occupied cell, giving it the mover's old position", () => {
+    // "a" dragged from (0,0) onto "b" at (1,0) — both 1x1, a clean swap.
+    const merged = [item({ i: "a", x: 1, y: 0 }), item({ i: "b", x: 1, y: 0 })];
+    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, true)!;
+    expect(resolved.find((i) => i.i === "a")).toMatchObject({ x: 1, y: 0 });
+    expect(resolved.find((i) => i.i === "b")).toMatchObject({ x: 0, y: 0 });
+    expect(hasOverlap(resolved)).toBe(false);
+  });
+
+  it("rejects a swap when the displaced item's own footprint doesn't fit the mover's old spot", () => {
+    // "a" (1x1) dragged from the grid's bottom-right corner onto "b" (2x2) — b can't fit back
+    // into that corner without going out of bounds (only a 1x1-sized gap is actually there).
+    const merged = [item({ i: "a", x: 2, y: 0, w: 1, h: 1 }), item({ i: "b", x: 2, y: 0, w: 2, h: 2 })];
+    expect(resolveMove(merged, "a", { x: GRID_COLS - 1, y: GRID_ROWS - 1 }, true)).toBeNull();
+  });
+
+  it("rejects a drag that would collide with more than one item at once", () => {
+    const merged = [item({ i: "a", x: 0, y: 0, w: 2, h: 1 }), item({ i: "b", x: 0, y: 0 }), item({ i: "c", x: 1, y: 0 })];
+    expect(resolveMove(merged, "a", { x: 4, y: 2 }, true)).toBeNull();
+  });
+
+  it("rejects any collision on a resize, even a clean 1:1 one — resizing only claims empty space", () => {
+    const merged = [item({ i: "a", x: 0, y: 0, w: 2, h: 1 }), item({ i: "b", x: 1, y: 0 })];
+    expect(resolveMove(merged, "a", { x: 0, y: 0 }, false)).toBeNull();
   });
 });

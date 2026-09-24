@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import GridLayout, { WidthProvider, type Layout } from "react-grid-layout/legacy";
+import GridLayout, { WidthProvider, type Layout, type LayoutItem } from "react-grid-layout/legacy";
 import { updateDashboardLayout } from "@/lib/data/profiles";
 import {
+  applyItemMove,
   GRID_COLS,
   GRID_ROWS,
+  hasOverlap,
   hiddenItemsOf,
-  mergeRglPositions,
+  resolveMove,
   visibleItems,
   withItemHidden,
   withItemShown,
@@ -77,8 +79,33 @@ export function WidgetGrid({
     }
   }
 
-  function commitFromRgl(rglLayout: Layout) {
-    persist(mergeRglPositions(layout, rglLayout));
+  // Dragging onto exactly one occupied cell swaps the two widgets (resolveMove); resizing into
+  // occupied space never does (growing is "claim empty space," not "trade places"). Either way,
+  // a gesture with no valid resolution just leaves `layout` state untouched — react-grid-layout
+  // is fully controlled by that prop, so an unchanged prop is what makes the drag/resize
+  // visually snap back on its own, no error message needed for something this routine.
+  //
+  // Deliberately ignores react-grid-layout's own reported positions for every item except the
+  // one actually being dragged/resized (applyItemMove, not a full merge): caught live that
+  // react-grid-layout's own drag engine can silently nudge a second, uninvolved item to avoid
+  // the immediate collision — a nudge that isn't itself checked against a third item, so
+  // trusting react-grid-layout's full reported layout could hand back an overlap it introduced.
+  // Only newItem's own reported position is trustworthy; everyone else is resolved by
+  // resolveMove() below instead.
+  function commit(oldItem: LayoutItem | null, newItem: LayoutItem | null, allowSwap: boolean) {
+    if (!newItem) return;
+    const merged = applyItemMove(layout, newItem.i, newItem);
+    const resolved = resolveMove(merged, newItem.i, oldItem ?? newItem, allowSwap);
+    if (!resolved || hasOverlap(resolved)) return;
+    persist(resolved);
+  }
+
+  function handleDragStop(_rglLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null) {
+    commit(oldItem, newItem, true);
+  }
+
+  function handleResizeStop(_rglLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null) {
+    commit(oldItem, newItem, false);
   }
 
   function hide(id: string) {
@@ -179,17 +206,17 @@ export function WidgetGrid({
           maxRows={GRID_ROWS}
           isBounded
           compactType={null}
-          // compactType alone only governs whether gaps get auto-closed after a move — it does
-          // NOT stop a drag/resize from settling into an overlap. preventCollision is the prop
-          // that actually rejects (snaps back) any move that would overlap another card;
-          // without it, two items can end up on the same cells (caught live while testing).
-          preventCollision
+          // preventCollision is deliberately OFF: it would block a drag from ever reaching an
+          // occupied cell at all, which is exactly the case commit()/resolveMove() needs to see
+          // in order to swap two widgets. Every result is re-validated with hasOverlap() before
+          // it's ever persisted, so this doesn't reopen the overlap bug preventCollision used to
+          // guard against — that safety now lives in our own logic instead of react-grid-layout's.
           isDraggable={editing}
           isResizable={editing}
           resizeHandles={editing ? ["se"] : []}
           draggableCancel=".widget-hide-btn"
-          onDragStop={commitFromRgl}
-          onResizeStop={commitFromRgl}
+          onDragStop={handleDragStop}
+          onResizeStop={handleResizeStop}
         >
           {visible.map((item) => {
             const entry = byId.get(item.i);

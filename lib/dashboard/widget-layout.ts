@@ -41,6 +41,22 @@ function overlaps(a: { x: number; y: number; w: number; h: number }, b: { x: num
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
+function inBounds(item: { x: number; y: number; w: number; h: number }): boolean {
+  return item.x >= 0 && item.y >= 0 && item.x + item.w <= GRID_COLS && item.y + item.h <= GRID_ROWS;
+}
+
+/** True if any two visible items in the layout occupy overlapping cells — the final check
+ * before ever persisting, regardless of how the layout was arrived at. */
+export function hasOverlap(layout: WidgetLayoutItem[]): boolean {
+  const items = visibleItems(layout);
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      if (overlaps(items[i], items[j])) return true;
+    }
+  }
+  return false;
+}
+
 /** First row-major cell a footprint fits into without overlapping any occupied item, within
  * the fixed GRID_ROWS x GRID_COLS bound. null when nothing fits (grid genuinely full). */
 export function findOpenSlot(occupied: readonly { x: number; y: number; w: number; h: number }[], footprint: Footprint): { x: number; y: number } | null {
@@ -66,15 +82,51 @@ export function withItemShown(layout: WidgetLayoutItem[], id: string, footprint:
   return layout.map((item) => (item.i === id ? { ...item, hidden: false, x: slot.x, y: slot.y, w: footprint.w, h: footprint.h } : item));
 }
 
-/** Folds react-grid-layout's own {i,x,y,w,h} positions (from onDragStop/onResizeStop, which
- * only ever sees visible items) back into the full layout — hidden entries pass through
- * untouched since RGL never saw them. */
-export function mergeRglPositions(layout: WidgetLayoutItem[], rglLayout: readonly { i: string; x: number; y: number; w: number; h: number }[]): WidgetLayoutItem[] {
-  const byId = new Map(rglLayout.map((item) => [item.i, item] as const));
-  return layout.map((item) => {
-    const moved = byId.get(item.i);
-    return moved ? { ...item, x: moved.x, y: moved.y, w: moved.w as 1 | 2, h: moved.h as 1 | 2 } : item;
-  });
+/**
+ * Applies react-grid-layout's reported end position for ONLY the single item actually being
+ * dragged or resized — deliberately not react-grid-layout's own full reported layout array.
+ * Caught live: even with compactType={null} and no preventCollision, react-grid-layout's own
+ * drag engine still silently nudges a second, uninvolved item out of the way as part of its
+ * internal single-collision avoidance — and that nudge isn't itself collision-checked against
+ * a THIRD item, so trusting its whole reported array can hand back a layout with a fresh
+ * overlap RGL introduced itself. Only the moved item's own new position is trustworthy;
+ * everyone else is resolved by this app's own resolveMove() below instead.
+ */
+export function applyItemMove(layout: WidgetLayoutItem[], id: string, next: { x: number; y: number; w: number; h: number }): WidgetLayoutItem[] {
+  return layout.map((item) => (item.i === id ? { ...item, x: next.x, y: next.y, w: next.w as 1 | 2, h: next.h as 1 | 2 } : item));
+}
+
+/**
+ * Resolves the single moved/resized item against everything else after a drag or resize
+ * gesture (`merged` = applyItemMove(layout, movedId, ...) — this is where "swap" lives.
+ *
+ * - No collision: the move stands as-is.
+ * - Dragging (allowSwap=true) onto exactly one other item: that item trades places, taking
+ *   the mover's OLD position — a real swap, not a shove — but only if it actually fits there
+ *   (a 2x2 can't swap into a spot a 1x1 vacated). Colliding with more than one item at once,
+ *   or a swap that doesn't fit, has no clean resolution and is rejected.
+ * - Resizing (allowSwap=false) into any occupied cell is always rejected: growing a card is
+ *   "claim empty space," not "trade places," so there's no natural partner to swap with.
+ *
+ * Returns null when the gesture has no valid resolution — the caller leaves state untouched,
+ * which snaps the drag/resize back to its last valid position (react-grid-layout is fully
+ * controlled by the `layout` prop, so an unchanged prop is what makes it visually revert).
+ */
+export function resolveMove(merged: WidgetLayoutItem[], movedId: string, oldPos: { x: number; y: number }, allowSwap: boolean): WidgetLayoutItem[] | null {
+  const moved = merged.find((item) => item.i === movedId);
+  if (!moved) return merged;
+
+  const others = visibleItems(merged).filter((item) => item.i !== movedId);
+  const colliders = others.filter((item) => overlaps(moved, item));
+  if (colliders.length === 0) return merged;
+  if (!allowSwap || colliders.length !== 1) return null;
+
+  const [collider] = colliders;
+  const swapped = { ...collider, x: oldPos.x, y: oldPos.y };
+  if (!inBounds(swapped)) return null;
+  if (others.some((item) => item.i !== collider.i && overlaps(swapped, item))) return null;
+
+  return merged.map((item) => (item.i === collider.i ? swapped : item));
 }
 
 /** The one-time default arrangement for an athlete who has never customized their layout —
