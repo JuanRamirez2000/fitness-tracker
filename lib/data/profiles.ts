@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { dashboardLayoutSchema, type DashboardLayout } from "@/lib/dashboard/widget-layout";
 import { STEPS_MAX } from "./daily-metrics";
 import { WEIGHT_MAX_LB, WEIGHT_MIN_LB } from "./weigh-ins";
 
@@ -18,12 +19,23 @@ export const profileSchema = z.object({
   shot_weekday: z.number().int().min(0).max(6),
   steps_goal: z.number().int(),
   calorie_target_kcal: z.number().int().nullable(),
+  /** The bento KPI grid's arrangement (lib/dashboard/widget-layout.ts), shared by owner and
+   * coach since they act on this one row. null = never customized. */
+  dashboard_layout: dashboardLayoutSchema,
 });
 
 export type Profile = z.infer<typeof profileSchema>;
 
 export async function fetchProfile(supabase: SupabaseClient, id: string): Promise<Profile> {
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single();
+  if (error) throw error;
+  return profileSchema.parse(data);
+}
+
+/** Separate from updateProfile/profileSettingsSchema below — this isn't a Settings-dialog
+ * field, it's written directly from drag/resize/hide gestures on the bento grid itself. */
+export async function updateDashboardLayout(supabase: SupabaseClient, id: string, layout: DashboardLayout): Promise<Profile> {
+  const { data, error } = await supabase.from("profiles").update({ dashboard_layout: layout }).eq("id", id).select().single();
   if (error) throw error;
   return profileSchema.parse(data);
 }

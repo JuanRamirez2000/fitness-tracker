@@ -1,0 +1,66 @@
+/* Restyles react-grid-layout/react-resizable's default look (a hardcoded red placeholder, a
+ * black base64-SVG resize glyph) to match this app's tokens, rather than fighting its own
+ * defaults — same approach as day-picker-theme.css for react-day-picker. */
+
+.widget-grid .react-grid-item.react-grid-placeholder {
+  background: var(--accent);
+  opacity: 0.15;
+  border-radius: 10px;
+}
+
+.widget-grid .react-grid-item.react-draggable-dragging,
+.widget-grid .react-grid-item.resizing {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+
+.widget-grid.editing .react-grid-item {
+  cursor: grab;
+}
+
+.widget-grid.editing .react-grid-item.react-draggable-dragging {
+  cursor: grabbing;
+}
+
+/* react-resizable's own corner glyph would double up with react-grid-layout's ::after corner
+ * below — keep only the latter, themed, and drop react-resizable's black base64 image. */
+.widget-grid .react-resizable-handle {
+  background-image: none;
+}
+
+.widget-grid .react-grid-item > .react-resizable-handle::after {
+  border-right-color: var(--muted-3);
+  border-bottom-color: var(--muted-3);
+}
+
+.widget-grid:not(.editing) .react-resizable-handle {
+  display: none;
+}
+
+.widget-card {
+  height: 100%;
+  width: 100%;
+}
+
+.widget-hide-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  height: 20px;
+  width: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.widget-grid-background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}

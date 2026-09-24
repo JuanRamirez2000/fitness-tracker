@@ -1,5 +1,5 @@
 -- =====================================================================
--- Weight & logging tracker (schema v3): Supabase / Postgres 15+
+-- Weight & logging tracker (schema v4): Supabase / Postgres 15+
 -- Run once in the Supabase SQL editor (or save as a migration).
 -- BEFORE running: Auth > Providers > Email > turn OFF "Allow new users to sign up".
 -- =====================================================================
@@ -19,6 +19,8 @@ create table public.profiles (
     check (shot_weekday between 0 and 6),  -- 0 = Sunday ... 4 = Thursday
   steps_goal int not null default 10000, -- "steps hit" threshold for the Logged heatmap
   calorie_target_kcal int,               -- V1
+  dashboard_layout jsonb,                -- bento KPI grid arrangement, shared by owner + coach
+                                          -- (lib/dashboard/widget-layout.ts); null = default
   created_at timestamptz not null default now()
 );
 
@@ -339,4 +341,13 @@ revoke all on function public.handle_new_user() from public, anon, authenticated
 --     for select to authenticated using (private.can_read(id));
 --   create policy "update own or coached" on public.profiles
 --     for update to authenticated using (private.can_read(id)) with check (private.can_read(id));
+-- =====================================================================
+
+-- =====================================================================
+-- ALREADY RAN v3? Apply this migration instead of re-running everything:
+--
+--   alter table public.profiles
+--     add column dashboard_layout jsonb;
+--
+-- No RLS change needed — "update own or coached" is row-level and already covers it.
 -- =====================================================================

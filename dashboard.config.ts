@@ -11,23 +11,25 @@ import { sevenDayAverage } from "@/lib/kpis/seven-day-average";
 import { stepsToday } from "@/lib/kpis/steps-today";
 import { todaysWeight } from "@/lib/kpis/todays-weight";
 import { weeklyRate } from "@/lib/kpis/weekly-rate";
-import type { HeatmapMode, KpiDefinition } from "@/lib/dashboard/types";
+import type { HeatmapMode, WidgetDefinition } from "@/lib/dashboard/types";
 
 // Adding a metric = one new file exporting a HeatmapMode plus one line here — no changes to
 // HeatmapCard or HeatmapGrid.
 export const HEATMAP_MODES: HeatmapMode[] = [WEIGHT_MODE, CALORIES_MODE, ACTIVITY_MODE, STEPS_MODE, LOGGED_MODE];
 
-// Adding a critical number = one new file exporting a KpiDefinition plus one line here — no
-// changes to the slot grid, which pads out to a full row with the design's empty-slot state.
-export const CRITICAL_NUMBERS: KpiDefinition[] = [
-  todaysWeight,
-  sevenDayAverage,
-  weeklyRate,
-  progressToGoal,
-  loggingStreak,
-  daysSinceShot,
-  caloriesToday,
-  stepsToday,
+// Adding a critical number = one new file exporting a KpiDefinition plus one line here — the
+// bento grid (KpiGrid/WidgetGrid) never changes; a never-customized dashboard places these in
+// this order via defaultDashboardLayout(), and a hidden one reappears at its defaultFootprint
+// from the "+ Add widget" control.
+export const WIDGETS: WidgetDefinition[] = [
+  { kpi: todaysWeight, defaultFootprint: { w: 2, h: 2 } },
+  { kpi: sevenDayAverage, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: weeklyRate, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: progressToGoal, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: loggingStreak, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: daysSinceShot, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: caloriesToday, defaultFootprint: { w: 1, h: 1 } },
+  { kpi: stepsToday, defaultFootprint: { w: 1, h: 1 } },
 ];
 
 /**

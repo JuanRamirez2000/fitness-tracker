@@ -1,4 +1,5 @@
-import type { KpiDefinition, KpiValue } from "@/lib/dashboard/types";
+import type { KpiTone, KpiValue } from "@/lib/dashboard/types";
+import { resolveCardTier, type Footprint } from "@/lib/kpis/footprint";
 import { sparklinePath } from "@/lib/kpis/sparkline";
 import { toneColor } from "@/lib/kpis/tone-color";
 
@@ -23,63 +24,71 @@ function DeltaChip({ text, tone }: { text: string; tone: KpiValue["tone"] }) {
   );
 }
 
-interface KpiCardProps {
-  def: KpiDefinition;
+export interface ResolvedWidget {
+  id: string;
+  label: string;
+  visual?: "sparkline" | "progress" | "none";
+  emptyMessage?: string;
   value: KpiValue | null;
-  /** Mobile's condensed anatomy (frame 2B): no hero span, smaller value text, no
-   * sparkline. KpiGrid renders a whole separate mobile grid with this set, rather than
-   * trying to make one card respond to both layouts at once. */
-  compact?: boolean;
+  /** def.format(value), already run server-side — KpiCard renders inside a "use client"
+   * boundary (WidgetGrid) on desktop, and a KpiDefinition's compute()/format() are functions,
+   * which React cannot serialize across that boundary. Every field here is plain data instead;
+   * this is the exact "functions cannot be passed directly to Client Components" class of bug
+   * this codebase has hit once before (HEATMAP_MODES, per project history) — resolve to plain
+   * data server-side rather than passing the definition itself. */
+  formatted: { primary: string; delta?: string; tone?: KpiTone } | null;
 }
 
-/** One card anatomy for every critical number (frame 2A): label, value, delta, an optional
- * sparkline or progress bar, and a caption. `def.emptyMessage` covers compute() returning
- * null for a KPI that IS configured (e.g. "Set a goal") — the grid's own padding for a
- * position with no KpiDefinition at all uses a separate, unlabeled empty-slot card. */
-export function KpiCard({ def, value, compact = false }: KpiCardProps) {
-  const hero = def.hero && !compact;
-  const sizing = compact
-    ? "min-h-[86px] px-[13px] py-[11px]"
-    : `min-h-[104px] px-[15px] py-[13px] ${hero ? "col-span-2 min-h-[124px]" : ""}`;
+interface KpiCardProps {
+  widget: ResolvedWidget;
+  /** How much room this card currently has on the bento grid (lib/kpis/footprint.ts) — the
+   * one thing that decides how much of the card's content renders. Desktop passes whatever
+   * the user last dragged/resized it to; mobile always passes {w:1,h:1}. */
+  footprint: Footprint;
+}
 
-  if (!value) {
+/** One card anatomy for every widget (frame 2A, generalized past its original fixed grid):
+ * label, value, and — footprint permitting — a delta chip, a sparkline or progress bar, and a
+ * caption. `emptyMessage` covers compute() returning null for a widget that IS configured
+ * (e.g. "Set a goal"), distinct from a position with no widget at all. */
+export function KpiCard({ widget, footprint }: KpiCardProps) {
+  const tier = resolveCardTier(footprint);
+  const { value, formatted } = widget;
+
+  if (!value || !formatted) {
     return (
-      <div className={`flex flex-col gap-[7px] rounded-[10px] border border-border bg-card ${sizing}`}>
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">{def.label}</span>
-        <span className="mt-auto text-[10.5px] leading-[1.35] text-muted-3">{def.emptyMessage ?? "No data yet"}</span>
+      <div className="flex h-full w-full flex-col gap-[7px] rounded-[10px] border border-border bg-card px-[15px] py-[13px]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">{widget.label}</span>
+        <span className="mt-auto text-[10.5px] leading-[1.35] text-muted-3">{widget.emptyMessage ?? "No data yet"}</span>
       </div>
     );
   }
 
-  const formatted = def.format(value);
-  const valueSize = hero ? 44 : compact ? 22 : 26;
-  const unitSize = hero ? 14 : compact ? 11 : 12;
-
   return (
-    <div className={`flex flex-col gap-[7px] rounded-[10px] border border-border bg-card ${sizing}`}>
+    <div className="flex h-full w-full flex-col gap-[7px] rounded-[10px] border border-border bg-card px-[15px] py-[13px]">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-muted-2">{def.label}</span>
-        {formatted.delta && <DeltaChip text={formatted.delta} tone={formatted.tone ?? "neutral"} />}
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-muted-2">{widget.label}</span>
+        {tier.showDelta && formatted.delta && <DeltaChip text={formatted.delta} tone={formatted.tone ?? "neutral"} />}
       </div>
 
       <div className="flex items-baseline gap-[4px]">
-        <span className="text-ink" style={{ fontSize: valueSize, fontWeight: 450, letterSpacing: "-0.015em", lineHeight: 1 }}>
+        <span className="text-ink" style={{ fontSize: tier.valueSize, fontWeight: 450, letterSpacing: "-0.015em", lineHeight: 1 }}>
           {formatted.primary}
         </span>
         {value.unit && (
-          <span className="text-muted-2" style={{ fontSize: unitSize }}>
+          <span className="text-muted-2" style={{ fontSize: tier.unitSize }}>
             {value.unit}
           </span>
         )}
       </div>
 
-      {def.visual === "progress" && value.progress !== undefined && (
+      {tier.showVisual && widget.visual === "progress" && value.progress !== undefined && (
         <div className="h-1.5 overflow-hidden rounded-[3px] bg-track">
           <div className="h-full rounded-[3px] bg-accent" style={{ width: `${(value.progress * 100).toFixed(1)}%` }} />
         </div>
       )}
 
-      {!compact && def.visual === "sparkline" && value.series && value.series.length >= MIN_SPARKLINE_POINTS && (
+      {tier.showSparkline && widget.visual === "sparkline" && value.series && value.series.length >= MIN_SPARKLINE_POINTS && (
         <svg width="100%" height="26" viewBox="0 0 120 26" fill="none">
           <path
             d={sparklinePath(value.series)}
@@ -93,7 +102,7 @@ export function KpiCard({ def, value, compact = false }: KpiCardProps) {
         </svg>
       )}
 
-      <span className="mt-auto line-clamp-2 text-[10.5px] leading-[1.35] text-muted-2">{value.sub}</span>
+      {tier.showSub && <span className="mt-auto line-clamp-2 text-[10.5px] leading-[1.35] text-muted-2">{value.sub}</span>}
     </div>
   );
 }

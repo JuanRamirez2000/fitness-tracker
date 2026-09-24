@@ -8,7 +8,6 @@ const SPARKLINE_POINTS = 30;
 export const todaysWeight: KpiDefinition = {
   id: "todays-weight",
   label: "Today's weight",
-  hero: true,
   visual: "sparkline",
   emptyMessage: "Log today's weight",
   compute(data: DashboardData): KpiValue | null {

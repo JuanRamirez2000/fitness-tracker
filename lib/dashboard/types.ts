@@ -131,8 +131,6 @@ export interface KpiValue {
 export interface KpiDefinition {
   id: string;
   label: string;
-  /** The hero card spans 2 grid columns (frame 2A); only todaysWeight sets this. */
-  hero?: boolean;
   visual?: "sparkline" | "progress" | "none";
   /** PURE, unit-tested. null = the empty state ("Set a goal", no shot ever logged, etc). */
   compute(data: DashboardData): KpiValue | null;
@@ -143,4 +141,12 @@ export interface KpiDefinition {
    * KpiDefinition at all, which is generic and unlabeled — see KpiGrid.
    */
   emptyMessage?: string;
+}
+
+/** Wraps a KpiDefinition with the bento grid's own concern — compute()/format() stay pure
+ * data-shaping, untouched by layout. defaultFootprint seeds defaultDashboardLayout() and
+ * whatever a hidden widget re-appears at via "+ Add widget" (lib/dashboard/widget-layout.ts). */
+export interface WidgetDefinition {
+  kpi: KpiDefinition;
+  defaultFootprint: { w: 1 | 2; h: 1 | 2 };
 }

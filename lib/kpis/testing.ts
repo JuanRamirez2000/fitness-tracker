@@ -19,6 +19,7 @@ export function testProfile(over: Partial<Profile> = {}): Profile {
     shot_weekday: 4,
     steps_goal: 10000,
     calorie_target_kcal: null,
+    dashboard_layout: null,
     ...over,
   };
 }
