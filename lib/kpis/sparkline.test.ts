@@ -27,4 +27,12 @@ describe("sparklinePath", () => {
   it("is stable for the same input", () => {
     expect(sparklinePath([1, 5, 2, 8, 3])).toBe(sparklinePath([1, 5, 2, 8, 3]));
   });
+
+  it("scales to a taller viewBox when a custom height is passed, for bigger bento-grid cards", () => {
+    expect(sparklinePath([], 90)).toBe("M2 87 L118 87");
+    const path = sparklinePath([0, 10], 90);
+    const [, start, , end] = path.split(" ");
+    expect(Number(start)).toBeGreaterThan(Number(end));
+    expect(Number(start)).toBeLessThanOrEqual(87); // fits within the taller viewBox
+  });
 });

@@ -83,15 +83,15 @@ export function KpiCard({ widget, footprint }: KpiCardProps) {
       </div>
 
       {tier.showVisual && widget.visual === "progress" && value.progress !== undefined && (
-        <div className="h-1.5 overflow-hidden rounded-[3px] bg-track">
+        <div className="overflow-hidden rounded-[3px] bg-track" style={{ height: tier.progressBarHeight }}>
           <div className="h-full rounded-[3px] bg-accent" style={{ width: `${(value.progress * 100).toFixed(1)}%` }} />
         </div>
       )}
 
       {tier.showSparkline && widget.visual === "sparkline" && value.series && value.series.length >= MIN_SPARKLINE_POINTS && (
-        <svg width="100%" height="26" viewBox="0 0 120 26" fill="none">
+        <svg width="100%" height={tier.sparklineHeight} viewBox={`0 0 120 ${tier.sparklineHeight}`} fill="none">
           <path
-            d={sparklinePath(value.series)}
+            d={sparklinePath(value.series, tier.sparklineHeight)}
             className="stroke-accent"
             strokeWidth={1.4}
             strokeLinejoin="round"
