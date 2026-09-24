@@ -146,33 +146,58 @@ describe("hasOverlap", () => {
 describe("resolveMove", () => {
   it("stands as-is when the moved item lands on an empty cell", () => {
     const merged = [item({ i: "a", x: 3, y: 1 }), item({ i: "b", x: 0, y: 0 })];
-    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, true);
+    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, "drag");
     expect(resolved).toEqual(merged);
   });
 
-  it("swaps a drag onto exactly one occupied cell, giving it the mover's old position", () => {
+  it("drag: swaps onto exactly one occupied cell, giving it the mover's old position", () => {
     // "a" dragged from (0,0) onto "b" at (1,0) — both 1x1, a clean swap.
     const merged = [item({ i: "a", x: 1, y: 0 }), item({ i: "b", x: 1, y: 0 })];
-    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, true)!;
+    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, "drag")!;
     expect(resolved.find((i) => i.i === "a")).toMatchObject({ x: 1, y: 0 });
     expect(resolved.find((i) => i.i === "b")).toMatchObject({ x: 0, y: 0 });
     expect(hasOverlap(resolved)).toBe(false);
   });
 
-  it("rejects a swap when the displaced item's own footprint doesn't fit the mover's old spot", () => {
-    // "a" (1x1) dragged from the grid's bottom-right corner onto "b" (2x2) — b can't fit back
-    // into that corner without going out of bounds (only a 1x1-sized gap is actually there).
+  it("drag: falls through to shifting the collider elsewhere when the swap itself doesn't fit", () => {
+    // "a" (1x1) dragged from the grid's bottom-right corner onto "b" (2x2) — b can't swap back
+    // into that corner (only a 1x1-sized gap is actually there), but the grid otherwise has
+    // plenty of room, so b relocates instead of the whole drag being rejected.
     const merged = [item({ i: "a", x: 2, y: 0, w: 1, h: 1 }), item({ i: "b", x: 2, y: 0, w: 2, h: 2 })];
-    expect(resolveMove(merged, "a", { x: GRID_COLS - 1, y: GRID_ROWS - 1 }, true)).toBeNull();
+    const resolved = resolveMove(merged, "a", { x: GRID_COLS - 1, y: GRID_ROWS - 1 }, "drag")!;
+    expect(resolved).not.toBeNull();
+    expect(resolved.find((i) => i.i === "a")).toMatchObject({ x: 2, y: 0, w: 1, h: 1 });
+    expect(hasOverlap(resolved)).toBe(false);
   });
 
-  it("rejects a drag that would collide with more than one item at once", () => {
+  it("drag: shifts every collider to its own open slot when it hits more than one item at once", () => {
     const merged = [item({ i: "a", x: 0, y: 0, w: 2, h: 1 }), item({ i: "b", x: 0, y: 0 }), item({ i: "c", x: 1, y: 0 })];
-    expect(resolveMove(merged, "a", { x: 4, y: 2 }, true)).toBeNull();
+    const resolved = resolveMove(merged, "a", { x: 4, y: 2 }, "drag")!;
+    expect(resolved).not.toBeNull();
+    expect(resolved.find((i) => i.i === "a")).toMatchObject({ x: 0, y: 0, w: 2, h: 1 });
+    expect(hasOverlap(resolved)).toBe(false);
   });
 
-  it("rejects any collision on a resize, even a clean 1:1 one — resizing only claims empty space", () => {
+  it("resize: shifts a colliding widget elsewhere rather than swapping — growing claims empty space", () => {
     const merged = [item({ i: "a", x: 0, y: 0, w: 2, h: 1 }), item({ i: "b", x: 1, y: 0 })];
-    expect(resolveMove(merged, "a", { x: 0, y: 0 }, false)).toBeNull();
+    const resolved = resolveMove(merged, "a", { x: 0, y: 0 }, "resize")!;
+    expect(resolved).not.toBeNull();
+    expect(resolved.find((i) => i.i === "a")).toMatchObject({ x: 0, y: 0, w: 2, h: 1 });
+    expect(resolved.find((i) => i.i === "b")).not.toMatchObject({ x: 1, y: 0 }); // moved somewhere else
+    expect(hasOverlap(resolved)).toBe(false);
+  });
+
+  it("returns null when the grid is genuinely full and a displaced widget has nowhere to go", () => {
+    // Every one of the 18 cells is occupied; "a" grows from (0,0) 1x1 into (1,0), displacing
+    // "b" — with zero free cells anywhere else, there is nowhere for b to shift to.
+    const others: WidgetLayoutItem[] = [];
+    for (let y = 0; y < GRID_ROWS; y++) {
+      for (let x = 0; x < GRID_COLS; x++) {
+        if (x === 0 && y === 0) continue; // "a" itself
+        others.push(item({ i: `${x}-${y}`, x, y, w: 1, h: 1 }));
+      }
+    }
+    const merged = [item({ i: "a", x: 0, y: 0, w: 2, h: 1 }), ...others];
+    expect(resolveMove(merged, "a", { x: 0, y: 0 }, "resize")).toBeNull();
   });
 });

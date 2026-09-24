@@ -98,35 +98,51 @@ export function applyItemMove(layout: WidgetLayoutItem[], id: string, next: { x:
 
 /**
  * Resolves the single moved/resized item against everything else after a drag or resize
- * gesture (`merged` = applyItemMove(layout, movedId, ...) — this is where "swap" lives.
+ * gesture (`merged` = applyItemMove(layout, movedId, ...)).
  *
  * - No collision: the move stands as-is.
- * - Dragging (allowSwap=true) onto exactly one other item: that item trades places, taking
- *   the mover's OLD position — a real swap, not a shove — but only if it actually fits there
- *   (a 2x2 can't swap into a spot a 1x1 vacated). Colliding with more than one item at once,
- *   or a swap that doesn't fit, has no clean resolution and is rejected.
- * - Resizing (allowSwap=false) into any occupied cell is always rejected: growing a card is
- *   "claim empty space," not "trade places," so there's no natural partner to swap with.
+ * - Dragging ("drag" mode) onto exactly one other item, where that item's own footprint
+ *   fits back into the mover's OLD spot: a real swap, trading places.
+ * - Anything else that collides — a drag onto more than one item, a drag whose swap doesn't
+ *   fit, or ANY resize (growing a card is "claim empty space," not "trade places," so there's
+ *   no single natural swap partner) — shifts every colliding widget to its own first open
+ *   slot elsewhere on the grid, in registry order, each avoiding the mover and every widget
+ *   already placed (including ones already shifted earlier in the same gesture). This is what
+ *   makes a resize actually make room instead of just bouncing off occupied cells.
  *
- * Returns null when the gesture has no valid resolution — the caller leaves state untouched,
- * which snaps the drag/resize back to its last valid position (react-grid-layout is fully
- * controlled by the `layout` prop, so an unchanged prop is what makes it visually revert).
+ * Returns null only when even shifting has no valid resolution (the grid is genuinely too
+ * full to make room) — the caller then leaves state untouched, which snaps the drag/resize
+ * back to its last valid position (react-grid-layout is fully controlled by the `layout`
+ * prop, so an unchanged prop is what makes it visually revert).
  */
-export function resolveMove(merged: WidgetLayoutItem[], movedId: string, oldPos: { x: number; y: number }, allowSwap: boolean): WidgetLayoutItem[] | null {
+export function resolveMove(merged: WidgetLayoutItem[], movedId: string, oldPos: { x: number; y: number }, mode: "drag" | "resize"): WidgetLayoutItem[] | null {
   const moved = merged.find((item) => item.i === movedId);
   if (!moved) return merged;
 
   const others = visibleItems(merged).filter((item) => item.i !== movedId);
   const colliders = others.filter((item) => overlaps(moved, item));
   if (colliders.length === 0) return merged;
-  if (!allowSwap || colliders.length !== 1) return null;
 
-  const [collider] = colliders;
-  const swapped = { ...collider, x: oldPos.x, y: oldPos.y };
-  if (!inBounds(swapped)) return null;
-  if (others.some((item) => item.i !== collider.i && overlaps(swapped, item))) return null;
+  if (mode === "drag" && colliders.length === 1) {
+    const [collider] = colliders;
+    const swapped = { ...collider, x: oldPos.x, y: oldPos.y };
+    if (inBounds(swapped) && !others.some((item) => item.i !== collider.i && overlaps(swapped, item))) {
+      return merged.map((item) => (item.i === collider.i ? swapped : item));
+    }
+    // The swap itself doesn't fit (e.g. a 2x2 landing where only a 1x1 fits back) — fall
+    // through to shifting the collider elsewhere instead of rejecting outright.
+  }
 
-  return merged.map((item) => (item.i === collider.i ? swapped : item));
+  const settled = [moved, ...others.filter((item) => !colliders.includes(item))];
+  let result = merged;
+  for (const collider of colliders) {
+    const slot = findOpenSlot(settled, { w: collider.w, h: collider.h });
+    if (!slot) return null; // no room anywhere left for this one — reject the whole gesture
+    const relocated = { ...collider, x: slot.x, y: slot.y };
+    settled.push(relocated);
+    result = result.map((item) => (item.i === collider.i ? relocated : item));
+  }
+  return result;
 }
 
 /** The one-time default arrangement for an athlete who has never customized their layout —

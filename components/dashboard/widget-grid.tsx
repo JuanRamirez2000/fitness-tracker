@@ -79,11 +79,14 @@ export function WidgetGrid({
     }
   }
 
-  // Dragging onto exactly one occupied cell swaps the two widgets (resolveMove); resizing into
-  // occupied space never does (growing is "claim empty space," not "trade places"). Either way,
-  // a gesture with no valid resolution just leaves `layout` state untouched — react-grid-layout
-  // is fully controlled by that prop, so an unchanged prop is what makes the drag/resize
-  // visually snap back on its own, no error message needed for something this routine.
+  // Dragging onto exactly one occupied cell swaps the two widgets when that fits; anything
+  // else that collides — a drag onto several widgets, or any resize (growing a card is "claim
+  // empty space," not "trade places," so it never swaps) — shifts the colliding widget(s) to
+  // their own open slot instead, which is what makes a resize actually make room. See
+  // resolveMove()'s own doc comment for the full rule. A gesture with no valid resolution at
+  // all just leaves `layout` state untouched — react-grid-layout is fully controlled by that
+  // prop, so an unchanged prop is what makes the drag/resize visually snap back on its own, no
+  // error message needed for something this routine.
   //
   // Deliberately ignores react-grid-layout's own reported positions for every item except the
   // one actually being dragged/resized (applyItemMove, not a full merge): caught live that
@@ -92,20 +95,20 @@ export function WidgetGrid({
   // trusting react-grid-layout's full reported layout could hand back an overlap it introduced.
   // Only newItem's own reported position is trustworthy; everyone else is resolved by
   // resolveMove() below instead.
-  function commit(oldItem: LayoutItem | null, newItem: LayoutItem | null, allowSwap: boolean) {
+  function commit(oldItem: LayoutItem | null, newItem: LayoutItem | null, mode: "drag" | "resize") {
     if (!newItem) return;
     const merged = applyItemMove(layout, newItem.i, newItem);
-    const resolved = resolveMove(merged, newItem.i, oldItem ?? newItem, allowSwap);
+    const resolved = resolveMove(merged, newItem.i, oldItem ?? newItem, mode);
     if (!resolved || hasOverlap(resolved)) return;
     persist(resolved);
   }
 
   function handleDragStop(_rglLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null) {
-    commit(oldItem, newItem, true);
+    commit(oldItem, newItem, "drag");
   }
 
   function handleResizeStop(_rglLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null) {
-    commit(oldItem, newItem, false);
+    commit(oldItem, newItem, "resize");
   }
 
   function hide(id: string) {
