@@ -1,8 +1,6 @@
 import { cache } from "react";
-import { fetchProfile, profileSchema, type Profile } from "@/lib/data/profiles";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { fetchProfile, type Profile } from "@/lib/data/profiles";
 import { createClient } from "@/lib/supabase/server";
-import { isAuthDisabled } from "@/lib/supabase/dev-login";
 
 export interface Viewer {
   /** The signed-in person. */
@@ -18,11 +16,11 @@ export interface Viewer {
 
 /**
  * Resolves who is signed in and whose data they are looking at. Memoized per request so the
- * layout and the page can both call it.
+ * layout and the page can both call it. Always a real Supabase Auth session by this point —
+ * including under DISABLE_AUTH, where lib/supabase/session.ts's autoSignInOwner() mints one
+ * server-side before this ever runs — so this needs no bypass branch of its own.
  */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  if (isAuthDisabled()) return getOwnerViewerViaServiceRole();
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,17 +42,3 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   const athlete = link ? await fetchProfile(supabase, link.athlete_id) : null;
   return { profile, athlete };
 });
-
-/**
- * The DISABLE_AUTH path (see dev-login.ts's isAuthDisabled doc comment): no signed-in user
- * exists, so instead of resolving a session, this reads the single owner profile directly via
- * the service-role key and presents them as both the signed-in viewer and the athlete — the
- * same shape a real owner session already produces above.
- */
-async function getOwnerViewerViaServiceRole(): Promise<Viewer | null> {
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.from("profiles").select("*").eq("role", "owner").single();
-  if (error) throw error;
-  const profile = profileSchema.parse(data);
-  return { profile, athlete: profile };
-}

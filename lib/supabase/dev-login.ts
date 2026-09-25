@@ -17,16 +17,24 @@ export function devLoginCredentials(): { email: string; password: string } | nul
 
 /**
  * A SEPARATE switch from the one above, deliberately allowed in production too — the user
- * asked to be able to review the deployed app without signing in (2026-09-23), while keeping
- * the login screen and RLS-based access control intact and unremoved for whenever they want
- * it back. With DISABLE_AUTH=true: no redirect to /login (see lib/supabase/session.ts), and
- * getViewer() (lib/auth/viewer.ts) reads the owner's profile through the service-role key
- * instead of a real Supabase Auth session — no password involved anywhere in this path.
+ * asked to be able to use the deployed app without signing in (2026-09-23), read AND write,
+ * and said they don't need the data private — while keeping the login screen and RLS-based
+ * access control intact and unremoved for whenever they want it back. While the first version
+ * of this only bypassed reads (via a service-role client in place of a real session), the
+ * user then explicitly asked for writes to work too — Log today, the entries table, layout
+ * editing — none of which have a service-role equivalent since they run through the browser's
+ * own Supabase client. So DISABLE_AUTH now means something more real: with it on,
+ * lib/supabase/session.ts's autoSignInOwner() mints an actual Supabase Auth session for the
+ * owner, server-side, via the admin API — no password touched anywhere in that path (it
+ * generates and immediately verifies a magic-link token instead of ever handling one). From
+ * then on the browser has a completely normal session, so every feature — server-rendered
+ * reads and client-side writes alike — works exactly as it does for a real signed-in user,
+ * with no bypass code needed anywhere else in the app.
  *
- * This is a real, temporary widening of this app's access control, not a cosmetic toggle:
- * with it on, the deployed URL shows real data to anyone who has the link, no sign-in of any
- * kind. Turn it back off by removing DISABLE_AUTH from Vercel's project env vars (Production)
- * and redeploying — no code change either way.
+ * This is a real, deliberate widening of this app's access control, not a cosmetic toggle:
+ * with it on, the deployed URL shows real data AND accepts real edits from anyone who has the
+ * link, no sign-in of any kind. Turn it back off by removing DISABLE_AUTH from Vercel's
+ * project env vars (Production) and redeploying — no code change either way.
  */
 export function isAuthDisabled(): boolean {
   return process.env.DISABLE_AUTH === "true";

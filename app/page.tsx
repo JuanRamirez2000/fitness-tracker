@@ -8,7 +8,6 @@ import { getViewer } from "@/lib/auth/viewer";
 import { loadDashboardData } from "@/lib/dashboard/load";
 import { parseRangeParams } from "@/lib/range/url";
 import { isAuthDisabled, isLoginSkipped } from "@/lib/supabase/dev-login";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/supabase/session";
 
@@ -22,9 +21,11 @@ function firstOf(value: string | string[] | undefined): string | undefined {
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const viewer = await getViewer();
-  // proxy.ts already routes signed-out visitors to /login; this narrows the type and only
-  // lets a missing viewer through while the temporary dev login skip is on.
-  if (!viewer && !isLoginSkipped()) redirect(LOGIN_PATH);
+  // proxy.ts already routes signed-out visitors to /login and, under DISABLE_AUTH, mints a
+  // real session before this ever runs — so !viewer here should be rare. Still checked
+  // defensively (not just !isLoginSkipped()) so a transient auto-sign-in failure degrades to
+  // an empty dashboard instead of redirecting to a login page the user has no way to use.
+  if (!viewer && !isLoginSkipped() && !isAuthDisabled()) redirect(LOGIN_PATH);
 
   const rawParams = await searchParams;
   const parsedRange = parseRangeParams({
@@ -33,11 +34,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     to: firstOf(rawParams.to),
   });
 
-  // With DISABLE_AUTH on there is no real session for the cookie-bound client to run RLS as
-  // (see lib/supabase/dev-login.ts), so reads go through the service-role client instead —
-  // the same one getViewer() already used to resolve the owner above.
   const data = viewer?.athlete
-    ? await loadDashboardData(isAuthDisabled() ? createServiceRoleClient() : await createClient(), viewer.athlete, {
+    ? await loadDashboardData(await createClient(), viewer.athlete, {
         rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
         custom: parsedRange?.custom,
       })
