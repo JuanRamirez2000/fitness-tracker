@@ -27,13 +27,17 @@ function groupByDate(activities: readonly Activity[]): Map<string, Activity[]> {
   return byDate;
 }
 
-/** Not a real activity_types row — schema.sql deliberately keeps steps a numeric daily_metrics
- * value, never a loggable activity (see its own comment). This is a synthetic badge so hitting
- * the day's steps goal shows up on this card the same way a logged session would, without ever
- * writing to public.activities. Always the theme's accent, matching every other "steps goal
- * met" cell in the app (Steps mode's own "goal+" swatch, Logged mode's "weight + steps"). */
-function stepsGoalItem(accent: string): ActivityTooltipItem {
-  return { label: "Steps", color: accent, notes: "goal met" };
+const WALK_KEY = "walk";
+
+/** User's own rule: hitting the day's steps goal counts as a walk, always — alongside
+ * whatever else was logged that day, not just when nothing else was. Not a real
+ * activities row (schema.sql deliberately keeps steps a numeric daily_metrics value, never
+ * a loggable activity — see its own comment); this is computed here so it shows up
+ * wherever activity is displayed without ever writing to public.activities. Uses the real
+ * "walk" activity_type's own label/color so it reads as an actual walk, not a separate
+ * synthetic category. */
+function stepsGoalItem(walkType: ActivityType | undefined): ActivityTooltipItem {
+  return { label: walkType?.label ?? "Walk", color: walkType?.color ?? CELL_NO_DATA, notes: "steps goal met" };
 }
 
 export const ACTIVITY_MODE: HeatmapMode = {
@@ -58,7 +62,7 @@ export const ACTIVITY_MODE: HeatmapMode = {
         return { label: type?.label ?? a.activity_type, color: type?.color ?? CELL_NO_DATA, notes: a.notes };
       });
       const stepsHit = (stepsByDate.get(date)?.value ?? 0) >= goal;
-      if (stepsHit) items.push(stepsGoalItem(ctx.palette.accent));
+      if (stepsHit) items.push(stepsGoalItem(types.get(WALK_KEY)));
 
       const paint = activityPaint(items.map((item) => item.color));
 
@@ -74,9 +78,10 @@ export const ACTIVITY_MODE: HeatmapMode = {
     });
   },
   legend(ctx: ModeContext, data: DashboardData): LegendItem[] {
+    // No separate "Steps" entry: a steps-goal day now shows as the real "Walk" swatch
+    // (already listed via activityTypes below), not a distinct synthetic category.
     return [
       ...data.activityTypes.map((t) => ({ label: t.label, swatch: t.color })),
-      { label: "Steps", swatch: ctx.palette.accent },
       {
         label: "multiple",
         swatch: `linear-gradient(135deg, ${ctx.palette.accent} 0 50%, ${ctx.palette.good} 50% 100%)`,

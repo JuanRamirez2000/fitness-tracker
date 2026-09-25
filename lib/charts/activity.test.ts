@@ -44,4 +44,49 @@ describe("buildActivityWeeks", () => {
     });
     expect(buildActivityWeeks(data)[0].counts).toEqual({ swim: 0 });
   });
+
+  it("counts a day meeting the steps goal as a walk, even with no walk activity logged", () => {
+    const data = testDashboardData({
+      dateRange: { key: "week", from: "2026-09-14", to: "2026-09-14" },
+      activityTypes: [{ key: "walk", label: "Walk", color: "#14B8A6", sort_order: 0 }],
+      range: {
+        window: { from: "2026-09-14", to: "2026-09-14" },
+        nutritionDays: [],
+        activities: [],
+        steps: [{ user_id: "u", local_date: "2026-09-14", metric: "steps", value: 10_000, source: "manual", updated_at: "" }],
+      },
+    });
+    expect(buildActivityWeeks(data)[0].counts).toEqual({ walk: 1 });
+  });
+
+  it("counts steps-goal walk alongside a different real activity the same day — always, not only when nothing else logged", () => {
+    const data = testDashboardData({
+      dateRange: { key: "week", from: "2026-09-14", to: "2026-09-14" },
+      activityTypes: [
+        { key: "run", label: "Run", color: "#e08a45", sort_order: 0 },
+        { key: "walk", label: "Walk", color: "#14B8A6", sort_order: 1 },
+      ],
+      range: {
+        window: { from: "2026-09-14", to: "2026-09-14" },
+        nutritionDays: [],
+        activities: [activity("2026-09-14", "run")],
+        steps: [{ user_id: "u", local_date: "2026-09-14", metric: "steps", value: 10_000, source: "manual", updated_at: "" }],
+      },
+    });
+    expect(buildActivityWeeks(data)[0].counts).toEqual({ run: 1, walk: 1 });
+  });
+
+  it("does not count a walk when steps fall short of the goal", () => {
+    const data = testDashboardData({
+      dateRange: { key: "week", from: "2026-09-14", to: "2026-09-14" },
+      activityTypes: [{ key: "walk", label: "Walk", color: "#14B8A6", sort_order: 0 }],
+      range: {
+        window: { from: "2026-09-14", to: "2026-09-14" },
+        nutritionDays: [],
+        activities: [],
+        steps: [{ user_id: "u", local_date: "2026-09-14", metric: "steps", value: 9_999, source: "manual", updated_at: "" }],
+      },
+    });
+    expect(buildActivityWeeks(data)[0].counts).toEqual({ walk: 0 });
+  });
 });

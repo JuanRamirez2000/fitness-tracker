@@ -15,6 +15,7 @@ const STEPS_GOAL = 10_000;
 const TYPES: ActivityType[] = [
   { key: "run", label: "Run", color: "#F97316", sort_order: 1 },
   { key: "lift", label: "Lifting", color: "#A855F7", sort_order: 2 },
+  { key: "walk", label: "Walk", color: "#14B8A6", sort_order: 3 },
 ];
 
 function activity(local_date: string, over: Partial<Activity> = {}): Activity {
@@ -93,37 +94,49 @@ describe("ACTIVITY_MODE.toCells", () => {
     expect(cellOn(cells, "2026-09-21")).toMatchObject({ state: "future", fill: null });
   });
 
-  it("shows a Steps badge, solid accent, on a day the steps goal was hit with no other activity logged", () => {
+  it("counts a hit steps goal as a Walk, using the real walk type's own color, when nothing else was logged", () => {
     const cells = ACTIVITY_MODE.toCells(data([], [stepsRow("2026-09-17", STEPS_GOAL)]), ctx);
     const cell = cellOn(cells, "2026-09-17")!;
-    expect(cell).toMatchObject({ fill: DEFAULT_PALETTE.accent, secondFill: undefined, notch: undefined, state: "data" });
-    expect((cell.tooltip as ActivityTooltipData).items).toEqual([{ label: "Steps", color: DEFAULT_PALETTE.accent, notes: "goal met" }]);
+    expect(cell).toMatchObject({ fill: "#14B8A6", secondFill: undefined, notch: undefined, state: "data" });
+    expect((cell.tooltip as ActivityTooltipData).items).toEqual([{ label: "Walk", color: "#14B8A6", notes: "steps goal met" }]);
   });
 
-  it("does not add a Steps badge when steps fall short of the goal", () => {
+  it("does not count a walk when steps fall short of the goal", () => {
     const cells = ACTIVITY_MODE.toCells(data([], [stepsRow("2026-09-17", STEPS_GOAL - 1)]), ctx);
     expect(cellOn(cells, "2026-09-17")).toMatchObject({ state: "none", fill: CELL_NO_DATA });
   });
 
-  it("splits the cell between a real activity and a hit steps goal on the same day", () => {
+  it("counts the steps-goal walk alongside a different real activity on the same day — always, not only when nothing else was logged", () => {
     const cells = ACTIVITY_MODE.toCells(
       data([activity("2026-09-17", { activity_type: "run" })], [stepsRow("2026-09-17", STEPS_GOAL)]),
       ctx,
     );
     const cell = cellOn(cells, "2026-09-17")!;
     expect(cell.fill).toBe("#F97316");
-    expect(cell.secondFill).toBe(DEFAULT_PALETTE.accent);
+    expect(cell.secondFill).toBe("#14B8A6");
     expect(cell.notch).toBe(true);
     expect((cell.tooltip as ActivityTooltipData).items).toEqual([
       { label: "Run", color: "#F97316", notes: null },
-      { label: "Steps", color: DEFAULT_PALETTE.accent, notes: "goal met" },
+      { label: "Walk", color: "#14B8A6", notes: "steps goal met" },
+    ]);
+  });
+
+  it("counts the steps-goal walk alongside a REAL logged walk too — shows twice, by design (always means always)", () => {
+    const cells = ACTIVITY_MODE.toCells(
+      data([activity("2026-09-17", { activity_type: "walk", notes: "Evening walk" })], [stepsRow("2026-09-17", STEPS_GOAL)]),
+      ctx,
+    );
+    const tip = cellOn(cells, "2026-09-17")!.tooltip as ActivityTooltipData;
+    expect(tip.items).toEqual([
+      { label: "Walk", color: "#14B8A6", notes: "Evening walk" },
+      { label: "Walk", color: "#14B8A6", notes: "steps goal met" },
     ]);
   });
 });
 
 describe("ACTIVITY_MODE.legend", () => {
-  it("lists every activity type from the DB plus Steps, multiple and none", () => {
+  it("lists every activity type from the DB plus multiple and none — no separate Steps entry", () => {
     const items = ACTIVITY_MODE.legend(ctx, data([]));
-    expect(items.map((i) => i.label)).toEqual(["Run", "Lifting", "Steps", "multiple", "none"]);
+    expect(items.map((i) => i.label)).toEqual(["Run", "Lifting", "Walk", "multiple", "none"]);
   });
 });
