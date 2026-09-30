@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getViewer } from "@/lib/auth/viewer";
-import { isLoginSkipped } from "@/lib/supabase/dev-login";
+import { getRole } from "@/lib/auth/session";
 
 const OWNER = "JuanRamirez2000";
 const REPO = "fitness-tracker";
@@ -30,9 +29,8 @@ export const maxDuration = 90;
  * to just this repo with Actions: Read and write (see .env.example / the repo README).
  */
 export async function POST() {
-  const viewer = await getViewer();
-  if (!viewer && !isLoginSkipped()) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if ((await getRole()) !== "owner") {
+    return NextResponse.json({ error: "Only the owner can refresh." }, { status: 403 });
   }
 
   const token = process.env.GARMIN_REFRESH_TOKEN;

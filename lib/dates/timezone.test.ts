@@ -67,7 +67,7 @@ describe("localDateIn", () => {
     expect(localDateIn("2026-09-20T18:30:00Z", "Asia/Kolkata")).toBe("2026-09-21");
   });
 
-  it("reads Supabase timestamptz strings, including microseconds and offsets", () => {
+  it("reads Postgres timestamptz strings, including microseconds and offsets", () => {
     expect(localDateIn("2026-09-21T03:00:00.123456+00:00", LA)).toBe("2026-09-20");
     expect(localDateIn("2026-09-20T22:00:00-07:00", LA)).toBe("2026-09-20");
     expect(localDateIn("2026-09-21T09:00:00+02:00", LA)).toBe("2026-09-21");

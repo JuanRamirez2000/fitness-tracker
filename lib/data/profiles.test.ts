@@ -7,8 +7,6 @@ const VALID = {
   goal_weight_lb: 200,
   goal_pace_lb_per_week: 1,
   start_weight_lb: 232,
-  shot_weekday: 4,
-  steps_goal: 10000,
 };
 
 describe("profileSettingsSchema", () => {
@@ -20,16 +18,6 @@ describe("profileSettingsSchema", () => {
     const result = profileSettingsSchema.safeParse({ ...VALID, timezone: "Not/A_Zone" });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues[0].message).toMatch(/valid timezone/i);
-  });
-
-  it("coerces shot_weekday from a <select>'s string value", () => {
-    const result = profileSettingsSchema.safeParse({ ...VALID, shot_weekday: "4" });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.shot_weekday).toBe(4);
-  });
-
-  it("rejects a shot_weekday out of the 0-6 range even once coerced", () => {
-    expect(profileSettingsSchema.safeParse({ ...VALID, shot_weekday: "9" }).success).toBe(false);
   });
 
   it("allows the nullable goal fields to be cleared", () => {
@@ -44,10 +32,6 @@ describe("profileSettingsSchema", () => {
 
   it("rejects an empty display name", () => {
     expect(profileSettingsSchema.safeParse({ ...VALID, display_name: "  " }).success).toBe(false);
-  });
-
-  it("rejects an out-of-range steps_goal, e.g. a typo'd extra zero", () => {
-    expect(profileSettingsSchema.safeParse({ ...VALID, steps_goal: 1_000_010_000 }).success).toBe(false);
   });
 
   it("rejects a goal_weight_lb outside a realistic human weight", () => {

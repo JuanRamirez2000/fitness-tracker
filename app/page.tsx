@@ -1,15 +1,12 @@
-import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { ChartsSection } from "@/components/charts/charts-section";
+import { KpiCards } from "@/components/dashboard/kpi-cards";
+import { WeighInTable } from "@/components/dashboard/weigh-in-table";
 import { HeatmapCard } from "@/components/heatmap/heatmap-card";
-import { KpiGrid } from "@/components/dashboard/kpi-grid";
-import { DataTableSection } from "@/components/dashboard/data-table-section";
-import { getViewer } from "@/lib/auth/viewer";
+import { getRole } from "@/lib/auth/session";
 import { loadDashboardData } from "@/lib/dashboard/load";
+import { fetchOwnerProfile } from "@/lib/data/queries";
 import { parseRangeParams } from "@/lib/range/url";
-import { isAuthDisabled, isLoginSkipped } from "@/lib/supabase/dev-login";
-import { createClient } from "@/lib/supabase/server";
-import { LOGIN_PATH } from "@/lib/supabase/session";
 
 // "The last-used range is remembered in localStorage and used when the URL has none.
 // Default: month." (RangeControl applies the localStorage part client-side after mount.)
@@ -20,12 +17,18 @@ function firstOf(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
-  const viewer = await getViewer();
-  // proxy.ts already routes signed-out visitors to /login and, under DISABLE_AUTH, mints a
-  // real session before this ever runs — so !viewer here should be rare. Still checked
-  // defensively (not just !isLoginSkipped()) so a transient auto-sign-in failure degrades to
-  // an empty dashboard instead of redirecting to a login page the user has no way to use.
-  if (!viewer && !isLoginSkipped() && !isAuthDisabled()) redirect(LOGIN_PATH);
+  // proxy.ts already sends signed-out visitors to /login, so a role is always present here.
+  const role = (await getRole()) ?? "viewer";
+  const canEdit = role === "owner";
+
+  const profile = await fetchOwnerProfile();
+  if (!profile) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-5 text-sm text-muted-2">
+        No profile yet. Run `npm run db:import` (see README).
+      </main>
+    );
+  }
 
   const rawParams = await searchParams;
   const parsedRange = parseRangeParams({
@@ -33,46 +36,19 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     from: firstOf(rawParams.from),
     to: firstOf(rawParams.to),
   });
-
-  const data = viewer?.athlete
-    ? await loadDashboardData(await createClient(), viewer.athlete, {
-        rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
-        custom: parsedRange?.custom,
-      })
-    : null;
+  const data = await loadDashboardData(profile, {
+    rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
+    custom: parsedRange?.custom,
+  });
 
   return (
     <>
-      <AppHeader
-        viewer={viewer}
-        range={data?.dateRange ?? null}
-        rangeExplicit={parsedRange !== null}
-        today={data?.today ?? null}
-        quickLog={
-          data
-            ? {
-                userId: data.profile.id,
-                timezone: data.profile.timezone,
-                today: data.today,
-                activityTypes: data.activityTypes,
-                stepsGoal: data.profile.steps_goal,
-              }
-            : null
-        }
-      />
-      <main className="flex flex-1 flex-col gap-6 px-5 pt-6 pb-24 md:px-10 md:py-7">
-        {data ? (
-          <>
-            <KpiGrid data={data} />
-            <HeatmapCard data={data} />
-            <ChartsSection data={data} />
-            <DataTableSection data={data} />
-          </>
-        ) : (
-          <p className="text-sm text-muted-2">
-            {viewer ? "No athlete linked yet." : "Sign in to see the dashboard."}
-          </p>
-        )}
+      <AppHeader data={data} role={role} rangeExplicit={parsedRange !== null} />
+      <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 pt-6 pb-16 md:px-8">
+        <KpiCards data={data} />
+        <HeatmapCard data={data} />
+        <ChartsSection data={data} />
+        <WeighInTable rows={data.weighIns} today={data.today} canEdit={canEdit} />
       </main>
     </>
   );

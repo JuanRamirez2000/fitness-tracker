@@ -1,45 +1,45 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { LOGIN_PATH } from "@/lib/supabase/session";
+import { sessionSecret } from "./session";
+import { LOGIN_PATH, SESSION_COOKIE, SESSION_MAX_AGE_S, safeEqual, signToken, type Role } from "./token";
 
 export interface SignInState {
   error: string | null;
-  /** Echoed back because React resets the form after an action, which would wipe the email. */
-  email: string;
 }
 
-const credentials = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-});
+/** Which role a password unlocks: OWNER_PASSWORD edits, VIEWER_PASSWORD (optional) only reads. */
+async function roleFor(password: string): Promise<Role | null> {
+  const owner = process.env.OWNER_PASSWORD;
+  const viewer = process.env.VIEWER_PASSWORD;
+  if (!owner) throw new Error("OWNER_PASSWORD is not set. See .env.example.");
+  // Check both every time, so the response time doesn't reveal which one matched.
+  const [isOwner, isViewer] = await Promise.all([
+    safeEqual(password, owner),
+    viewer ? safeEqual(password, viewer) : Promise.resolve(false),
+  ]);
+  return isOwner ? "owner" : isViewer ? "viewer" : null;
+}
 
 export async function signIn(_previous: SignInState, formData: FormData): Promise<SignInState> {
-  const submitted = formData.get("email");
-  const email = typeof submitted === "string" ? submitted : "";
+  const password = formData.get("password");
+  if (typeof password !== "string" || password === "") return { error: "Enter the password." };
 
-  const parsed = credentials.safeParse({ email, password: formData.get("password") });
-  if (!parsed.success) return { error: "Enter your email and password.", email };
+  const role = await roleFor(password);
+  if (!role) return { error: "That password is incorrect." };
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) {
-    // One message for wrong email and wrong password, so the form never confirms an account.
-    return {
-      error:
-        error.code === "invalid_credentials"
-          ? "Email or password is incorrect."
-          : "Could not sign in. Try again.",
-      email,
-    };
-  }
+  (await cookies()).set(SESSION_COOKIE, await signToken(role, sessionSecret()), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_MAX_AGE_S,
+  });
   redirect("/");
 }
 
 export async function signOut(): Promise<void> {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  (await cookies()).delete(SESSION_COOKIE);
   redirect(LOGIN_PATH);
 }

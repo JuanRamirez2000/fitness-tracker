@@ -1,68 +1,34 @@
 import type { CSSProperties } from "react";
 import type { HeatmapCell as Cell } from "@/lib/dashboard/types";
-import type { ShotStar } from "@/lib/shots/match";
-import { starInk } from "@/lib/heatmap/star-ink";
 import { CELL_NO_DATA } from "@/lib/heatmap/colors";
 
 export const CELL_SIZE = 13;
 
-const STAR_GLYPH: Record<ShotStar["state"], string> = { taken: "★", scheduled: "☆", missed: "☆" };
-// Taken is fully opaque; scheduled and missed are hollow, and missed reads noticeably more
-// muted than an upcoming scheduled shot (frame 2A's star legend).
-const STAR_OPACITY: Record<ShotStar["state"], number> = { taken: 1, scheduled: 0.85, missed: 0.55 };
-
 interface HeatmapCellProps {
   cell: Cell;
-  star: ShotStar | undefined;
   accent: string;
   isToday: boolean;
   isProgramStart: boolean;
-  /** The active theme's real --card hex — this cell's fallback ink-contrast basis on a
-   * future/pre-program cell, which paints no solid fill of its own to check against. */
-  cardBg: string;
   onHover: (date: string | null) => void;
-  /** Omitted for a cell outside the program (future or pre-program) — those have nothing to
-   * open the day editor for. */
-  onSelect?: (date: string) => void;
 }
 
-export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, cardBg, onHover, onSelect }: HeatmapCellProps) {
-  const style: CSSProperties = {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    borderRadius: 3,
-    boxSizing: "border-box",
-    position: "relative",
-  };
+export function HeatmapCell({ cell, accent, isToday, isProgramStart, onHover }: HeatmapCellProps) {
+  const style: CSSProperties = { width: CELL_SIZE, height: CELL_SIZE, borderRadius: 3, boxSizing: "border-box" };
 
-  // starInk takes every fill actually painted, so ink stays readable on a split cell too.
-  let inkBasis = [cell.fill ?? CELL_NO_DATA, ...(cell.secondFill ? [cell.secondFill] : [])];
   if (cell.state === "pre_program") {
     style.background = "color-mix(in srgb, var(--ink) 3%, transparent)";
-    inkBasis = [cardBg];
   } else if (cell.state === "future") {
     style.background = "transparent";
     style.border = "1px dashed var(--border-strong)";
-    inkBasis = [cardBg];
-  } else if (cell.secondFill) {
-    // "Multiple" (two or more same-day activities): a diagonal split, not a blended color,
-    // so neither activity's own color is lost.
-    style.background = `linear-gradient(135deg, ${cell.fill ?? CELL_NO_DATA} 0 50%, ${cell.secondFill} 50% 100%)`;
   } else {
     style.background = cell.fill ?? CELL_NO_DATA;
   }
-  if (cell.notch) style.boxShadow = "inset -3px -3px 0 -1.4px rgba(10,12,15,0.85)";
 
   // Dimming (outside the selected range) only applies within the program; future and
   // pre-program cells already read as muted through their own dashed/faint styling.
-  if (!cell.inRange && cell.state !== "future" && cell.state !== "pre_program") {
-    style.opacity = 0.3;
-  }
-  // today's ring takes priority over the notch's inset shadow; a cell is rarely both anyway.
+  if (!cell.inRange && cell.state !== "future" && cell.state !== "pre_program") style.opacity = 0.3;
   if (isToday) style.boxShadow = `0 0 0 1.5px ${accent}`;
   if (isProgramStart) style.outline = `1.5px solid ${accent}`;
-
-  if (onSelect) style.cursor = "pointer";
 
   return (
     <div
@@ -71,35 +37,8 @@ export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, cardB
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(cell.date)}
       onBlur={() => onHover(null)}
-      onClick={onSelect ? () => onSelect(cell.date) : undefined}
-      onKeyDown={
-        onSelect
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelect(cell.date);
-              }
-            }
-          : undefined
-      }
-      role={onSelect ? "button" : undefined}
-      tabIndex={onSelect || star ? 0 : -1}
-      aria-label={onSelect ? `Edit ${cell.date}` : star ? `${cell.date}: shot ${star.state}` : undefined}
-    >
-      {star && (
-        <span
-          style={{
-            display: "block",
-            fontSize: CELL_SIZE - 4,
-            lineHeight: `${CELL_SIZE - 3}px`,
-            color: starInk(...inkBasis),
-            opacity: STAR_OPACITY[star.state],
-            textAlign: "center",
-          }}
-        >
-          {STAR_GLYPH[star.state]}
-        </span>
-      )}
-    </div>
+      tabIndex={cell.tooltip ? 0 : -1}
+      aria-label={cell.date}
+    />
   );
 }

@@ -1,109 +1,112 @@
 # Tracker
 
-A private weight and logging-consistency tracker for two people: an owner
-and a coach with full read/write parity. Not a calorie counter, not a
-medical app — it tracks weight trend, a weekly shot day, steps, activity
-and logging consistency itself, on the theory that showing up regularly
-matters as much as any single number.
+A private weight tracker for one person, with an optional read-only
+password for anyone else you want to show it to. Five numbers across the
+top, a year-long heatmap of daily weight change, a few trend charts, and a
+table of every weigh-in.
 
 ## Stack
 
-- **Next.js 16** (App Router) + **TypeScript** (strict) + **Tailwind CSS 4**
-- **Supabase** (Postgres + Auth via `@supabase/ssr`) — RLS enforces every
-  access rule; the app never re-checks permissions client-side
-- **visx** (`@visx/scale` + `@visx/shape` + `@visx/group`) for the charts
-- **TanStack Table**, **react-hook-form** + **zod**, **react-day-picker**
-- **Vitest** for unit tests
+- **Next.js 16** (App Router, React 19, Server Actions)
+- **Postgres**: [Neon](https://neon.tech)'s free tier in production, via
+  [`postgres`](https://github.com/porsager/postgres) (postgres.js).
+  Locally, [PGlite](https://pglite.dev) runs the same Postgres inside Node,
+  so there's nothing to install.
+- **Auth**: two passwords in environment variables (owner = edit,
+  viewer = read-only) and a signed, HttpOnly session cookie
+  (`lib/auth/`). No user accounts.
+- **Tailwind CSS v4**, **visx** for charts, **zod** for validation.
+
+The database is never reachable from the browser: pages read it in server
+components, writes go through server actions (`app/actions.ts`), and each
+action re-checks that the caller is the owner.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in your Supabase project's URL + publishable key
-npm run dev
+cp .env.example .env.local   # then fill in the values it describes
+npm run db:local             # terminal 1: local Postgres on port 5433
+npm run db:import -- backups/<date>   # once: schema + your data (see below)
+npm run dev                  # terminal 2: http://localhost:3000
 ```
-
-Open [http://localhost:3000](http://localhost:3000). You'll land on the
-login screen unless `DEV_SKIP_LOGIN=true` is set in `.env.local` (dev only
-— see the comments in `.env.example` and `lib/supabase/dev-login.ts`;
-production builds ignore it regardless).
 
 ### Database
 
-`supabase/schema.sql` is the single source of truth for the schema — run
-it once, in full, against a fresh Supabase project's SQL editor. It creates
-every table, RLS policy, view and trigger this app uses, including the
-`private.can_read()` helper and the `garmin_token_cache` table the Garmin
-import scripts share a login session through (see below). Two accounts
-only: an `owner` role and a `coach` role, linked via `coach_access` — both
-are set up by hand in the Supabase dashboard, not through any sign-up flow
-(new sign-ups are intentionally never allowed).
+`db/schema.sql` is the whole schema: `profiles` (one row, the owner),
+`weigh_ins`, `garmin_token_cache`, and two views (`daily_weight`,
+`weight_trend`) that do the per-day and 7-day-average math in SQL.
+
+`npm run db:import -- <folder>` applies that schema to an **empty**
+database and loads a JSON export into it (the format of the Supabase export
+in `backups/`, which is git-ignored). It reads `DATABASE_URL` from
+`.env.local`, so point that at Neon to load production, or at PGlite to
+load a local copy. It refuses to run if the tables already exist.
+
+### Deploying (Vercel + Neon)
+
+1. Create a Neon project (free tier). Copy its **pooled** connection string.
+2. Load it once, from your machine:
+   `DATABASE_URL='<neon url>' npx tsx scripts/db-import.ts backups/<date>`
+3. In the Vercel project, set `DATABASE_URL`, `OWNER_PASSWORD`,
+   `VIEWER_PASSWORD` (optional) and `SESSION_SECRET`, then redeploy.
+4. In the GitHub repo's Actions secrets, add `DATABASE_URL` for the nightly
+   Garmin job (and delete the old `SUPABASE_*` / `GARMIN_IMPORT_USER_ID`
+   secrets).
 
 ## Scripts
 
 ```bash
-npm run dev         # local dev server
+npm run dev          # local dev server
 npm run build        # production build
-npm run start         # run a production build locally
-npm run lint          # eslint
-npm run typecheck     # tsc --noEmit
-npm run test           # vitest
-npm run seed:demo -- --i-am-on-dev   # generates ~6 months of fake data for UI work — DEV projects only
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint
+npm test             # vitest (pure logic: KPIs, heatmap, charts, dates, auth tokens)
+npm run db:local     # PGlite Postgres server on :5433, data in .pglite/
+npm run db:import -- backups/<date>   # schema + data into an empty DATABASE_URL
 ```
 
 ## Real data from Garmin Connect
 
 `scripts/garmin/` is a separate Python project (its own venv) that imports
-real steps, weight and activity history from Garmin Connect via the
-unofficial [`cyberjunky/python-garminconnect`](https://github.com/cyberjunky/python-garminconnect)
-library — there is no official personal-use Garmin API. See
-`scripts/garmin/README.md` for the full setup, and
-`.github/workflows/garmin-nightly.yml` for the nightly cloud job (GitHub
-Actions, not this app, and not any one person's machine — Supabase Edge
-Functions can't run this, since they're Deno-only and this needs Python).
-In short:
+weigh-ins from Garmin Connect via the unofficial
+[`cyberjunky/python-garminconnect`](https://github.com/cyberjunky/python-garminconnect)
+library. See `scripts/garmin/README.md` for setup, and
+`.github/workflows/garmin-nightly.yml` for the nightly cloud job.
 
-- **Nightly**, automatically, in the cloud: yesterday's data.
-- **On demand**: the dashboard's "Refresh" button pulls today only.
-- Both write `source = 'garmin'` rows, idempotent by Garmin's own
-  per-record ID — safe to re-run any window at any time.
+- **Nightly**, automatically, in GitHub Actions: yesterday's weigh-ins.
+- **On demand**: the dashboard's "Refresh" button (owner only) pulls today.
+- Both write `source = 'garmin'` rows, keyed by Garmin's own per-record ID,
+  so any window is safe to re-run.
 
 ## Project structure
 
 ```
-app/                    Routes (App Router) — page.tsx is the dashboard
-components/
-  dashboard/             Data table, quick-log/day-editor sheet, KPI grid, range control
-  heatmap/                The GitHub-style activity heatmap and its per-mode tooltips
-  charts/                 The visx-based charts section
-  feature-requests/        The "Ideas queue" panel
-  ui/                      Small shared primitives (Dialog, Button, ChipRow, Segmented)
+app/
+  page.tsx                 The dashboard: cards, heatmap, charts, table
+  actions.ts               Server actions: add/edit/delete weigh-ins, settings
+  login/                   Password sign-in
+  api/garmin/refresh/      Dispatches the Garmin GitHub Actions job on demand
+components/                UI (dashboard/, heatmap/, charts/, ui/)
 lib/
-  dashboard/               DashboardData loading, the HeatmapMode/KpiDefinition/TableTab registries
-  data/                     One file per table: zod schemas + typed fetch/insert/update functions
-  dates/                    Timezone-safe local-date math (never derive a date from UTC — see lib/dates/timezone.ts)
-  heatmap/, kpis/, charts/   Pure, unit-tested functions that turn DashboardData into what each UI piece renders
-  shots/                    Matches injection rows to the weekly shot schedule
-  theme/                    Design tokens and the color-blind palette
-scripts/
-  garmin/                   The Python import tooling (see above)
-  seed-demo.ts               Generates demo data for local UI work
-supabase/schema.sql          The whole database schema, source of truth
+  auth/                    Session tokens, cookie, sign-in/out
+  data/                    zod schemas; queries.ts holds every SQL query
+  db.ts                    The Postgres connection pool
+  kpis/  heatmap/  charts/ Pure, unit-tested data shaping for each section
+  dates/  range/           Timezone-safe local dates and the range picker
+db/schema.sql              The whole database schema
+scripts/db-import.ts       Loads an export into an empty database
+scripts/garmin/            Garmin Connect importer (Python)
+proxy.ts                   Sends signed-out visitors to /login
 ```
 
 ## Design principles this codebase follows
 
-- **Registries over conditionals.** Adding a new heatmap mode, KPI card,
-  data table tab, or chart is "one new file + one line in
-  `dashboard.config.ts`" — never a change to the component that renders
-  them.
 - **`local_date` is never derived from a UTC timestamp.** Every
   timezone-sensitive calculation goes through `lib/dates/timezone.ts`,
   which converts through `Intl.DateTimeFormat` so DST is always correct.
-- **Coach and owner have equal access.** RLS grants the coach the same
-  read/write permissions as the owner on the linked athlete's data — there
-  is no read-only mode in this app.
 - **Pure logic, dumb components.** Anything that shapes data for the UI
-  (a KPI's `compute()`, a heatmap mode's `toCells()`, a chart's
-  `build*()`) is a plain, unit-tested function; components only turn that
-  output into pixels.
+  (a KPI's `compute()`, the heatmap's `toCells()`, a chart's `build*()`)
+  is a plain, unit-tested function; components only turn that output into
+  pixels.
+- **Adding a KPI card is one new file + one line** in `dashboard.config.ts`.

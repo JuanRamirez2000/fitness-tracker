@@ -4,26 +4,20 @@ import { AreaClosed, LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildWeightTrend, type WeightTrendPoint } from "@/lib/charts/weight-trend";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
-import type { ShotStarState } from "@/lib/shots/match";
 import { ChartCard } from "./chart-card";
 
 const WIDTH = 900;
 const HEIGHT = 200;
 const MARGIN = { top: 8, right: 8, bottom: 34, left: 34 };
 
-const STAR_GLYPH: Record<ShotStarState, string> = { taken: "★", scheduled: "☆", missed: "☆" };
-// Matches the heatmap's own star conventions (components/heatmap/heatmap-cell.tsx): taken is
-// fully opaque, scheduled and missed are hollow, missed reads more muted than upcoming.
-const STAR_OPACITY: Record<ShotStarState, number> = { taken: 1, scheduled: 0.85, missed: 0.55 };
-
 /**
  * The flagship chart (frame 2A "Charts"): raw daily dots, a 7-day-average line and area, a
  * goal line, a real pace line (from the account's own goal_pace_lb_per_week — the design
- * mockup hardcodes 1 lb/week, which this deliberately does not reproduce), a program-start
- * marker, and a row of shot stars. No brush/zoom: the page's own RangeControl already changes
+ * mockup hardcodes 1 lb/week, which this deliberately does not reproduce), and a program-start
+ * marker. No brush/zoom: the page's own RangeControl already changes
  * the window, and the design's brush was never wired to any interaction of its own.
  *
- * `compact` (frame 2B, mobile) drops the gridlines, dots, stars and legend down to just the
+ * `compact` (frame 2B, mobile) drops the gridlines, dots and legend down to just the
  * area + avg line + goal line, matching the design's own reduced mobile card.
  */
 export function WeightTrendChart({ data, compact = false }: { data: DashboardData; compact?: boolean }) {
@@ -59,7 +53,6 @@ export function WeightTrendChart({ data, compact = false }: { data: DashboardDat
             <Legend swatch="—" className="text-accent" label="7-day avg" />
             {chart.paceLine && <Legend swatch="┄" className="text-muted-2" label="pace" />}
             {goalInDomain && <Legend swatch="┄" className="text-good" label={`goal ${chart.goal}`} />}
-            <Legend swatch="★" className="text-accent" label="shot" />
           </>
         )
       }
@@ -130,20 +123,6 @@ export function WeightTrendChart({ data, compact = false }: { data: DashboardDat
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
-
-          {!compact &&
-            chart.stars.map((s) => (
-              <text
-                key={s.dateMs}
-                x={x(s.dateMs)}
-                y={plotHeight + 16}
-                textAnchor="middle"
-                opacity={STAR_OPACITY[s.state]}
-                className={`text-[11px] ${s.state === "missed" ? "fill-muted-2" : "fill-accent"}`}
-              >
-                {STAR_GLYPH[s.state]}
-              </text>
-            ))}
 
           {!compact && (
             <>

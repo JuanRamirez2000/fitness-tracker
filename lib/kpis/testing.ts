@@ -10,16 +10,11 @@ export function testProfile(over: Partial<Profile> = {}): Profile {
   return {
     id: USER,
     display_name: "Test Athlete",
-    role: "owner",
     timezone: "America/Los_Angeles",
     program_start_date: PROGRAM_START,
     goal_weight_lb: null,
     goal_pace_lb_per_week: null,
     start_weight_lb: null,
-    shot_weekday: 4,
-    steps_goal: 10000,
-    calorie_target_kcal: null,
-    dashboard_layout: null,
     ...over,
   };
 }
@@ -39,14 +34,12 @@ export function trendRow(over: Partial<WeightTrendRow> & { local_date: string; w
 export function testDashboardData(over: Partial<DashboardData> = {}): DashboardData {
   return {
     profile: testProfile(),
-    activityTypes: [],
     today: TODAY,
     programStart: PROGRAM_START,
     firstWeighIn: null,
     weightTrend: [],
-    injections: [],
-    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, nutritionDays: [], activities: [], steps: [] },
-    range: { window: { from: TODAY, to: TODAY }, nutritionDays: [], activities: [], steps: [] },
+    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" } },
+    weighIns: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
     ...over,
   };

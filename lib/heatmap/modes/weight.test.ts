@@ -25,14 +25,12 @@ function trend(over: Partial<WeightTrendRow> & { local_date: string; weight_lb: 
 function data(weightTrend: WeightTrendRow[]): DashboardData {
   return {
     profile: {} as DashboardData["profile"],
-    activityTypes: [],
     today: TODAY,
     programStart: PROGRAM_START,
     firstWeighIn: null,
     weightTrend,
-    injections: [],
-    heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" }, nutritionDays: [], activities: [], steps: [] },
-    range: { window: { from: TODAY, to: TODAY }, nutritionDays: [], activities: [], steps: [] },
+    heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" } },
+    weighIns: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };
 }
@@ -113,7 +111,7 @@ describe("WEIGHT_MODE.toCells", () => {
 
 describe("WEIGHT_MODE.legend", () => {
   it("has five entries and follows the active palette", () => {
-    const items = WEIGHT_MODE.legend(ctx(), data([]));
+    const items = WEIGHT_MODE.legend(ctx());
     expect(items).toHaveLength(5);
     expect(items.find((i) => i.label === "down")?.swatch).toBe(DEFAULT_PALETTE.good);
     expect(items.find((i) => i.label === "up")?.swatch).toBe(DEFAULT_PALETTE.bad);

@@ -52,3 +52,9 @@ next-env.d.ts
 /scripts/garmin/response.json
 /scripts/garmin/__pycache__/
 /scripts/garmin/import.log
+
+# Local data exports (personal data, never commit)
+backups/
+
+# Local PGlite database (npm run db:local)
+.pglite/

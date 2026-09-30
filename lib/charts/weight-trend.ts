@@ -1,6 +1,5 @@
 import type { DashboardData } from "@/lib/dashboard/types";
 import { dayStartUtcMs, diffDays } from "@/lib/dates/calendar";
-import { matchShots, type ShotStarState } from "@/lib/shots/match";
 
 /** A range has to span this many days before the goal line's own vertical position is worth
  * stretching the y-domain for — otherwise a week or month view would squash the whole chart
@@ -13,11 +12,6 @@ export interface WeightTrendPoint {
   local_date: string;
   weight: number;
   avg7: number;
-}
-
-export interface WeightTrendStar {
-  dateMs: number;
-  state: ShotStarState;
 }
 
 export interface WeightTrendLinePoint {
@@ -37,7 +31,6 @@ export interface WeightTrendChartData {
   paceLine: { start: WeightTrendLinePoint; end: WeightTrendLinePoint } | null;
   /** null when program start falls outside the visible range, so nothing is drawn off-chart. */
   programStartMs: number | null;
-  stars: WeightTrendStar[];
   fromLabel: string;
   toLabel: string;
 }
@@ -70,23 +63,12 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
   const programStartMs = dayStartUtcMs(data.programStart);
   const inRange = programStartMs >= dayStartUtcMs(from) && programStartMs <= dayStartUtcMs(to);
 
-  const stars = matchShots({
-    programStart: data.programStart,
-    shotWeekday: data.profile.shot_weekday,
-    injectionDates: data.injections.map((i) => i.local_date),
-    today: data.today,
-    through: to,
-  })
-    .filter((s) => s.date >= from && s.date <= to)
-    .map((s) => ({ dateMs: dayStartUtcMs(s.date), state: s.state }));
-
   return {
     points,
     yDomain: [yMin, yMax],
     goal,
     paceLine,
     programStartMs: inRange ? programStartMs : null,
-    stars,
     fromLabel: from,
     toLabel: to,
   };
