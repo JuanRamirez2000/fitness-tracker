@@ -1,7 +1,7 @@
 # Tracker
 
-A private weight tracker for one person, with an optional read-only
-password for anyone else you want to show it to. Five numbers across the
+A weight tracker for one person. Anyone with the link can view it; an
+owner password unlocks editing. Five numbers across the
 top, a year-long heatmap of daily weight change, a few trend charts, and a
 table of every weigh-in.
 
@@ -12,9 +12,8 @@ table of every weigh-in.
   [`postgres`](https://github.com/porsager/postgres) (postgres.js).
   Locally, [PGlite](https://pglite.dev) runs the same Postgres inside Node,
   so there's nothing to install.
-- **Auth**: two passwords in environment variables (owner = edit,
-  viewer = read-only) and a signed, HttpOnly session cookie
-  (`lib/auth/`). No user accounts.
+- **Auth**: none to view. `OWNER_PASSWORD` unlocks editing via a signed,
+  HttpOnly cookie (`lib/auth/`). No user accounts.
 - **Tailwind CSS v4**, **visx** for charts, **zod** for validation.
 
 The database is never reachable from the browser: pages read it in server
@@ -49,7 +48,7 @@ load a local copy. It refuses to run if the tables already exist.
 2. Load it once, from your machine:
    `DATABASE_URL='<neon url>' npx tsx scripts/db-import.ts backups/<date>`
 3. In the Vercel project, set `DATABASE_URL`, `OWNER_PASSWORD`,
-   `VIEWER_PASSWORD` (optional) and `SESSION_SECRET`, then redeploy.
+   and `SESSION_SECRET`, then redeploy.
 4. In the GitHub repo's Actions secrets, add `DATABASE_URL` for the nightly
    Garmin job (and delete the old `SUPABASE_*` / `GARMIN_IMPORT_USER_ID`
    secrets).
@@ -85,7 +84,7 @@ library. See `scripts/garmin/README.md` for setup, and
 app/
   page.tsx                 The dashboard: cards, heatmap, charts, table
   actions.ts               Server actions: add/edit/delete weigh-ins, settings
-  login/                   Password sign-in
+  login/                   Owner password to unlock editing
   api/garmin/refresh/      Dispatches the Garmin GitHub Actions job on demand
 components/                UI (dashboard/, heatmap/, charts/, ui/)
 lib/
@@ -97,7 +96,6 @@ lib/
 db/schema.sql              The whole database schema
 scripts/db-import.ts       Loads an export into an empty database
 scripts/garmin/            Garmin Connect importer (Python)
-proxy.ts                   Sends signed-out visitors to /login
 ```
 
 ## Design principles this codebase follows

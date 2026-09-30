@@ -13,7 +13,7 @@ const cellInput =
   "rounded-md border border-field-border bg-inset px-2 py-1 text-[12.5px] text-ink outline-none focus:border-accent";
 
 /** Weigh-ins in the selected range, newest first. The owner can add, edit and delete; the
- * viewer just sees the rows. Every change goes through a server action, which refreshes the
+ * public view just sees the rows. Every change goes through a server action, which refreshes the
  * whole page's data, so the cards, heatmap and charts update along with the table. */
 export function WeighInTable({ rows, today, canEdit }: { rows: WeighIn[]; today: LocalDate; canEdit: boolean }) {
   const [visible, setVisible] = useState(PAGE_SIZE);

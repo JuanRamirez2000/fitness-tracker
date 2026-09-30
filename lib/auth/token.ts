@@ -1,12 +1,11 @@
 // Session tokens: `<payload>.<signature>`, where payload is base64url JSON {role, exp} and
-// signature is its HMAC-SHA256 under SESSION_SECRET. Web Crypto only, so the same code runs
-// in proxy.ts and in server actions. Pure apart from the secret, which is passed in.
+// signature is its HMAC-SHA256 under SESSION_SECRET. Web Crypto only, and pure apart from the
+// secret, which is passed in. The only role is "owner": viewing needs no session at all.
 
-export const ROLES = ["owner", "viewer"] as const;
+export const ROLES = ["owner"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const SESSION_COOKIE = "session";
-export const LOGIN_PATH = "/login";
 export const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
 
 const encoder = new TextEncoder();

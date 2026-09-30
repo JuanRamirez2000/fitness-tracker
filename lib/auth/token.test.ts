@@ -5,9 +5,8 @@ const SECRET = "test-secret-that-is-at-least-32-characters-long";
 const NOW = Date.UTC(2026, 8, 29);
 
 describe("signToken / verifyToken", () => {
-  it("round-trips each role", async () => {
+  it("round-trips the owner role", async () => {
     expect(await verifyToken(await signToken("owner", SECRET, NOW), SECRET, NOW)).toBe("owner");
-    expect(await verifyToken(await signToken("viewer", SECRET, NOW), SECRET, NOW)).toBe("viewer");
   });
 
   it("rejects a token signed with a different secret", async () => {
@@ -15,9 +14,9 @@ describe("signToken / verifyToken", () => {
     expect(await verifyToken(token, `${SECRET}-rotated`, NOW)).toBeNull();
   });
 
-  it("rejects a viewer token edited to claim owner", async () => {
-    const [, signature] = (await signToken("viewer", SECRET, NOW)).split(".");
-    const forgedPayload = Buffer.from(JSON.stringify({ role: "owner", exp: NOW + 1e9 })).toString("base64url");
+  it("rejects a token whose payload was edited to extend its expiry", async () => {
+    const [, signature] = (await signToken("owner", SECRET, NOW)).split(".");
+    const forgedPayload = Buffer.from(JSON.stringify({ role: "owner", exp: NOW + 1e12 })).toString("base64url");
     expect(await verifyToken(`${forgedPayload}.${signature}`, SECRET, NOW)).toBeNull();
   });
 

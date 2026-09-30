@@ -17,9 +17,8 @@ function firstOf(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
-  // proxy.ts already sends signed-out visitors to /login, so a role is always present here.
-  const role = (await getRole()) ?? "viewer";
-  const canEdit = role === "owner";
+  // Anyone can view; only a browser that unlocked editing with OWNER_PASSWORD can change data.
+  const canEdit = (await getRole()) === "owner";
 
   const profile = await fetchOwnerProfile();
   if (!profile) {
@@ -43,7 +42,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   return (
     <>
-      <AppHeader data={data} role={role} rangeExplicit={parsedRange !== null} />
+      <AppHeader data={data} canEdit={canEdit} rangeExplicit={parsedRange !== null} />
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 pt-6 pb-16 md:px-8">
         <KpiCards data={data} />
         <HeatmapCard data={data} />
