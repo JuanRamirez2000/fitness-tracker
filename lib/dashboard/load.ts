@@ -1,5 +1,5 @@
 import type { Profile } from "@/lib/data/profiles";
-import { fetchWeighIns, fetchWeightTrend } from "@/lib/data/queries";
+import { fetchInjections, fetchWeighIns, fetchWeightTrend } from "@/lib/data/queries";
 import { firstDailyWeight, type DailyWeight } from "@/lib/data/weight-trend";
 import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
@@ -24,7 +24,7 @@ export interface LoadDashboardDataOptions {
 /** Loads everything the dashboard renders. Callers have already checked the session. */
 export async function loadDashboardData(profile: Profile, options: LoadDashboardDataOptions): Promise<DashboardData> {
   const today = todayIn(profile.timezone);
-  const weightTrend = await fetchWeightTrend(profile.id);
+  const [weightTrend, injections] = await Promise.all([fetchWeightTrend(profile.id), fetchInjections(profile.id)]);
   const firstWeighIn = firstDailyWeight(weightTrend);
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
   const dateRange = resolveRange(options.rangeKey, today, programStart, options.custom);
@@ -35,6 +35,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     programStart,
     firstWeighIn,
     weightTrend,
+    injections,
     heatmap: { window: heatmapWindow(programStart, today) },
     weighIns: await fetchWeighIns(profile.id, dateRange),
     dateRange,

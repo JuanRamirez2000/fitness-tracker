@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import type { Profile } from "@/lib/data/profiles";
 import type { WeighIn } from "@/lib/data/weigh-ins";
+import type { Injection } from "@/lib/data/injections";
 import type { DailyWeight, WeightTrendRow } from "@/lib/data/weight-trend";
 import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
@@ -26,6 +27,9 @@ export interface DashboardData {
    * seed the logging streak and weekly rate. Weigh-in counts are small at this app's scale.
    */
   weightTrend: WeightTrendRow[];
+  /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
+   * window to place a late or early star correctly at its edge. */
+  injections: Injection[];
   /** The heatmap's fixed 53-week window (lib/heatmap/window.ts), independent of dateRange. */
   heatmap: { window: DayWindow };
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */

@@ -29,6 +29,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     programStart: PROGRAM_START,
     firstWeighIn: null,
     weightTrend,
+    injections: [],
     heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" } },
     weighIns: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },

@@ -3,8 +3,9 @@
 import { refresh } from "next/cache";
 import { requireOwner } from "@/lib/auth/session";
 import { profileSettingsSchema } from "@/lib/data/profiles";
-import { deleteWeighIn, fetchOwnerProfile, insertWeighIn, updateProfile, updateWeighIn } from "@/lib/data/queries";
+import { deleteWeighIn, fetchOwnerProfile, insertWeighIn, setShot, updateProfile, updateWeighIn } from "@/lib/data/queries";
 import { weighInSchema } from "@/lib/data/weigh-ins";
+import { localDateSchema } from "@/lib/dates/calendar";
 import { defaultMeasuredAt } from "@/lib/dates/timezone";
 
 // Every write re-checks the session (server actions are public endpoints) and validates its
@@ -34,5 +35,11 @@ export async function removeWeighIn(id: string): Promise<void> {
 export async function saveSettings(values: unknown): Promise<void> {
   const profile = await ownerProfile();
   await updateProfile(profile.id, profileSettingsSchema.parse(values));
+  refresh();
+}
+
+export async function toggleShot(localDate: unknown, taken: boolean): Promise<void> {
+  const profile = await ownerProfile();
+  await setShot(profile.id, localDateSchema.parse(localDate), taken === true);
   refresh();
 }

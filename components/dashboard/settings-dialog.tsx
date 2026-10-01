@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { saveSettings } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, TextInput } from "@/components/ui/field";
+import { Field, TextInput, inputClass } from "@/components/ui/field";
 import { profileSettingsSchema, type Profile } from "@/lib/data/profiles";
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const optionalNumber = (v: FormDataEntryValue | null) => (v === null || v === "" ? null : Number(v));
 
@@ -22,6 +24,7 @@ export function SettingsDialog({ profile }: { profile: Profile }) {
       goal_weight_lb: optionalNumber(form.get("goal_weight_lb")),
       goal_pace_lb_per_week: optionalNumber(form.get("goal_pace_lb_per_week")),
       start_weight_lb: optionalNumber(form.get("start_weight_lb")),
+      shot_weekday: Number(form.get("shot_weekday")),
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Check the values and try again.");
@@ -60,6 +63,13 @@ export function SettingsDialog({ profile }: { profile: Profile }) {
           </Field>
           <Field label="Program start" htmlFor="program_start_date">
             <TextInput id="program_start_date" name="program_start_date" type="date" defaultValue={profile.program_start_date ?? ""} />
+          </Field>
+          <Field label="Shot day" htmlFor="shot_weekday">
+            <select id="shot_weekday" name="shot_weekday" defaultValue={profile.shot_weekday} className={inputClass}>
+              {WEEKDAYS.map((day, i) => (
+                <option key={day} value={i}>{day}</option>
+              ))}
+            </select>
           </Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Start lb" htmlFor="start_weight_lb">

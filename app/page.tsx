@@ -47,7 +47,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         <KpiCards data={data} />
         <HeatmapCard data={data} />
         <ChartsSection data={data} />
-        <WeighInTable rows={data.weighIns} today={data.today} canEdit={canEdit} />
+        <WeighInTable data={data} canEdit={canEdit} />
       </main>
     </>
   );

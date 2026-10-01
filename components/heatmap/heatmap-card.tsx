@@ -7,6 +7,7 @@ import { heatmapStats } from "@/lib/heatmap/caption";
 import { WEIGHT_MODE } from "@/lib/heatmap/modes/weight";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import { paletteFor } from "@/lib/theme/palette";
+import { cardBgFor } from "@/lib/theme/surfaces";
 import { useTheme } from "@/lib/theme/theme-context";
 import { HeatmapGrid } from "./heatmap-grid";
 import { HeatmapLegend } from "./heatmap-legend";
@@ -28,16 +29,16 @@ export function HeatmapCard({ data }: { data: DashboardData }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="font-serif text-[16px] md:text-[17px]">Daily weight change</span>
-          <span className="text-[12px] text-muted-2">{`Day ${stats.elapsed} · ${stats.weighIns} weigh-ins this year`}</span>
+          <span className="text-[12px] text-muted-2">{`Day ${stats.elapsed} · ${stats.weighIns} weigh-ins · ${stats.shots} shots this year`}</span>
         </div>
         <Segmented aria-label="Weight cell coloring" options={WEIGHT_SUB_MODES} value={weightSubMode} onChange={setWeightSubMode} />
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-        <HeatmapGrid data={data} mode={WEIGHT_MODE} ctx={ctx} />
+        <HeatmapGrid data={data} mode={WEIGHT_MODE} ctx={ctx} cardBg={cardBgFor(themeMode)} />
       </div>
 
-      <HeatmapLegend title="Weight change" items={WEIGHT_MODE.legend(ctx)} />
+      <HeatmapLegend title="Weight change" items={WEIGHT_MODE.legend(ctx)} accent={palette.accent} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 /**
  * Loads a Supabase export (backups/<date>/*.json) into an EMPTY Postgres database:
- * applies db/schema.sql, then copies the profile, every weigh-in and the Garmin session.
+ * applies db/schema.sql, then copies the profile, every weigh-in, every shot and the Garmin
+ * session.
  *
  *   npm run db:import -- backups/2026-09-30
  *
@@ -30,20 +31,24 @@ async function main() {
     const owner = profiles.find((p) => p.role !== "coach") ?? profiles[0];
     if (!owner) throw new Error(`No profile in ${dir}/profiles.json.`);
     const weighIns = load<Record<string, unknown>>(dir, "weigh_ins").filter((w) => w.user_id === owner.id);
+    const injections = load<Record<string, unknown>>(dir, "injections").filter((i) => i.user_id === owner.id);
     const tokens = load<{ tokens: unknown }>(dir, "garmin_token_cache");
 
     await sql.begin(async (tx) => {
       await tx.unsafe(readFileSync("db/schema.sql", "utf8"));
-      await tx`insert into profiles ${tx(owner, "id", "display_name", "timezone", "program_start_date", "goal_weight_lb", "goal_pace_lb_per_week", "start_weight_lb", "created_at")}`;
+      await tx`insert into profiles ${tx(owner, "id", "display_name", "timezone", "program_start_date", "goal_weight_lb", "goal_pace_lb_per_week", "start_weight_lb", "shot_weekday", "created_at")}`;
       const cols = ["id", "user_id", "measured_at", "local_date", "weight_lb", "source", "external_id", "created_at"] as const;
       for (let i = 0; i < weighIns.length; i += 500) {
         await tx`insert into weigh_ins ${tx(weighIns.slice(i, i + 500), ...cols)}`;
+      }
+      if (injections.length) {
+        await tx`insert into injections ${tx(injections, "id", "user_id", "local_date", "dose_mg", "notes", "created_at")}`;
       }
       if (tokens[0]) await tx`insert into garmin_token_cache (id, tokens) values (1, ${tx.json(tokens[0].tokens as never)})`;
     });
 
     const [{ count }] = await sql`select count(*)::int as count from weigh_ins`;
-    console.log(`Imported profile "${owner.display_name}", ${count} weigh-ins${tokens[0] ? ", and the Garmin session" : ""}.`);
+    console.log(`Imported profile "${owner.display_name}", ${count} weigh-ins, ${injections.length} shots${tokens[0] ? ", and the Garmin session" : ""}.`);
   } finally {
     await sql.end();
   }

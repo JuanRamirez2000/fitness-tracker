@@ -15,6 +15,7 @@ export function testProfile(over: Partial<Profile> = {}): Profile {
     goal_weight_lb: null,
     goal_pace_lb_per_week: null,
     start_weight_lb: null,
+    shot_weekday: 4,
     ...over,
   };
 }
@@ -38,6 +39,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     programStart: PROGRAM_START,
     firstWeighIn: null,
     weightTrend: [],
+    injections: [],
     heatmap: { window: { from: "2026-09-13", to: "2027-09-18" } },
     weighIns: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },

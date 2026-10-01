@@ -14,7 +14,10 @@ function connect() {
     // Neon's pooled connection string runs PgBouncer in transaction mode, which can't
     // hold named prepared statements across transactions.
     prepare: false,
-    max: 5,
+    // A localhost database is PGlite (npm run db:local), whose connection multiplexer garbles
+    // queries arriving on several connections at once ("bind message supplies 1 parameters,
+    // but prepared statement requires 0"). One connection queues them instead.
+    max: new URL(url).hostname === "localhost" ? 1 : 5,
     types: {
       date: asText(1082),
       timestamp: asText(1114),

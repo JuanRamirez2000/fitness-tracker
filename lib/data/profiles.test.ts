@@ -7,6 +7,7 @@ const VALID = {
   goal_weight_lb: 200,
   goal_pace_lb_per_week: 1,
   start_weight_lb: 232,
+  shot_weekday: 4,
 };
 
 describe("profileSettingsSchema", () => {

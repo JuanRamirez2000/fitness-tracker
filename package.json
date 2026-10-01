@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:local": "pglite-server --db=./.pglite --port=5433 --max-connections=10",
-    "db:import": "tsx --env-file=.env.local scripts/db-import.ts"
+    "db:import": "tsx --env-file=.env.local scripts/db-import.ts",
+    "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts"
   },
   "dependencies": {
     "@visx/curve": "^4.0.0",

@@ -10,6 +10,8 @@ export const profileSchema = z.object({
   goal_weight_lb: z.number().nullable(),
   goal_pace_lb_per_week: z.number().nullable(),
   start_weight_lb: z.number().nullable(),
+  /** 0 = Sunday ... 6 = Saturday: the weekday shots are scheduled on. */
+  shot_weekday: z.number().int().min(0).max(6),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -23,6 +25,7 @@ export const profileSettingsSchema = profileSchema
     goal_weight_lb: true,
     goal_pace_lb_per_week: true,
     start_weight_lb: true,
+    shot_weekday: true,
   })
   .extend({
     display_name: z.string().trim().min(1).max(80),

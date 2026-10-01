@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
+import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import { weighInRowSchema, type WeighIn, type WeighInInput } from "./weigh-ins";
 import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
@@ -13,7 +14,7 @@ import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
 export async function fetchOwnerProfile(): Promise<Profile | null> {
   const [row] = await db()`
     select id, display_name, timezone, program_start_date,
-           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb
+           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday
     from profiles order by created_at limit 1`;
   return row ? profileSchema.parse(row) : null;
 }
@@ -57,4 +58,21 @@ export async function deleteWeighIn(userId: string, id: string): Promise<void> {
 export async function fetchWeightTrend(userId: string): Promise<WeightTrendRow[]> {
   const rows = await db()`select * from weight_trend where user_id = ${userId} order by local_date`;
   return rows.map((row) => weightTrendRowSchema.parse(row));
+}
+
+/** Every shot, oldest first. About one a week, so never windowed: matching a shot to the
+ * schedule needs to see shots just outside any window too. */
+export async function fetchInjections(userId: string): Promise<Injection[]> {
+  const rows = await db()`select * from injections where user_id = ${userId} order by local_date`;
+  return rows.map((row) => injectionRowSchema.parse(row));
+}
+
+/** Marks `localDate` as a shot day, or clears it. At most one shot per day. */
+export async function setShot(userId: string, localDate: string, taken: boolean): Promise<void> {
+  if (taken) {
+    await db()`insert into injections (user_id, local_date) values (${userId}, ${localDate})
+               on conflict (user_id, local_date) do nothing`;
+  } else {
+    await db()`delete from injections where user_id = ${userId} and local_date = ${localDate}`;
+  }
 }

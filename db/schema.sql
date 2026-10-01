@@ -16,6 +16,8 @@ create table profiles (
   goal_weight_lb numeric(5,1),           -- progress-to-goal card and goal line
   goal_pace_lb_per_week numeric(3,1),    -- optional; draws a pace line when set
   start_weight_lb numeric(5,1),          -- optional override; default = first weigh-in
+  shot_weekday smallint not null default 4
+    check (shot_weekday between 0 and 6),  -- 0 = Sunday ... 4 = Thursday
   created_at timestamptz not null default now()
 );
 
@@ -34,6 +36,18 @@ create table weigh_ins (
 create index weigh_ins_user_date_idx on weigh_ins (user_id, local_date);
 create unique index weigh_ins_source_uidx
   on weigh_ins (user_id, source, external_id) where external_id is not null;
+
+-- Zepbound shots. The expected weekday is profiles.shot_weekday; a late or early shot is just
+-- a row on its actual date, and lib/shots/match.ts lines shots up with the schedule.
+create table injections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  local_date date not null,
+  dose_mg numeric(5,2),
+  notes text,
+  created_at timestamptz not null default now(),
+  unique (user_id, local_date)
+);
 
 -- The Garmin session, shared between the nightly GitHub Actions job and a local Mac
 -- (see scripts/garmin/README.md). Only the importer touches it; the app never does.

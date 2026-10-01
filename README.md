@@ -2,8 +2,9 @@
 
 A weight tracker for one person. Anyone with the link can view it; an
 owner password unlocks editing. Five numbers across the
-top, a year-long heatmap of daily weight change, a few trend charts, and a
-table of every weigh-in.
+top, a year-long heatmap of daily weight change with a ★ for each Zepbound
+shot, a few trend charts, and a table of every weigh-in shaded the same way
+as the heatmap.
 
 ## Stack
 
@@ -33,7 +34,7 @@ npm run dev                  # terminal 2: http://localhost:3000
 ### Database
 
 `db/schema.sql` is the whole schema: `profiles` (one row, the owner),
-`weigh_ins`, `garmin_token_cache`, and two views (`daily_weight`,
+`weigh_ins`, `injections` (shots), `garmin_token_cache`, and two views (`daily_weight`,
 `weight_trend`) that do the per-day and 7-day-average math in SQL.
 
 `npm run db:import -- <folder>` applies that schema to an **empty**
@@ -41,6 +42,9 @@ database and loads a JSON export into it (the format of the Supabase export
 in `backups/`, which is git-ignored). It reads `DATABASE_URL` from
 `.env.local`, so point that at Neon to load production, or at PGlite to
 load a local copy. It refuses to run if the tables already exist.
+
+A database created before a schema change needs `npm run db:migrate`, which
+applies every `db/migrations/*.sql` file. Each one is safe to re-run.
 
 ### Deploying (Vercel + Neon)
 
@@ -63,6 +67,7 @@ npm run lint         # eslint
 npm test             # vitest (pure logic: KPIs, heatmap, charts, dates, auth tokens)
 npm run db:local     # PGlite Postgres server on :5433, data in .pglite/
 npm run db:import -- backups/<date>   # schema + data into an empty DATABASE_URL
+npm run db:migrate   # apply db/migrations/*.sql to an existing DATABASE_URL
 ```
 
 ## Real data from Garmin Connect
@@ -92,8 +97,10 @@ lib/
   data/                    zod schemas; queries.ts holds every SQL query
   db.ts                    The Postgres connection pool
   kpis/  heatmap/  charts/ Pure, unit-tested data shaping for each section
+  shots/                   Lines shots up with the weekly schedule (taken / scheduled / missed)
   dates/  range/           Timezone-safe local dates and the range picker
 db/schema.sql              The whole database schema
+db/migrations/             Changes to apply to a database made before them
 scripts/db-import.ts       Loads an export into an empty database
 scripts/garmin/            Garmin Connect importer (Python)
 ```

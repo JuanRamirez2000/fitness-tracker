@@ -5,8 +5,9 @@ import { isInRange } from "./cell-state";
 export interface HeatmapStats {
   /** Days since the program started, counting the start day itself as day 1. */
   elapsed: number;
-  /** Weigh-ins within the heatmap's own 53-week window, not all-time. */
+  /** Weigh-ins and shots within the heatmap's own 53-week window, not all-time. */
   weighIns: number;
+  shots: number;
 }
 
 export function heatmapStats(data: DashboardData): HeatmapStats {
@@ -14,5 +15,6 @@ export function heatmapStats(data: DashboardData): HeatmapStats {
   return {
     elapsed: diffDays(data.today, data.programStart) + 1,
     weighIns: data.weightTrend.filter((r) => inWindow(r.local_date)).length,
+    shots: data.injections.filter((i) => inWindow(i.local_date)).length,
   };
 }

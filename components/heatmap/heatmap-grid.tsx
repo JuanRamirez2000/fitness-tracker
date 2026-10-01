@@ -5,6 +5,7 @@ import type { DashboardData, HeatmapMode, ModeContext } from "@/lib/dashboard/ty
 import { diffDays } from "@/lib/dates/calendar";
 import { monthLabels } from "@/lib/heatmap/month-labels";
 import { HEATMAP_WEEKS } from "@/lib/heatmap/window";
+import { matchShots } from "@/lib/shots/match";
 import { HeatmapCell, CELL_SIZE } from "./heatmap-cell";
 
 const GAP = 4;
@@ -15,14 +16,28 @@ export function HeatmapGrid({
   data,
   mode,
   ctx,
+  cardBg,
 }: {
   data: DashboardData;
   mode: HeatmapMode;
   ctx: ModeContext;
+  /** The active theme's real --card hex, for a star's contrast on a cell with no fill. */
+  cardBg: string;
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
 
   const cells = useMemo(() => mode.toCells(data, ctx), [data, mode, ctx]);
+
+  const starsByDate = useMemo(() => {
+    const stars = matchShots({
+      programStart: data.programStart,
+      shotWeekday: data.profile.shot_weekday,
+      injectionDates: data.injections.map((i) => i.local_date),
+      today: data.today,
+      through: data.heatmap.window.to,
+    });
+    return new Map(stars.map((s) => [s.date, s] as const));
+  }, [data]);
 
   const months = useMemo(() => monthLabels(data.heatmap.window), [data.heatmap.window]);
 
@@ -76,9 +91,11 @@ export function HeatmapGrid({
             <HeatmapCell
               key={cell.date}
               cell={cell}
+              star={starsByDate.get(cell.date)}
               accent={ctx.palette.accent}
               isToday={cell.date === data.today}
               isProgramStart={cell.date === data.programStart}
+              cardBg={cardBg}
               onHover={setHovered}
             />
           ))}
