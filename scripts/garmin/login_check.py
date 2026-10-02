@@ -98,7 +98,7 @@ def push_token_to_database() -> None:
         import psycopg
         from psycopg.types.json import Jsonb
 
-        url = (dotenv_values(ENV_FILE) if ENV_FILE.exists() else {}).get("DATABASE_URL") or os.environ.get("DATABASE_URL")
+        url = os.environ.get("DATABASE_URL") or (dotenv_values(ENV_FILE) if ENV_FILE.exists() else {}).get("DATABASE_URL")
         if not url:
             return
         tokens = json.loads(TOKEN_FILE.read_text())

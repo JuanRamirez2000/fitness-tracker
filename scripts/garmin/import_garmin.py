@@ -66,11 +66,11 @@ REQUIRED_CONFIG = ("DATABASE_URL",)
 
 
 def load_config() -> dict[str, str]:
-    # Locally, .env.local (gitignored) has this. In CI there is no such file — the GitHub
-    # Actions workflow injects it as a real environment variable instead, from a repo secret.
+    # A real environment variable wins (CI's repo secret, or a one-off
+    # `DATABASE_URL=... python import_garmin.py`); .env.local (gitignored) is the fallback.
     values = dict(dotenv_values(ENV_FILE)) if ENV_FILE.exists() else {}
     for key in REQUIRED_CONFIG:
-        if not values.get(key) and os.environ.get(key):
+        if os.environ.get(key):
             values[key] = os.environ[key]
     missing = [k for k in REQUIRED_CONFIG if not values.get(k)]
     if missing:
@@ -81,20 +81,21 @@ def load_config() -> dict[str, str]:
     return values
 
 
-def pull_cached_token(conn: psycopg.Connection) -> None:
-    """Before login: if there's no local token file yet (a fresh GitHub Actions runner,
-    every time — it has no persistent disk between runs), restore the last-known-good one
-    from garmin_token_cache. A Mac that already has a local token keeps using it as-is,
-    rather than risking clobbering a fresher local session with a stale remote one."""
-    if TOKEN_FILE.exists():
-        return
+def pull_cached_token(conn: psycopg.Connection, replace: bool = False) -> bool:
+    """Restore the session saved in garmin_token_cache to the local token file. Without
+    `replace`, only when there is no local file yet (a fresh GitHub Actions runner, every
+    time); a Mac that already has one keeps it rather than risk clobbering a fresher local
+    session. Returns whether it wrote the file."""
+    if TOKEN_FILE.exists() and not replace:
+        return False
     row = conn.execute("select tokens from garmin_token_cache where id = 1").fetchone()
     if not row:
-        return
+        return False
     TOKEN_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     TOKEN_FILE.write_text(json.dumps(row[0]))
     TOKEN_FILE.chmod(0o600)
     print(f"  restored a cached Garmin session from the database to {TOKEN_FILE}")
+    return True
 
 
 def push_cached_token(conn: psycopg.Connection) -> None:
@@ -111,14 +112,25 @@ def push_cached_token(conn: psycopg.Connection) -> None:
     conn.commit()
 
 
-def login_garmin(conn: psycopg.Connection) -> Garmin:
-    pull_cached_token(conn)
+def try_login() -> Garmin | None:
     try:
         client = Garmin()
         client.login(str(TOKEN_DIR))
+        return client
     except GarminConnectTooManyRequestsError as err:
         sys.exit(f"Garmin rate-limited this request: {err}")
     except (GarminConnectAuthenticationError, GarminConnectConnectionError):
+        return None
+
+
+def login_garmin(conn: psycopg.Connection) -> Garmin:
+    pull_cached_token(conn)
+    client = try_login()
+    # The local file can go stale: whenever the nightly job refreshes the session, the old
+    # refresh token stops working. The database always holds the newest one, so retry with it.
+    if client is None and pull_cached_token(conn, replace=True):
+        client = try_login()
+    if client is None:
         sys.exit(
             "No valid Garmin login found (checked the local cache and garmin_token_cache). "
             "Run this once, by hand, in your own terminal:\n"
