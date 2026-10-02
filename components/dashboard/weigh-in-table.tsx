@@ -7,6 +7,7 @@ import { weighInSchema } from "@/lib/data/weigh-ins";
 import { fmtDate } from "@/lib/dates/format";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { starInk } from "@/lib/heatmap/star-ink";
+import { STEPS_GOAL } from "@/lib/data/steps";
 import { signed } from "@/lib/kpis/format";
 import { dayHeat, type HeatValue } from "@/lib/table/heat";
 import { paletteFor } from "@/lib/theme/palette";
@@ -41,12 +42,13 @@ export function WeighInTable({
   data,
   canEdit,
 }: {
-  data: Pick<DashboardData, "weighIns" | "weightTrend" | "injections" | "today">;
+  data: Pick<DashboardData, "weighIns" | "weightTrend" | "injections" | "steps" | "today">;
   canEdit: boolean;
 }) {
   const { weighIns: rows, today } = data;
   const { mode } = useTheme();
   const heat = useMemo(() => dayHeat(data.weightTrend, paletteFor(mode)), [data.weightTrend, mode]);
+  const stepsByDay = useMemo(() => new Map(data.steps.map((s) => [s.local_date, s.steps] as const)), [data.steps]);
   const shotDays = useMemo(() => new Set(data.injections.map((i) => i.local_date)), [data.injections]);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export function WeighInTable({
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-divider">
-              {["Date", "Weight", "Change", "7-day avg", "Shot", "Source"].map((h) => (
+              {["Date", "Weight", "Change", "7-day avg", "Steps", "Shot", "Source"].map((h) => (
                 <th key={h} className={`${cellPad} font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-2`}>
                   {h}
                 </th>
@@ -128,7 +130,7 @@ export function WeighInTable({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-[12px] text-muted-2">
+                <td colSpan={8} className="px-4 py-6 text-center text-[12px] text-muted-2">
                   Nothing logged in this range yet.
                 </td>
               </tr>
@@ -136,9 +138,10 @@ export function WeighInTable({
             {shown.map((row) => {
               const day = heat.get(row.local_date);
               const shot = shotDays.has(row.local_date);
+              const steps = stepsByDay.get(row.local_date);
               return editingId === row.id ? (
                 <tr key={row.id} className="border-b border-divider/60">
-                  <td colSpan={7} className="px-4 py-2 md:px-6">
+                  <td colSpan={8} className="px-4 py-2 md:px-6">
                     <form
                       className="flex flex-wrap items-center gap-2"
                       onSubmit={(e) => {
@@ -169,6 +172,9 @@ export function WeighInTable({
                   <HeatCell heat={day?.raw}>{row.weight_lb.toFixed(1)}</HeatCell>
                   <HeatCell heat={day?.raw}>{day?.raw.deltaLb == null ? "—" : signed(day.raw.deltaLb)}</HeatCell>
                   <HeatCell heat={day?.avg7}>{day ? day.avg7.avg7Lb.toFixed(1) : "—"}</HeatCell>
+                  <td className={`${cellPad} text-right text-[12.5px] tabular-nums ${steps !== undefined && steps >= STEPS_GOAL ? "text-accent" : "text-muted-2"}`}>
+                    {steps === undefined ? "—" : steps.toLocaleString("en-US")}
+                  </td>
                   <td className={`${cellPad} text-[13px]`}>
                     {canEdit ? (
                       <button

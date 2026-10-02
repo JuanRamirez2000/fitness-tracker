@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
+import { dailyStepsRowSchema, type DailySteps } from "./steps";
 import { weighInRowSchema, type WeighIn, type WeighInInput } from "./weigh-ins";
 import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
 
@@ -75,4 +76,13 @@ export async function setShot(userId: string, localDate: string, taken: boolean)
   } else {
     await db()`delete from injections where user_id = ${userId} and local_date = ${localDate}`;
   }
+}
+
+/** Each day's step count inside `range`, oldest first. Days with no row had no data. */
+export async function fetchSteps(userId: string, range: DayWindow): Promise<DailySteps[]> {
+  const rows = await db()`
+    select * from daily_steps
+    where user_id = ${userId} and local_date between ${range.from} and ${range.to}
+    order by local_date`;
+  return rows.map((row) => dailyStepsRowSchema.parse(row));
 }

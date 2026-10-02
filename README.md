@@ -3,8 +3,8 @@
 A weight tracker for one person. Anyone with the link can view it; an
 owner password unlocks editing. Five numbers across the
 top, a year-long heatmap of daily weight change with a ★ for each Zepbound
-shot, a few trend charts, and a table of every weigh-in shaded the same way
-as the heatmap.
+shot, a few trend charts (including daily steps against a 10k line), and a
+table of every weigh-in shaded the same way as the heatmap.
 
 ## Stack
 
@@ -34,7 +34,7 @@ npm run dev                  # terminal 2: http://localhost:3000
 ### Database
 
 `db/schema.sql` is the whole schema: `profiles` (one row, the owner),
-`weigh_ins`, `injections` (shots), `garmin_token_cache`, and two views (`daily_weight`,
+`weigh_ins`, `injections` (shots), `daily_steps`, `garmin_token_cache`, and two views (`daily_weight`,
 `weight_trend`) that do the per-day and 7-day-average math in SQL.
 
 `npm run db:import -- <folder>` applies that schema to an **empty**
@@ -73,12 +73,12 @@ npm run db:migrate   # apply db/migrations/*.sql to an existing DATABASE_URL
 ## Real data from Garmin Connect
 
 `scripts/garmin/` is a separate Python project (its own venv) that imports
-weigh-ins from Garmin Connect via the unofficial
+weigh-ins and daily steps from Garmin Connect via the unofficial
 [`cyberjunky/python-garminconnect`](https://github.com/cyberjunky/python-garminconnect)
 library. See `scripts/garmin/README.md` for setup, and
 `.github/workflows/garmin-nightly.yml` for the nightly cloud job.
 
-- **Nightly**, automatically, in GitHub Actions: yesterday's weigh-ins.
+- **Nightly**, automatically, in GitHub Actions: yesterday's weigh-ins and steps.
 - **On demand**: the dashboard's "Refresh" button (owner only) pulls today.
 - Both write `source = 'garmin'` rows, keyed by Garmin's own per-record ID,
   so any window is safe to re-run.

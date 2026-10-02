@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import type { Profile } from "@/lib/data/profiles";
+import type { DailySteps } from "@/lib/data/steps";
 import type { WeighIn } from "@/lib/data/weigh-ins";
 import type { Injection } from "@/lib/data/injections";
 import type { DailyWeight, WeightTrendRow } from "@/lib/data/weight-trend";
@@ -32,6 +33,8 @@ export interface DashboardData {
   injections: Injection[];
   /** The heatmap's fixed 53-week window (lib/heatmap/window.ts), independent of dateRange. */
   heatmap: { window: DayWindow };
+  /** Each day's step count inside dateRange, oldest first, for the steps chart and table. */
+  steps: DailySteps[];
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */
   weighIns: WeighIn[];
   dateRange: DateRange;

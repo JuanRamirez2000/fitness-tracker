@@ -12,6 +12,7 @@ function data(over: Partial<DashboardData>): DashboardData {
     injections: [],
     heatmap: { window: { from: "2026-09-13", to: "2027-09-18" } },
     weighIns: [],
+    steps: [],
     dateRange: { key: "week", from: "2026-09-20", to: "2026-09-20" },
     ...over,
   };

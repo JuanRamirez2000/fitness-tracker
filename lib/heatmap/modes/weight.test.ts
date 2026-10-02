@@ -32,6 +32,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     injections: [],
     heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" } },
     weighIns: [],
+    steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };
 }

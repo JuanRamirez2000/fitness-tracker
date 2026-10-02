@@ -49,6 +49,17 @@ create table injections (
   unique (user_id, local_date)
 );
 
+-- One row per day: that day's step count (from Garmin). Keyed by day, so a re-import of the
+-- same day overwrites rather than duplicating.
+create table daily_steps (
+  user_id uuid not null references profiles(id) on delete cascade,
+  local_date date not null,
+  steps int not null check (steps >= 0),
+  source text not null default 'manual' check (source in ('manual', 'garmin', 'apple_health')),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, local_date)
+);
+
 -- The Garmin session, shared between the nightly GitHub Actions job and a local Mac
 -- (see scripts/garmin/README.md). Only the importer touches it; the app never does.
 create table garmin_token_cache (

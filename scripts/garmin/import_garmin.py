@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Garmin Connect import: weigh-ins (body composition), upserted into Postgres
-as source='garmin' rows.
+"""Garmin Connect import: weigh-ins (body composition) and daily step counts,
+upserted into Postgres as source='garmin' rows.
 
 Three ways this runs:
   - Nightly, in the cloud (GitHub Actions, .github/workflows/garmin-nightly.yml):
@@ -12,8 +12,9 @@ Three ways this runs:
   - By hand, for a backfill: `--days N` for any other trailing window.
 
 Idempotent: weigh_ins_source_uidx (db/schema.sql) is unique on
-(user_id, source, external_id), so re-running a day it already imported
-just overwrites with the same values.
+(user_id, source, external_id), and daily_steps is keyed by
+(user_id, local_date), so re-running a day it already imported just
+overwrites with the same values.
 
 Garmin login session: cached tokens are pulled from and pushed back to the
 garmin_token_cache table before and after every run, not just read from the
@@ -131,6 +132,20 @@ def fetch_body(garmin: Garmin, start: date, end: date) -> dict:
     return garmin.get_body_composition(start.isoformat(), end.isoformat())
 
 
+def fetch_steps(garmin: Garmin, start: date, end: date) -> list:
+    return garmin.get_daily_steps(start.isoformat(), end.isoformat())
+
+
+def build_steps_rows(user_id: str, steps: list) -> list[dict]:
+    rows = []
+    for day in steps:
+        total = day.get("totalSteps")
+        if total is None:
+            continue
+        rows.append({"user_id": user_id, "local_date": day["calendarDate"], "steps": int(total), "source": "garmin"})
+    return rows
+
+
 def build_weighin_rows(user_id: str, body: dict) -> list[dict]:
     rows = []
     for entry in body.get("dateWeightList", []):
@@ -148,6 +163,27 @@ def build_weighin_rows(user_id: str, body: dict) -> list[dict]:
             "external_id": str(entry["samplePk"]),
         })
     return rows
+
+
+def upsert_steps(conn: psycopg.Connection, rows: list[dict], dry_run: bool) -> None:
+    if not rows:
+        print("  daily_steps: nothing to write")
+        return
+    if dry_run:
+        print(f"  daily_steps: would write {len(rows)} row(s) (dry run)")
+        for row in rows[:3]:
+            print(f"    {row}")
+        return
+    with conn.cursor() as cur:
+        cur.executemany(
+            """insert into daily_steps (user_id, local_date, steps, source, updated_at)
+               values (%(user_id)s, %(local_date)s, %(steps)s, %(source)s, now())
+               on conflict (user_id, local_date)
+               do update set steps = excluded.steps, source = excluded.source, updated_at = now()""",
+            rows,
+        )
+    conn.commit()
+    print(f"  daily_steps: upserted {len(rows)} row(s)")
 
 
 def upsert_weigh_ins(conn: psycopg.Connection, rows: list[dict], dry_run: bool) -> None:
@@ -204,8 +240,10 @@ def main() -> None:
 
         garmin = login_garmin(conn)
         body = fetch_body(garmin, start, end)
-        print(f"\nFetched from Garmin: {len(body.get('dateWeightList', []))} weigh-in(s)")
+        steps = fetch_steps(garmin, start, end)
+        print(f"\nFetched from Garmin: {len(body.get('dateWeightList', []))} weigh-in(s), {len(steps)} step-day(s)")
         upsert_weigh_ins(conn, build_weighin_rows(user_id, body), args.dry_run)
+        upsert_steps(conn, build_steps_rows(user_id, steps), args.dry_run)
 
     print("\nDone.")
 

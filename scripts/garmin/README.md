@@ -1,6 +1,6 @@
 # Garmin Connect import
 
-Pulls weigh-ins (body composition) from Garmin Connect via the unofficial
+Pulls weigh-ins (body composition) and daily step counts from Garmin Connect via the unofficial
 [`cyberjunky/python-garminconnect`](https://github.com/cyberjunky/python-garminconnect)
 library and upserts them into Postgres as `source = 'garmin'` rows. It is
 never a live part of the Next.js app itself: there is no official
@@ -53,9 +53,9 @@ python import_garmin.py --dry-run       # fetch + map, print, write nothing
 ```
 
 Idempotent: weigh-ins are matched on Garmin's own per-record ID
-(`external_id`, unique per `(user_id, source)` via `weigh_ins_source_uidx`),
-so re-running any window updates existing rows in place rather than
-duplicating them.
+(`external_id`, unique per `(user_id, source)` via `weigh_ins_source_uidx`)
+and steps on their day, so re-running any window updates existing rows in
+place rather than duplicating them.
 
 ## Where each window runs
 
