@@ -31,8 +31,9 @@ export interface DashboardData {
   /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
    * window to place a late or early star correctly at its edge. */
   injections: Injection[];
-  /** The heatmap's fixed 53-week window (lib/heatmap/window.ts), independent of dateRange. */
-  heatmap: { window: DayWindow };
+  /** The heatmaps' fixed 53-week window (lib/heatmap/window.ts), independent of dateRange,
+   * and every day's steps inside it (the steps heatmap and the Steps card). */
+  heatmap: { window: DayWindow; steps: DailySteps[] };
   /** Each day's step count inside dateRange, oldest first, for the steps chart and table. */
   steps: DailySteps[];
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */
@@ -66,7 +67,7 @@ export interface ModeContext {
   weightSubMode: WeightMode;
 }
 
-export const HEATMAP_MODE_IDS = ["weight"] as const;
+export const HEATMAP_MODE_IDS = ["weight", "steps"] as const;
 export type HeatmapModeId = (typeof HEATMAP_MODE_IDS)[number];
 
 export interface HeatmapMode {

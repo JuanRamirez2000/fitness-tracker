@@ -1,6 +1,7 @@
 import type { Profile } from "@/lib/data/profiles";
 import { fetchInjections, fetchSteps, fetchWeighIns, fetchWeightTrend } from "@/lib/data/queries";
 import { firstDailyWeight, type DailyWeight } from "@/lib/data/weight-trend";
+import { isInRange } from "@/lib/heatmap/cell-state";
 import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
@@ -28,7 +29,13 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
   const firstWeighIn = firstDailyWeight(weightTrend);
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
   const dateRange = resolveRange(options.rangeKey, today, programStart, options.custom);
-  const [weighIns, steps] = await Promise.all([fetchWeighIns(profile.id, dateRange), fetchSteps(profile.id, dateRange)]);
+  const window = heatmapWindow(programStart, today);
+  // One steps query covering both the heatmap window and the selected range, split below.
+  const stepsSpan = {
+    from: dateRange.from < window.from ? dateRange.from : window.from,
+    to: dateRange.to > window.to ? dateRange.to : window.to,
+  };
+  const [weighIns, allSteps] = await Promise.all([fetchWeighIns(profile.id, dateRange), fetchSteps(profile.id, stepsSpan)]);
 
   return {
     profile,
@@ -37,8 +44,8 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     firstWeighIn,
     weightTrend,
     injections,
-    heatmap: { window: heatmapWindow(programStart, today) },
-    steps,
+    heatmap: { window, steps: allSteps.filter((s) => isInRange(s.local_date, window)) },
+    steps: allSteps.filter((s) => isInRange(s.local_date, dateRange)),
     weighIns,
     dateRange,
   };

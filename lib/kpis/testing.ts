@@ -40,7 +40,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     firstWeighIn: null,
     weightTrend: [],
     injections: [],
-    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" } },
+    heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, steps: [] },
     weighIns: [],
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },

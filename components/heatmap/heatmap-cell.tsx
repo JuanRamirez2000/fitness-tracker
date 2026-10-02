@@ -4,8 +4,6 @@ import { CELL_NO_DATA } from "@/lib/heatmap/colors";
 import { starInk } from "@/lib/heatmap/star-ink";
 import type { ShotStar } from "@/lib/shots/match";
 
-export const CELL_SIZE = 13;
-
 export const STAR_GLYPH: Record<ShotStar["state"], string> = { taken: "★", scheduled: "☆", missed: "☆" };
 // Taken is fully opaque; scheduled and missed are hollow, and missed reads noticeably more
 // muted than an upcoming scheduled shot.
@@ -23,7 +21,8 @@ interface HeatmapCellProps {
 }
 
 export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, cardBg, onHover }: HeatmapCellProps) {
-  const style: CSSProperties = { width: CELL_SIZE, height: CELL_SIZE, borderRadius: 3, boxSizing: "border-box" };
+  // Fluid: as wide as its grid column, square, and a size container so the star scales with it.
+  const style: CSSProperties = { width: "100%", aspectRatio: "1", borderRadius: 2, boxSizing: "border-box", containerType: "inline-size" };
 
   let inkBasis = cell.fill ?? CELL_NO_DATA;
   if (cell.state === "pre_program") {
@@ -57,8 +56,8 @@ export function HeatmapCell({ cell, star, accent, isToday, isProgramStart, cardB
         <span
           style={{
             display: "block",
-            fontSize: CELL_SIZE - 4,
-            lineHeight: `${CELL_SIZE - 3}px`,
+            fontSize: "85cqw",
+            lineHeight: "100cqw",
             color: starInk(inkBasis),
             opacity: STAR_OPACITY[star.state],
             textAlign: "center",

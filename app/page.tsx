@@ -2,7 +2,7 @@ import { AppHeader } from "@/components/app-header";
 import { ChartsSection } from "@/components/charts/charts-section";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { WeighInTable } from "@/components/dashboard/weigh-in-table";
-import { HeatmapCard } from "@/components/heatmap/heatmap-card";
+import { HeatmapSection } from "@/components/heatmap/heatmap-section";
 import { getRole } from "@/lib/auth/session";
 import { loadDashboardData } from "@/lib/dashboard/load";
 import { fetchOwnerProfile } from "@/lib/data/queries";
@@ -45,7 +45,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       <AppHeader data={data} canEdit={canEdit} rangeExplicit={parsedRange !== null} />
       <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 pt-6 pb-16 md:px-8">
         <KpiCards data={data} />
-        <HeatmapCard data={data} />
+        <HeatmapSection data={data} />
         <ChartsSection data={data} />
         <WeighInTable data={data} canEdit={canEdit} />
       </main>
