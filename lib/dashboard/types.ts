@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import type { Activity } from "@/lib/data/activities";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
 import type { WeighIn } from "@/lib/data/weigh-ins";
@@ -31,6 +32,9 @@ export interface DashboardData {
   /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
    * window to place a late or early star correctly at its edge. */
   injections: Injection[];
+  /** Every Garmin activity, oldest first, unbounded like weightTrend: the running KPIs compare
+   * the latest weeks against earlier ones, whatever range is selected. */
+  activities: Activity[];
   /** The heatmaps' fixed 53-week window (lib/heatmap/window.ts), independent of dateRange,
    * and every day's steps inside it (the steps heatmap and the Steps card). */
   heatmap: { window: DayWindow; steps: DailySteps[] };
@@ -67,7 +71,7 @@ export interface ModeContext {
   weightSubMode: WeightMode;
 }
 
-export const HEATMAP_MODE_IDS = ["weight", "steps"] as const;
+export const HEATMAP_MODE_IDS = ["weight", "steps", "running"] as const;
 export type HeatmapModeId = (typeof HEATMAP_MODE_IDS)[number];
 
 export interface HeatmapMode {

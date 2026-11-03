@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Garmin Connect import: weigh-ins (body composition) and daily step counts,
-upserted into Postgres as source='garmin' rows.
+"""Garmin Connect import: weigh-ins (body composition), daily step counts and
+activities (workouts), upserted into Postgres as source='garmin' rows.
 
 Three ways this runs:
   - Nightly, in the cloud (GitHub Actions, .github/workflows/garmin-nightly.yml):
@@ -9,10 +9,12 @@ Three ways this runs:
     being on at all.
   - On demand, from the app's "Refresh" button (app/api/garmin/refresh/route.ts):
     `--days 1` — today only, whenever the button is clicked.
-  - By hand, for a backfill: `--days N` for any other trailing window.
+  - By hand, for a backfill: `--days N` or `--since YYYY-MM-DD` for any other
+    window, optionally narrowed with `--only` (e.g. run history alone).
 
 Idempotent: weigh_ins_source_uidx (db/schema.sql) is unique on
-(user_id, source, external_id), and daily_steps is keyed by
+(user_id, source, external_id), activities is unique on the same three
+columns, and daily_steps is keyed by
 (user_id, local_date), so re-running a day it already imported just
 overwrites with the same values.
 
@@ -34,6 +36,7 @@ Usage:
     python import_garmin.py --yesterday     # the nightly job's own window
     python import_garmin.py --days 1        # today only (the Refresh button's call)
     python import_garmin.py --days 365      # one-off historical backfill
+    python import_garmin.py --since 2025-01-01 --only activities   # run history alone
     python import_garmin.py --dry-run       # fetch + map, print, write nothing
 """
 
@@ -63,6 +66,7 @@ TOKEN_DIR = Path("~/.garminconnect").expanduser()
 TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
 
 REQUIRED_CONFIG = ("DATABASE_URL",)
+DATASETS = ("weigh-ins", "steps", "activities")
 
 
 def load_config() -> dict[str, str]:
@@ -148,6 +152,10 @@ def fetch_steps(garmin: Garmin, start: date, end: date) -> list:
     return garmin.get_daily_steps(start.isoformat(), end.isoformat())
 
 
+def fetch_activities(garmin: Garmin, start: date, end: date) -> list:
+    return garmin.get_activities_by_date(start.isoformat(), end.isoformat())
+
+
 def build_steps_rows(user_id: str, steps: list) -> list[dict]:
     rows = []
     for day in steps:
@@ -175,6 +183,74 @@ def build_weighin_rows(user_id: str, body: dict) -> list[dict]:
             "external_id": str(entry["samplePk"]),
         })
     return rows
+
+
+def build_activity_rows(user_id: str, activities: list) -> list[dict]:
+    rows = []
+    for a in activities:
+        if not a.get("activityId") or not a.get("startTimeGMT") or not a.get("startTimeLocal"):
+            continue
+        # Garmin sends both clocks as "YYYY-MM-DD HH:MM:SS"; the local one's date is the
+        # athlete's own day, so local_date never has to be derived from UTC.
+        started_at = datetime.fromisoformat(a["startTimeGMT"]).replace(tzinfo=timezone.utc).isoformat()
+        rows.append({
+            "user_id": user_id,
+            "external_id": str(a["activityId"]),
+            "activity_type": (a.get("activityType") or {}).get("typeKey") or "other",
+            "name": a.get("activityName"),
+            "started_at": started_at,
+            "local_date": a["startTimeLocal"][:10],
+            "duration_s": a.get("duration") or 0,
+            "moving_duration_s": a.get("movingDuration"),
+            "distance_m": a.get("distance"),
+            "elevation_gain_m": a.get("elevationGain"),
+            "avg_speed_mps": a.get("averageSpeed"),
+            "avg_grade_adjusted_speed_mps": a.get("avgGradeAdjustedSpeed"),
+            "avg_hr": round(a["averageHR"]) if a.get("averageHR") else None,
+            "max_hr": round(a["maxHR"]) if a.get("maxHR") else None,
+            "avg_cadence_spm": a.get("averageRunningCadenceInStepsPerMinute"),
+            "avg_stride_cm": a.get("avgStrideLength"),
+            "avg_ground_contact_ms": a.get("avgGroundContactTime"),
+            "calories": round(a["calories"]) if a.get("calories") else None,
+            "aerobic_training_effect": a.get("aerobicTrainingEffect"),
+            "training_effect_label": a.get("trainingEffectLabel"),
+            "training_load": a.get("activityTrainingLoad"),
+            "vo2max": round(a["vO2MaxValue"]) if a.get("vO2MaxValue") else None,
+            "fastest_mile_s": a.get("fastestSplit_1609"),
+        })
+    return rows
+
+
+ACTIVITY_COLUMNS = (
+    "activity_type", "name", "started_at", "local_date", "duration_s", "moving_duration_s", "distance_m",
+    "elevation_gain_m", "avg_speed_mps", "avg_grade_adjusted_speed_mps", "avg_hr", "max_hr", "avg_cadence_spm",
+    "avg_stride_cm", "avg_ground_contact_ms", "calories", "aerobic_training_effect", "training_effect_label",
+    "training_load", "vo2max", "fastest_mile_s",
+)
+
+
+def upsert_activities(conn: psycopg.Connection, rows: list[dict], dry_run: bool) -> None:
+    if not rows:
+        print("  activities: nothing to write")
+        return
+    if dry_run:
+        print(f"  activities: would write {len(rows)} row(s) (dry run)")
+        for row in rows[:3]:
+            print(f"    {row}")
+        return
+    columns = ", ".join(ACTIVITY_COLUMNS)
+    values = ", ".join(f"%({c})s" for c in ACTIVITY_COLUMNS)
+    updates = ", ".join(f"{c} = excluded.{c}" for c in ACTIVITY_COLUMNS)
+    with conn.cursor() as cur:
+        cur.executemany(
+            f"""insert into activities (user_id, source, external_id, {columns})
+                values (%(user_id)s, 'garmin', %(external_id)s, {values})
+                on conflict (user_id, source, external_id)
+                do update set {updates}, updated_at = now()""",
+            rows,
+        )
+    conn.commit()
+    print(f"  activities: upserted {len(rows)} row(s)")
 
 
 def upsert_steps(conn: psycopg.Connection, rows: list[dict], dry_run: bool) -> None:
@@ -227,6 +303,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"trailing days to re-pull, ending today (default {DEFAULT_DAYS})")
     parser.add_argument("--yesterday", action="store_true", help="just yesterday — the nightly job's own window, distinct from --days")
+    parser.add_argument("--since", type=date.fromisoformat, help="re-pull from this date (YYYY-MM-DD) through today, instead of --days")
+    parser.add_argument(
+        "--only", choices=DATASETS, action="append",
+        help="limit the import to these datasets (repeatable); e.g. a run-history backfill with "
+             "--only activities, so years-old weigh-ins never land before the program's start",
+    )
     parser.add_argument("--dry-run", action="store_true", help="fetch and map, but write nothing")
     args = parser.parse_args()
 
@@ -242,6 +324,8 @@ def main() -> None:
         today = datetime.now(ZoneInfo(tz)).date()
         if args.yesterday:
             start = end = today - timedelta(days=1)
+        elif args.since:
+            start, end = args.since, today
         else:
             start, end = today - timedelta(days=args.days - 1), today
 
@@ -250,12 +334,21 @@ def main() -> None:
         if args.dry_run:
             print("DRY RUN — nothing will be written.\n")
 
+        datasets = args.only or DATASETS
         garmin = login_garmin(conn)
-        body = fetch_body(garmin, start, end)
-        steps = fetch_steps(garmin, start, end)
-        print(f"\nFetched from Garmin: {len(body.get('dateWeightList', []))} weigh-in(s), {len(steps)} step-day(s)")
-        upsert_weigh_ins(conn, build_weighin_rows(user_id, body), args.dry_run)
-        upsert_steps(conn, build_steps_rows(user_id, steps), args.dry_run)
+        print()
+        if "weigh-ins" in datasets:
+            body = fetch_body(garmin, start, end)
+            print(f"Fetched {len(body.get('dateWeightList', []))} weigh-in(s)")
+            upsert_weigh_ins(conn, build_weighin_rows(user_id, body), args.dry_run)
+        if "steps" in datasets:
+            steps = fetch_steps(garmin, start, end)
+            print(f"Fetched {len(steps)} step-day(s)")
+            upsert_steps(conn, build_steps_rows(user_id, steps), args.dry_run)
+        if "activities" in datasets:
+            activities = fetch_activities(garmin, start, end)
+            print(f"Fetched {len(activities)} activit{'y' if len(activities) == 1 else 'ies'}")
+            upsert_activities(conn, build_activity_rows(user_id, activities), args.dry_run)
 
     print("\nDone.")
 

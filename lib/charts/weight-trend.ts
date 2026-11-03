@@ -1,5 +1,6 @@
 import type { DashboardData } from "@/lib/dashboard/types";
 import { dayStartUtcMs, diffDays } from "@/lib/dates/calendar";
+import { runsIn, runsOf } from "@/lib/running/runs";
 import { matchShots, type ShotStarState } from "@/lib/shots/match";
 
 /** A range has to span this many days before the goal line's own vertical position is worth
@@ -38,6 +39,8 @@ export interface WeightTrendChartData {
   /** null when program start falls outside the visible range, so nothing is drawn off-chart. */
   programStartMs: number | null;
   stars: WeightTrendStar[];
+  /** Each day in range with at least one run, as day-start ms, for the run tick marks. */
+  runDays: number[];
   fromLabel: string;
   toLabel: string;
 }
@@ -80,6 +83,8 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
     .filter((s) => s.date >= from && s.date <= to)
     .map((s) => ({ dateMs: dayStartUtcMs(s.date), state: s.state }));
 
+  const runDays = [...new Set(runsIn(runsOf(data.activities), data.dateRange).map((r) => r.local_date))].map(dayStartUtcMs);
+
   return {
     points,
     yDomain: [yMin, yMax],
@@ -87,6 +92,7 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
     paceLine,
     programStartMs: inRange ? programStartMs : null,
     stars,
+    runDays,
     fromLabel: from,
     toLabel: to,
   };

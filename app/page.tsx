@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { ChartsSection } from "@/components/charts/charts-section";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
+import { RunsTable } from "@/components/dashboard/runs-table";
 import { WeighInTable } from "@/components/dashboard/weigh-in-table";
 import { HeatmapSection } from "@/components/heatmap/heatmap-section";
 import { getRole } from "@/lib/auth/session";
@@ -48,6 +49,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         <HeatmapSection data={data} />
         <ChartsSection data={data} />
         <WeighInTable data={data} canEdit={canEdit} />
+        <RunsTable data={data} />
       </main>
     </>
   );

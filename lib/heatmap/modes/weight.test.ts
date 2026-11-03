@@ -30,6 +30,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     firstWeighIn: null,
     weightTrend,
     injections: [],
+    activities: [],
     heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" }, steps: [] },
     weighIns: [],
     steps: [],

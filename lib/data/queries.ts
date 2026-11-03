@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
+import { activityRowSchema, type Activity } from "./activities";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
@@ -85,4 +86,11 @@ export async function fetchSteps(userId: string, range: DayWindow): Promise<Dail
     where user_id = ${userId} and local_date between ${range.from} and ${range.to}
     order by local_date`;
   return rows.map((row) => dailyStepsRowSchema.parse(row));
+}
+
+/** Every activity, oldest first. Never windowed: a few hundred rows a year, and the running
+ * KPIs compare the latest weeks against the ones before any selected range. */
+export async function fetchActivities(userId: string): Promise<Activity[]> {
+  const rows = await db()`select * from activities where user_id = ${userId} order by started_at`;
+  return rows.map((row) => activityRowSchema.parse(row));
 }

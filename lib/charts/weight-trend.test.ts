@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testDashboardData, testProfile, trendRow } from "@/lib/kpis/testing";
+import { testDashboardData, testProfile, testRun, trendRow } from "@/lib/kpis/testing";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
 import { buildWeightTrend } from "./weight-trend";
 
@@ -72,5 +72,21 @@ describe("buildWeightTrend", () => {
       testDashboardData({ dateRange: { key: "all", from: "2026-01-01", to: "2026-09-20" }, weightTrend: rows }),
     )!;
     expect(inside.programStartMs).not.toBeNull();
+  });
+
+  it("marks each day in range with a run, once per day", () => {
+    const chart = buildWeightTrend(
+      testDashboardData({
+        dateRange: { key: "week", from: "2026-09-14", to: "2026-09-20" },
+        weightTrend: [trendRow({ local_date: "2026-09-20", weight_lb: 210 })],
+        activities: [
+          testRun({ local_date: "2026-09-10" }), // outside
+          testRun({ local_date: "2026-09-16" }),
+          testRun({ local_date: "2026-09-16", id: "00000000-0000-4000-8000-000000000001" }),
+          testRun({ local_date: "2026-09-18", activity_type: "cycling" }),
+        ],
+      }),
+    )!;
+    expect(chart.runDays).toEqual([dayStartUtcMs("2026-09-16")]);
   });
 });

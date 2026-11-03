@@ -46,6 +46,7 @@ export function WeightTrendChart({ data }: { data: DashboardData }) {
           {chart.paceLine && <Legend swatch="┄" className="text-muted-2" label="pace" />}
           {goalInDomain(chart) && <Legend swatch="┄" className="text-good" label={`goal ${chart.goal}`} />}
           <Legend swatch="★" className="text-accent" label="shot" />
+          {chart.runDays.length > 0 && <Legend swatch="▎" className="text-good" label="run" />}
         </>
       }
     >
@@ -142,6 +143,21 @@ export function WeightTrendPlot({ chart, compact = false }: { chart: WeightTrend
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
         />
+
+        {!compact &&
+          chart.runDays.map((ms) => (
+            <line
+              key={ms}
+              x1={x(ms)}
+              x2={x(ms)}
+              y1={plotHeight - 7}
+              y2={plotHeight}
+              className="stroke-good"
+              strokeWidth={1.5}
+              strokeOpacity={0.8}
+              strokeLinecap="round"
+            />
+          ))}
 
         {!compact &&
           chart.stars.map((s) => (

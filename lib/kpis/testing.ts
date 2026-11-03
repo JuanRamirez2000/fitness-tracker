@@ -1,3 +1,4 @@
+import type { Activity } from "@/lib/data/activities";
 import type { Profile } from "@/lib/data/profiles";
 import type { WeightTrendRow } from "@/lib/data/weight-trend";
 import type { DashboardData } from "@/lib/dashboard/types";
@@ -40,10 +41,43 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     firstWeighIn: null,
     weightTrend: [],
     injections: [],
+    activities: [],
     heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, steps: [] },
     weighIns: [],
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
+    ...over,
+  };
+}
+
+/** A 3-mile easy outdoor run on `local_date` at 130 bpm and 12:00/mi, unless overridden. Its
+ * id comes from the date, so pass `id` for a second run on the same day. */
+export function testRun(over: Partial<Activity> & { local_date: string }): Activity {
+  return {
+    id: `00000000-0000-4000-8000-${over.local_date.replaceAll("-", "").padStart(12, "0")}`,
+    user_id: USER,
+    source: "garmin",
+    external_id: `run-${over.local_date}`,
+    activity_type: "running",
+    name: "Test Run",
+    started_at: `${over.local_date}T15:00:00Z`,
+    duration_s: 36 * 60,
+    moving_duration_s: 36 * 60,
+    distance_m: 3 * 1609.344,
+    elevation_gain_m: 0,
+    avg_speed_mps: 1609.344 / 720,
+    avg_grade_adjusted_speed_mps: 1609.344 / 720,
+    avg_hr: 130,
+    max_hr: 150,
+    avg_cadence_spm: 155,
+    avg_stride_cm: 90,
+    avg_ground_contact_ms: 280,
+    calories: 400,
+    aerobic_training_effect: 2.5,
+    training_effect_label: "AEROBIC_BASE",
+    training_load: 40,
+    vo2max: 41,
+    fastest_mile_s: 700,
     ...over,
   };
 }

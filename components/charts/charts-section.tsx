@@ -1,5 +1,8 @@
 import type { DashboardData } from "@/lib/dashboard/types";
+import { FastestMileChart } from "./fastest-mile-chart";
 import { ProgressChart } from "./progress-chart";
+import { RunEfficiencyChart } from "./run-efficiency-chart";
+import { RunningVolumeChart } from "./running-volume-chart";
 import { StepsChart } from "./steps-chart";
 import { TrendWindowsRow } from "./trend-windows-row";
 import { WeeklyRateChart } from "./weekly-rate-chart";
@@ -14,6 +17,9 @@ export function ChartsSection({ data }: { data: DashboardData }) {
         <ProgressChart data={data} />
         <WeeklyRateChart data={data} />
         <StepsChart data={data} />
+        <RunningVolumeChart data={data} />
+        <RunEfficiencyChart data={data} />
+        <FastestMileChart data={data} />
       </div>
     </div>
   );
