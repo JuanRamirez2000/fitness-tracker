@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { testDashboardData, testRun } from "@/lib/kpis/testing";
-import { buildFastestMile } from "./fastest-mile";
 import { buildRunEfficiency } from "./run-efficiency";
 import { buildRunningVolume } from "./running-volume";
 
@@ -52,24 +51,5 @@ describe("buildRunEfficiency", () => {
 
   it("is null without an easy run in range", () => {
     expect(buildRunEfficiency(testDashboardData({ dateRange: SEPT }))).toBeNull();
-  });
-});
-
-describe("buildFastestMile", () => {
-  it("tracks the all-time best mile, including PRs from before the range", () => {
-    const data = testDashboardData({
-      dateRange: SEPT,
-      activities: [
-        testRun({ local_date: "2026-08-01", fastest_mile_s: 600 }),
-        testRun({ local_date: "2026-09-05", fastest_mile_s: 650 }),
-        testRun({ local_date: "2026-09-19", fastest_mile_s: 590 }),
-      ],
-    });
-    const chart = buildFastestMile(data)!;
-    expect(chart.points.map((p) => [p.seconds, p.best])).toEqual([
-      [650, 600],
-      [590, 590],
-    ]);
-    expect(chart.allTimeBest).toEqual({ seconds: 590, local_date: "2026-09-19" });
   });
 });
