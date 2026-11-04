@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Segmented } from "@/components/ui/segmented";
-import type { DateRange, RangeKey } from "@/lib/dashboard/types";
+import type { DateRange, RangeKey, TabKey } from "@/lib/dashboard/types";
 import type { LocalDate } from "@/lib/dates/calendar";
-import { loadStoredRange, storeRange } from "@/lib/range/storage";
+import { storeRange } from "@/lib/range/storage";
 import { rangeToSearchParams } from "@/lib/range/url";
 import { CustomRangeDialog } from "./custom-range-dialog";
 
@@ -20,33 +20,14 @@ const LABELS: Record<RangeKey, string> = {
 };
 const OPTIONS = (Object.keys(LABELS) as RangeKey[]).map((value) => ({ value, label: LABELS[value] }));
 
-export function RangeControl({
-  current,
-  wasExplicit,
-  today,
-}: {
-  current: DateRange;
-  /** Whether the URL itself named a range, vs. the server falling back to the default —
-   * only in the fallback case do we let localStorage override what's on screen. */
-  wasExplicit: boolean;
-  today: LocalDate;
-}) {
+/** The range picker. Restoring the last-used range on a bare URL is StoredViewRestorer's job. */
+export function RangeControl({ current, tab, today }: { current: DateRange; tab: TabKey; today: LocalDate }) {
   const router = useRouter();
   const pathname = usePathname();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // "The last-used range is remembered in localStorage and used when the URL has none."
-  // Runs once: if this page loaded on the bare URL (server defaulted to "month"), swap in
-  // whatever the visitor last picked, without adding an extra history entry.
-  useEffect(() => {
-    if (wasExplicit) return;
-    const stored = loadStoredRange();
-    if (stored && stored !== current.key) navigate({ key: stored });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
-  }, []);
-
   function navigate(range: { key: RangeKey; custom?: { from: string; to: string } }) {
-    router.push(`${pathname}?${rangeToSearchParams(range)}`);
+    router.push(`${pathname}?${rangeToSearchParams(range, tab)}`);
   }
 
   function selectPreset(key: Exclude<RangeKey, "custom">) {

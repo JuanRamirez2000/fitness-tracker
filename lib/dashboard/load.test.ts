@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DailyWeight } from "@/lib/data/weight-trend";
 import type { Profile } from "@/lib/data/profiles";
-import { resolveProgramStart } from "./load";
+import { resolveProgramStart, tabNeeds } from "./load";
 
 const PROFILE = { id: "u", program_start_date: null } as unknown as Profile;
 const WEIGH_IN: DailyWeight = { user_id: "u", local_date: "2026-08-01", weight_lb: 232.4 };
@@ -18,5 +18,19 @@ describe("resolveProgramStart", () => {
 
   it("falls back to today for a brand-new account with neither", () => {
     expect(resolveProgramStart(PROFILE, null, "2026-09-20")).toBe("2026-09-20");
+  });
+});
+
+describe("tabNeeds", () => {
+  it("loads weigh-ins and activities (run ticks) for the weight tab, not steps", () => {
+    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true });
+  });
+
+  it("loads activities and steps for the training tab, not weigh-ins", () => {
+    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false });
+  });
+
+  it("loads none of the optional sets for the daily feel tab", () => {
+    expect(tabNeeds("today")).toEqual({ activities: false, steps: false, weighIns: false });
   });
 });

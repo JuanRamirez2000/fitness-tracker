@@ -12,12 +12,28 @@ import type { Palette } from "@/lib/theme/palette";
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
 
+/** The dashboard's tabs, in display order (`?tab=`). The first is the default. */
+export const TAB_KEYS = ["today", "weight", "training"] as const;
+export type TabKey = (typeof TAB_KEYS)[number];
+export const DEFAULT_TAB: TabKey = "today";
+export const TAB_LABELS: Record<TabKey, string> = {
+  today: "Daily feel",
+  weight: "Weight",
+  training: "Training",
+};
+
 /** The window that drives the charts and the table. Both ends are inclusive local dates. */
 export interface DateRange extends DayWindow {
   key: RangeKey;
 }
 
+/**
+ * Everything a tab renders. Only the active tab's data is fetched (lib/dashboard/load.ts,
+ * tabNeeds): on a tab that doesn't render them, `activities`, `steps`, `heatmap.steps` and
+ * `weighIns` are empty arrays, not real "no data" — read them only from that tab's views.
+ */
 export interface DashboardData {
+  tab: TabKey;
   profile: Profile;
   today: LocalDate;
   programStart: LocalDate;

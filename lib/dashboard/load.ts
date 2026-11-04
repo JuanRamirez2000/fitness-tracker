@@ -6,7 +6,7 @@ import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
-import type { DashboardData, RangeKey } from "./types";
+import type { DashboardData, RangeKey, TabKey } from "./types";
 
 /** profiles.program_start_date, or the first weigh-in, or today for a brand-new account. */
 export function resolveProgramStart(
@@ -20,15 +20,27 @@ export function resolveProgramStart(
 export interface LoadDashboardDataOptions {
   rangeKey: RangeKey;
   custom?: DayWindow;
+  tab: TabKey;
 }
 
-/** Loads everything the dashboard renders. Callers have already checked the session. */
+/** Which of the optional loads each tab renders. weightTrend and injections are always
+ * loaded: the program start (and so every range) is derived from them. */
+export function tabNeeds(tab: TabKey): { activities: boolean; steps: boolean; weighIns: boolean } {
+  return {
+    activities: tab === "weight" || tab === "training", // run ticks on the weight trend; every running view
+    steps: tab === "training",
+    weighIns: tab === "weight",
+  };
+}
+
+/** Loads what the active tab renders. Callers have already checked the session. */
 export async function loadDashboardData(profile: Profile, options: LoadDashboardDataOptions): Promise<DashboardData> {
   const today = todayIn(profile.timezone);
+  const needs = tabNeeds(options.tab);
   const [weightTrend, injections, activities] = await Promise.all([
     fetchWeightTrend(profile.id),
     fetchInjections(profile.id),
-    fetchActivities(profile.id),
+    needs.activities ? fetchActivities(profile.id) : [],
   ]);
   const firstWeighIn = firstDailyWeight(weightTrend);
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
@@ -39,9 +51,13 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     from: dateRange.from < window.from ? dateRange.from : window.from,
     to: dateRange.to > window.to ? dateRange.to : window.to,
   };
-  const [weighIns, allSteps] = await Promise.all([fetchWeighIns(profile.id, dateRange), fetchSteps(profile.id, stepsSpan)]);
+  const [weighIns, allSteps] = await Promise.all([
+    needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
+    needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
+  ]);
 
   return {
+    tab: options.tab,
     profile,
     today,
     programStart,

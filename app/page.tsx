@@ -1,16 +1,17 @@
 import { AppHeader } from "@/components/app-header";
-import { ChartsSection } from "@/components/charts/charts-section";
-import { KpiCards } from "@/components/dashboard/kpi-cards";
-import { RunsTable } from "@/components/dashboard/runs-table";
-import { WeighInTable } from "@/components/dashboard/weigh-in-table";
-import { HeatmapSection } from "@/components/heatmap/heatmap-section";
+import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
+import { TodayTab } from "@/components/tabs/today-tab";
+import { TrainingTab } from "@/components/tabs/training-tab";
+import { WeightTab } from "@/components/tabs/weight-tab";
 import { getRole } from "@/lib/auth/session";
 import { loadDashboardData } from "@/lib/dashboard/load";
+import { DEFAULT_TAB } from "@/lib/dashboard/types";
 import { fetchOwnerProfile } from "@/lib/data/queries";
-import { parseRangeParams } from "@/lib/range/url";
+import { parseRangeParams, parseTabParam } from "@/lib/range/url";
 
 // "The last-used range is remembered in localStorage and used when the URL has none.
-// Default: month." (RangeControl applies the localStorage part client-side after mount.)
+// Default: month." The same goes for the tab (default: Daily feel). StoredViewRestorer
+// applies the localStorage part client-side after mount.
 const DEFAULT_RANGE_KEY = "month" as const;
 
 function firstOf(value: string | string[] | undefined): string | undefined {
@@ -36,20 +37,26 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     from: firstOf(rawParams.from),
     to: firstOf(rawParams.to),
   });
+  const parsedTab = parseTabParam(firstOf(rawParams.tab));
   const data = await loadDashboardData(profile, {
     rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
     custom: parsedRange?.custom,
+    tab: parsedTab ?? DEFAULT_TAB,
   });
 
   return (
     <>
-      <AppHeader data={data} canEdit={canEdit} rangeExplicit={parsedRange !== null} />
-      <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 pt-6 pb-16 md:px-8">
-        <KpiCards data={data} />
-        <HeatmapSection data={data} />
-        <ChartsSection data={data} />
-        <WeighInTable data={data} canEdit={canEdit} />
-        <RunsTable data={data} />
+      <StoredViewRestorer
+        range={parsedRange}
+        rangeKey={data.dateRange.key}
+        tab={data.tab}
+        tabExplicit={parsedTab !== null}
+      />
+      <AppHeader data={data} canEdit={canEdit} urlRange={parsedRange} />
+      <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-12 px-4 pt-8 pb-20 md:px-8 md:pt-9">
+        {data.tab === "today" && <TodayTab data={data} />}
+        {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
+        {data.tab === "training" && <TrainingTab data={data} />}
       </main>
     </>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRangeParams, rangeToSearchParams } from "./url";
+import { parseRangeParams, parseTabParam, rangeToSearchParams, tabToSearchParams } from "./url";
 
 describe("parseRangeParams", () => {
   it("is null with no range param at all", () => {
@@ -52,5 +52,46 @@ describe("rangeToSearchParams", () => {
     const qs = rangeToSearchParams(original);
     const params = Object.fromEntries(new URLSearchParams(qs));
     expect(parseRangeParams(params)).toEqual(original);
+  });
+});
+
+describe("parseTabParam", () => {
+  it("reads each known tab", () => {
+    expect(parseTabParam("today")).toBe("today");
+    expect(parseTabParam("weight")).toBe("weight");
+    expect(parseTabParam("training")).toBe("training");
+  });
+
+  it("is null for a missing or unknown tab, so the caller falls back", () => {
+    expect(parseTabParam(undefined)).toBeNull();
+    expect(parseTabParam("")).toBeNull();
+    expect(parseTabParam("sleep")).toBeNull();
+  });
+});
+
+describe("rangeToSearchParams with a tab", () => {
+  it("keeps a non-default tab when the range changes", () => {
+    expect(rangeToSearchParams({ key: "year" }, "training")).toBe("range=year&tab=training");
+  });
+
+  it("leaves the default tab out", () => {
+    expect(rangeToSearchParams({ key: "year" }, "today")).toBe("range=year");
+  });
+});
+
+describe("tabToSearchParams", () => {
+  it("keeps an explicit range, custom dates included", () => {
+    const qs = new URLSearchParams(
+      tabToSearchParams("weight", { key: "custom", custom: { from: "2026-09-01", to: "2026-09-20" } }),
+    );
+    expect(Object.fromEntries(qs)).toEqual({ range: "custom", from: "2026-09-01", to: "2026-09-20", tab: "weight" });
+  });
+
+  it("names only the tab when the URL had no range", () => {
+    expect(tabToSearchParams("training", null)).toBe("tab=training");
+  });
+
+  it("always names the tab, even the default, so the link is explicit", () => {
+    expect(tabToSearchParams("today", { key: "week" })).toBe("range=week&tab=today");
   });
 });

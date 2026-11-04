@@ -24,6 +24,7 @@ function trend(over: Partial<WeightTrendRow> & { local_date: string; weight_lb: 
 
 function data(weightTrend: WeightTrendRow[]): DashboardData {
   return {
+    tab: "weight",
     profile: {} as DashboardData["profile"],
     today: TODAY,
     programStart: PROGRAM_START,

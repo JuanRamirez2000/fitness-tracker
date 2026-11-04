@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AreaClosed, LinePath } from "@visx/shape";
@@ -65,9 +66,17 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
   const yTicks = [0, 1, 2, 3].map((i) => chart.yDomain[0] + (i / 3) * (chart.yDomain[1] - chart.yDomain[0]));
   const showGoal = goalInDomain(chart);
   const xOf = (p: WeightTrendPoint) => x(p.dateMs);
+  // The plan pace line runs from the start weight, usually far above a y-axis fitted to the
+  // visible data: clip it to the plot so it doesn't spill over the cards above.
+  const clipId = `plot-${useId().replace(/:/g, "")}`;
 
   return (
     <svg width="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className="overflow-visible">
+      <defs>
+        <clipPath id={clipId}>
+          <rect x={0} y={0} width={plotWidth} height={plotHeight} />
+        </clipPath>
+      </defs>
       <Group left={MARGIN.left} top={MARGIN.top}>
         {yTicks.map((t) => (
           <g key={t}>
@@ -114,6 +123,7 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
             strokeWidth={1.2}
             strokeDasharray="4 4"
             strokeOpacity={0.6}
+            clipPath={`url(#${clipId})`}
           />
         )}
 

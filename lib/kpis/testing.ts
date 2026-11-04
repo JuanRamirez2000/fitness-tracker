@@ -35,6 +35,7 @@ export function trendRow(over: Partial<WeightTrendRow> & { local_date: string; w
 /** A minimal, valid DashboardData a KPI's compute() can run against. */
 export function testDashboardData(over: Partial<DashboardData> = {}): DashboardData {
   return {
+    tab: "weight",
     profile: testProfile(),
     today: TODAY,
     programStart: PROGRAM_START,

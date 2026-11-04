@@ -4,6 +4,7 @@ import { heatmapStats } from "./caption";
 
 function data(over: Partial<DashboardData>): DashboardData {
   return {
+    tab: "weight",
     profile: {} as DashboardData["profile"],
     today: "2026-09-20",
     programStart: "2026-09-17",

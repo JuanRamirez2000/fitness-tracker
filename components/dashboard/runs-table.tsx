@@ -16,7 +16,7 @@ export function RunsTable({ data }: { data: DashboardData }) {
   const shown = rows.slice(0, visible);
 
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card">
+    <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card">
       <div className="flex items-baseline justify-between px-4 pt-4 pb-2 md:px-6">
         <span className="font-serif text-[16px]">Runs</span>
         <span className="font-mono text-[10px] text-muted-3">{rows.length} in range</span>

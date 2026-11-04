@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadStoredRange, storeRange } from "./storage";
+import { loadStoredRange, loadStoredTab, storeRange, storeTab } from "./storage";
 
 // No jsdom in this project (vitest.config.mts runs the "node" environment), so window is
 // stubbed directly with a minimal, in-memory localStorage.
@@ -65,5 +65,33 @@ describe("range storage", () => {
     };
     expect(loadStoredRange()).toBeNull();
     expect(() => storeRange("week")).not.toThrow();
+  });
+});
+
+describe("tab storage", () => {
+  const originalWindow = (globalThis as { window?: unknown }).window;
+
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = fakeWindow();
+  });
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = originalWindow;
+  });
+
+  it("round-trips a tab", () => {
+    expect(loadStoredTab()).toBeNull();
+    storeTab("training");
+    expect(loadStoredTab()).toBe("training");
+  });
+
+  it("ignores an unknown stored tab", () => {
+    (globalThis as { window: ReturnType<typeof fakeWindow> }).window.localStorage.setItem("tracker.tab", "sleep");
+    expect(loadStoredTab()).toBeNull();
+  });
+
+  it("never throws without a window", () => {
+    (globalThis as { window?: unknown }).window = undefined;
+    expect(loadStoredTab()).toBeNull();
+    expect(() => storeTab("weight")).not.toThrow();
   });
 });
