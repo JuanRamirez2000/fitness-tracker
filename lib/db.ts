@@ -18,6 +18,10 @@ function connect() {
     // queries arriving on several connections at once ("bind message supplies 1 parameters,
     // but prepared statement requires 0"). One connection queues them instead.
     max: new URL(url).hostname === "localhost" ? 1 : 5,
+    // Close a connection after 20 idle seconds and open a fresh one on the next query. Neon
+    // drops idle connections on its side, and a Garmin backfill holds one idle for many
+    // minutes while it fetches; reusing that dead socket failed the write with ECONNRESET.
+    idle_timeout: 20,
     types: {
       date: asText(1082),
       timestamp: asText(1114),
