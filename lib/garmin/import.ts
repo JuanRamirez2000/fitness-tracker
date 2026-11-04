@@ -12,16 +12,19 @@
  * Readiness, training status, race predictions and daily VO2 max are not in the Personal API;
  * scripts/garmin/import_unofficial.py imports those (docs/garmin-fields.md).
  */
+import type { JSONValue } from "postgres";
 import { addDays, type LocalDate } from "../dates/calendar";
 import { todayIn } from "../dates/timezone";
 import { db } from "../db";
 import { GarminClient } from "./client";
 import {
   ACTIVITY_COLUMNS,
+  FITNESS_AGE_COLUMNS,
   RECOVERY_COLUMNS,
   SLEEP_COLUMNS,
   WEIGH_IN_COLUMNS,
   buildActivityRows,
+  buildFitnessAgeRow,
   buildRecoveryRows,
   buildSleepRows,
   buildStepsRows,
@@ -29,7 +32,7 @@ import {
   buildZoneBounds,
 } from "./map";
 
-export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery", "hr-zones"] as const;
+export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery", "hr-zones", "fitness-age"] as const;
 export type Dataset = (typeof DATASETS)[number];
 
 export type ImportWindow =
@@ -54,6 +57,7 @@ export interface ImportResult {
   activities: number;
   sleep: number;
   recovery: number;
+  fitnessAge: number;
 }
 
 /** The window's first and last local day, inclusive, in the athlete's own timezone. */
@@ -93,6 +97,7 @@ const ACTIVITY_UPDATES = ACTIVITY_COLUMNS.map((c) =>
 const SLEEP_UPDATES = updates(SLEEP_COLUMNS);
 const RECOVERY_UPDATES = updates(RECOVERY_COLUMNS);
 const WEIGH_IN_UPDATES = updates(WEIGH_IN_COLUMNS);
+const FITNESS_AGE_UPDATES = updates(FITNESS_AGE_COLUMNS);
 
 export async function importGarmin(options: ImportOptions): Promise<ImportResult> {
   const { datasets = DATASETS, dryRun = false, log = () => {} } = options;
@@ -112,7 +117,7 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
   const want = (d: Dataset) => datasets.includes(d);
 
   // Fetch everything first, so a Garmin failure partway leaves the database untouched.
-  const [weighIns, steps, activities, sleep, recovery, zoneBounds] = await Promise.all([
+  const [weighIns, steps, activities, sleep, recovery, zoneBounds, fitnessAges] = await Promise.all([
     want("weigh-ins") ? garmin.weighIns(start, end).then((r) => buildWeighInRows(r, (m) => log(`  note: ${m}`))) : [],
     want("steps") ? garmin.steps(start, end).then(buildStepsRows) : [],
     want("activities") ? garmin.activities(start, end).then(buildActivityRows) : [],
@@ -123,10 +128,13 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
         )
       : [],
     want("hr-zones") ? garmin.hrZones().then(buildZoneBounds) : null,
+    want("fitness-age")
+      ? garmin.fitnessAges(wellness.start, wellness.end).then((days) => days.flatMap(({ date, raw }) => buildFitnessAgeRow(raw, date) ?? []))
+      : [],
   ]);
   log(
     `Fetched ${weighIns.length} weigh-in(s), ${steps.length} step-day(s), ${activities.length} activit${activities.length === 1 ? "y" : "ies"}, ` +
-      `${sleep.length} night(s), ${recovery.length} recovery day(s)` +
+      `${sleep.length} night(s), ${recovery.length} recovery day(s), ${fitnessAges.length} fitness-age day(s)` +
       (zoneBounds ? `, HR zones ${zoneBounds.map(([lo, hi]) => `${lo}-${hi}`).join(" / ")}` : ""),
   );
 
@@ -177,6 +185,20 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
           on conflict (user_id, source, external_id)
           do update set ${tx.unsafe(ACTIVITY_UPDATES)}, updated_at = now()`;
       }
+      if (fitnessAges.length) {
+        // Only the fitness-age columns: the rest of daily_training belongs to the unofficial import.
+        await tx`
+          insert into daily_training ${tx(
+            fitnessAges.map((r) => ({
+              ...r,
+              fitness_age_factors: r.fitness_age_factors ? tx.json(r.fitness_age_factors as JSONValue) : null,
+              user_id: userId,
+            })),
+            "user_id", "local_date", ...FITNESS_AGE_COLUMNS,
+          )}
+          on conflict (user_id, local_date)
+          do update set ${tx.unsafe(FITNESS_AGE_UPDATES)}, updated_at = now()`;
+      }
       if (zoneBounds) {
         await tx`update profiles set hr_zone_bounds = ${tx.json(zoneBounds)} where id = ${userId}`;
       }
@@ -211,5 +233,6 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
     activities: activities.length,
     sleep: sleep.length,
     recovery: recovery.length,
+    fitnessAge: fitnessAges.length,
   };
 }

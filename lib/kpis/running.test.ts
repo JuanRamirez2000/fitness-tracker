@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TODAY, testDashboardData, testRun } from "./testing";
+import { TODAY, testDashboardData, testRun, testTraining } from "./testing";
 import { easyPace } from "./easy-pace";
 import { vo2max } from "./vo2max";
 import { weeklyMiles } from "./weekly-miles";
@@ -62,5 +62,16 @@ describe("vo2max", () => {
     expect(v).toMatchObject({ value: 41, delta: 3, tone: "good" });
     expect(v.sub).toBe("As of Sep 15 · vs 3 months ago");
     expect(vo2max.format(v)).toMatchObject({ primary: "41", delta: "+3" });
+  });
+
+  it("prefers Garmin's daily VO2 max over run estimates", () => {
+    const data = testDashboardData({
+      activities: [testRun({ local_date: "2026-05-01", vo2max: 38 }), testRun({ local_date: "2026-09-15", vo2max: null })],
+      training: [testTraining({ local_date: "2026-09-18", vo2max: 42.2 }), testTraining({ local_date: "2026-09-25", vo2max: 43 })],
+    });
+    const v = vo2max.compute(data)!;
+    expect(v).toMatchObject({ value: 42.2, sub: "As of Sep 18 · vs 3 months ago" });
+    expect(v.delta).toBeCloseTo(4.2, 6);
+    expect(vo2max.format(v)).toMatchObject({ primary: "42.2", delta: "+4.2" });
   });
 });

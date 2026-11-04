@@ -135,14 +135,15 @@ export async function fetchBodyComposition(userId: string): Promise<BodyComposit
   return rows.map((row) => bodyCompositionDaySchema.parse(row));
 }
 
-/** Each day's training snapshot inside `range`, oldest first. */
-export async function fetchTraining(userId: string, range: DayWindow): Promise<DailyTraining[]> {
+/** Every day's training snapshot up to `to`, oldest first. Unbounded at the start: VO2 max
+ * compares against months back and charts its history; one small row a day. */
+export async function fetchTraining(userId: string, to: string): Promise<DailyTraining[]> {
   const rows = await db()`
     select local_date, acute_load, chronic_load, chronic_low, chronic_high, acwr, status, focus, focus_feedback,
            vo2max, race_5k_s, race_10k_s, race_half_s, fitness_age, fitness_age_achievable, chronological_age,
            fitness_age_factors
     from daily_training
-    where user_id = ${userId} and local_date between ${range.from} and ${range.to}
+    where user_id = ${userId} and local_date <= ${to}
     order by local_date`;
   return rows.map((row) => dailyTrainingRowSchema.parse(row));
 }

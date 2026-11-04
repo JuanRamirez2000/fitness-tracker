@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { jwtExpiryMs, parseTokenResponse } from "./client";
 import { resolveWindow, wellnessWindow } from "./import";
 import { readFileSync } from "node:fs";
-import { buildActivityRows, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows, buildZoneBounds } from "./map";
-import type { RawActivity, RawHrvDay, RawHrZones, RawSleepNight, RawUserSummary, RawWeighIn } from "./map";
+import { buildActivityRows, buildFitnessAgeRow, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows, buildZoneBounds } from "./map";
+import type { RawActivity, RawFitnessAge, RawHrvDay, RawHrZones, RawSleepNight, RawUserSummary, RawWeighIn } from "./map";
 
 /** A sample Garmin response from lib/garmin/fixtures/ (real, anonymised). */
 function fixture<T>(name: string): T {
@@ -201,5 +201,18 @@ describe("HR zones", () => {
       [181, 201],
     ]);
     expect(buildZoneBounds([])).toBeNull();
+  });
+});
+
+describe("buildFitnessAgeRow", () => {
+  it("keeps fitness age, real and achievable age, and Garmin's factors", () => {
+    const row = buildFitnessAgeRow(fixture<RawFitnessAge>("fitness-age.json"), "2026-11-03")!;
+    expect(row).toMatchObject({ local_date: "2026-11-03", fitness_age: 27.1, fitness_age_achievable: 18, chronological_age: 26 });
+    expect(Object.keys(row.fitness_age_factors!)).toEqual(["bodyFat", "vigorousDaysAvg", "rhr", "vigorousMinutesAvg"]);
+  });
+
+  it("is null without a fitness age", () => {
+    expect(buildFitnessAgeRow(null, "2026-11-03")).toBeNull();
+    expect(buildFitnessAgeRow({ chronologicalAge: 26 }, "2026-11-03")).toBeNull();
   });
 });

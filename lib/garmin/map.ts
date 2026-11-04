@@ -357,3 +357,37 @@ export function buildZoneBounds(sports: RawHrZones[]): [number, number][] | null
   const f = floors as number[];
   return f.map((low, i) => [low, i < 4 ? f[i + 1] - 1 : (z.maxHeartRateUsed as number)]);
 }
+
+// ---------- Fitness age ----------
+
+/** /fitnessage-service/fitnessage/v2/{date}. */
+export interface RawFitnessAge {
+  chronologicalAge?: number | null;
+  fitnessAge?: number | null;
+  achievableFitnessAge?: number | null;
+  components?: Record<string, Record<string, unknown>> | null;
+}
+
+export interface FitnessAgeRow {
+  local_date: string;
+  fitness_age: number;
+  fitness_age_achievable: number | null;
+  chronological_age: number | null;
+  fitness_age_factors: Record<string, Record<string, unknown>> | null;
+}
+
+export const FITNESS_AGE_COLUMNS = [
+  "fitness_age", "fitness_age_achievable", "chronological_age", "fitness_age_factors",
+] as const satisfies readonly (keyof FitnessAgeRow)[];
+
+/** One day's fitness age, as of `date` (the endpoint answers for any day). */
+export function buildFitnessAgeRow(raw: RawFitnessAge | null, date: string): FitnessAgeRow | null {
+  if (!raw || raw.fitnessAge == null) return null;
+  return {
+    local_date: date,
+    fitness_age: Math.round(raw.fitnessAge * 10) / 10,
+    fitness_age_achievable: raw.achievableFitnessAge ?? null,
+    chronological_age: raw.chronologicalAge ?? null,
+    fitness_age_factors: raw.components ?? null,
+  };
+}

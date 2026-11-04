@@ -1,3 +1,4 @@
+import type { DailyTraining } from "@/lib/data/training";
 import type { Activity } from "@/lib/data/activities";
 import type { Profile } from "@/lib/data/profiles";
 import type { WeightTrendRow } from "@/lib/data/weight-trend";
@@ -85,6 +86,29 @@ export function testRun(over: Partial<Activity> & { local_date: string }): Activ
     vo2max: 41,
     fastest_mile_s: 700,
     hr_zone_s: null,
+    ...over,
+  };
+}
+
+/** A daily_training row with every value null except the date, unless overridden. */
+export function testTraining(over: Partial<DailyTraining> & { local_date: string }): DailyTraining {
+  return {
+    acute_load: null,
+    chronic_load: null,
+    chronic_low: null,
+    chronic_high: null,
+    acwr: null,
+    status: null,
+    focus: null,
+    focus_feedback: null,
+    vo2max: null,
+    race_5k_s: null,
+    race_10k_s: null,
+    race_half_s: null,
+    fitness_age: null,
+    fitness_age_achievable: null,
+    chronological_age: null,
+    fitness_age_factors: null,
     ...over,
   };
 }

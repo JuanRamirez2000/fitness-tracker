@@ -8,31 +8,52 @@ import { signed } from "./format";
 const COMPARE_DAYS = 90;
 const SPARKLINE_DAYS = 180;
 
-/** Garmin's running VO2 max estimate, as of the latest run that carried one. */
+/**
+ * Each day's VO2 max, oldest first: Garmin's daily value (daily_training, the unofficial
+ * import) where there is one, else the estimate a run carried (older imports; the Personal
+ * API's activities have none).
+ */
+export function vo2maxSeries(data: Pick<DashboardData, "activities" | "training" | "today">): { date: string; value: number }[] {
+  const byDate = new Map<string, number>();
+  for (const r of runsOf(data.activities)) if (r.vo2max !== null) byDate.set(r.local_date, r.vo2max);
+  for (const t of data.training) if (t.vo2max !== null) byDate.set(t.local_date, t.vo2max);
+  return [...byDate.entries()]
+    .filter(([date]) => date <= data.today)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, value]) => ({ date, value }));
+}
+
+/** Garmin's running VO2 max, as of its latest update. */
 export const vo2max: KpiDefinition = {
   id: "vo2max",
   label: "VO2 max",
   visual: "sparkline",
   emptyMessage: "No VO2 max estimate yet",
   compute(data: DashboardData): KpiValue | null {
-    const estimates = runsOf(data.activities).filter((r) => r.vo2max !== null && r.local_date <= data.today);
+    const estimates = vo2maxSeries(data);
     const latest = estimates.at(-1);
     if (!latest) return null;
 
     const compareTo = addDays(data.today, -COMPARE_DAYS);
-    const before = estimates.filter((r) => r.local_date <= compareTo).at(-1);
+    const before = estimates.filter((e) => e.date <= compareTo).at(-1);
     const sparkFrom = addDays(data.today, -SPARKLINE_DAYS);
 
     return {
-      value: latest.vo2max,
+      value: latest.value,
       unit: "",
-      delta: before ? latest.vo2max! - before.vo2max! : undefined,
-      tone: before && latest.vo2max! > before.vo2max! ? "good" : "neutral",
-      sub: `As of ${fmtDate(latest.local_date)}${before ? " · vs 3 months ago" : ""}`,
-      series: estimates.filter((r) => r.local_date >= sparkFrom).map((r) => r.vo2max!),
+      delta: before ? latest.value - before.value : undefined,
+      tone: before && latest.value > before.value ? "good" : "neutral",
+      sub: `As of ${fmtDate(latest.date)}${before ? " · vs 3 months ago" : ""}`,
+      series: estimates.filter((e) => e.date >= sparkFrom).map((e) => e.value),
     };
   },
   format(v) {
-    return { primary: String(v.value), delta: v.delta === undefined ? undefined : signed(v.delta, 0), tone: v.tone };
+    // Garmin's daily value has one decimal (42.2); older run estimates were whole numbers.
+    const digits = Number.isInteger(v.value) ? 0 : 1;
+    return {
+      primary: v.value === null ? "" : v.value.toFixed(digits),
+      delta: v.delta === undefined ? undefined : signed(v.delta, Number.isInteger(v.delta) ? 0 : 1),
+      tone: v.tone,
+    };
   },
 };

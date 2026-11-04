@@ -9,7 +9,16 @@
  * No server-only guard: scripts/garmin-import.ts runs this from the command line too.
  */
 import { dayChunks, eachDay } from "../dates/calendar";
-import type { RawActivity, RawHrvDay, RawHrZones, RawSleepNight, RawStepsDay, RawUserSummary, RawWeighIn } from "./map";
+import type {
+  RawActivity,
+  RawFitnessAge,
+  RawHrvDay,
+  RawHrZones,
+  RawSleepNight,
+  RawStepsDay,
+  RawUserSummary,
+  RawWeighIn,
+} from "./map";
 
 const BASE_URL = "https://personal.connectapi.garmin.com";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
@@ -177,6 +186,16 @@ export class GarminClient {
       if (i > 0) await new Promise((resolve) => setTimeout(resolve, PER_DAY_PAUSE_MS));
       const summary = await this.get<RawUserSummary | null>("/usersummary-service/usersummary/daily", { calendarDate: day });
       if (summary) all.push({ ...summary, calendarDate: summary.calendarDate ?? day });
+    }
+    return all;
+  }
+
+  /** Fitness age as of each day in the window: one request per day. */
+  async fitnessAges(start: string, end: string): Promise<{ date: string; raw: RawFitnessAge | null }[]> {
+    const all: { date: string; raw: RawFitnessAge | null }[] = [];
+    for (const [i, day] of eachDay(start, end).entries()) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, PER_DAY_PAUSE_MS));
+      all.push({ date: day, raw: await this.get<RawFitnessAge | null>(`/fitnessage-service/fitnessage/v2/${day}`, { fullHistoryScan: true }) });
     }
     return all;
   }

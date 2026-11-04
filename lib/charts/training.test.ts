@@ -1,34 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DateRange } from "@/lib/dashboard/types";
-import type { DailyTraining } from "@/lib/data/training";
-import { testDashboardData, testProfile, testRun } from "@/lib/kpis/testing";
+import { testDashboardData, testProfile, testRun, testTraining as training } from "@/lib/kpis/testing";
 import { buildLoadFocus, buildTrainingLoad, buildZoneChart, trainingStatus } from "./training";
 
 const WEEK: DateRange = { key: "week", from: "2026-10-28", to: "2026-11-03" };
 const MONTH: DateRange = { key: "month", from: "2026-10-04", to: "2026-11-03" };
 const BOUNDS: [number, number][] = [[101, 120], [121, 140], [141, 160], [161, 180], [181, 201]];
-
-function training(over: Partial<DailyTraining> & { local_date: string }): DailyTraining {
-  return {
-    acute_load: null,
-    chronic_load: null,
-    chronic_low: null,
-    chronic_high: null,
-    acwr: null,
-    status: null,
-    focus: null,
-    focus_feedback: null,
-    vo2max: null,
-    race_5k_s: null,
-    race_10k_s: null,
-    race_half_s: null,
-    fitness_age: null,
-    fitness_age_achievable: null,
-    chronological_age: null,
-    fitness_age_factors: null,
-    ...over,
-  };
-}
 
 describe("buildZoneChart", () => {
   const activities = [

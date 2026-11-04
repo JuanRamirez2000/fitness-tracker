@@ -7,6 +7,9 @@ Datasets:
              recovery time) plus the morning score -> daily_recovery's readiness columns.
   training   training status: acute and chronic load, the optimal chronic band, ACWR,
              status, load focus with its targets, and VO2 max -> daily_training.
+  race       race predictions: 5K, 10K and half marathon seconds per day -> daily_training.
+  vo2        VO2 max on each day Garmin updated it (max metrics, cheap for long
+             backfills) -> daily_training.vo2max.
 
 Uses cyberjunky/python-garminconnect, which logs in like the Garmin Connect app. The login
 session lives in ~/.garminconnect and is mirrored to the garmin_token_cache table, so a local
@@ -42,7 +45,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / ".env.local"
 TOKEN_DIR = Path(os.getenv("GARMINTOKENS", "~/.garminconnect")).expanduser()
 TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
-DATASETS = ("readiness", "training")
+DATASETS = ("readiness", "training", "race", "vo2")
+# Days per request for the range endpoints (race predictions allow up to a year).
+RANGE_CHUNK_DAYS = 90
 PER_DAY_PAUSE_S = 0.4
 
 # readiness_factors keys -> Garmin's field names (the hero's six rows).
@@ -147,9 +152,49 @@ def training_row(payload: dict[str, Any] | None, day: str) -> dict[str, Any] | N
     return row if len(row) > 1 else None
 
 
+def race_rows(payload: list[dict[str, Any]] | dict[str, Any] | None) -> list[dict[str, Any]]:
+    """daily_training's race columns from get_race_predictions(start, end, "daily")."""
+    if not payload:
+        return []
+    entries = payload if isinstance(payload, list) else [payload]
+    rows = []
+    for e in entries:
+        if not e.get("calendarDate") or e.get("time5K") is None:
+            continue
+        rows.append({
+            "local_date": e["calendarDate"],
+            "race_5k_s": e.get("time5K"),
+            "race_10k_s": e.get("time10K"),
+            "race_half_s": e.get("timeHalfMarathon"),
+        })
+    return rows
+
+
+def vo2_rows(payload: list[dict[str, Any]] | dict[str, Any] | None) -> list[dict[str, Any]]:
+    """daily_training.vo2max for each day get_max_metrics_range lists (days with an update)."""
+    if not payload:
+        return []
+    entries = payload if isinstance(payload, list) else [payload]
+    rows = []
+    for e in entries:
+        generic = e.get("generic") or {}
+        if generic.get("calendarDate") and generic.get("vo2MaxPreciseValue") is not None:
+            rows.append({"local_date": generic["calendarDate"], "vo2max": generic["vo2MaxPreciseValue"]})
+    return rows
+
+
+def chunks(start: date, end: date, days: int):
+    """start..end as consecutive (first, last) windows of at most `days` days."""
+    first = start
+    while first <= end:
+        last = min(first + timedelta(days=days - 1), end)
+        yield first, last
+        first = last + timedelta(days=1)
+
+
 TRAINING_COLUMNS = (
     "acute_load", "chronic_load", "chronic_low", "chronic_high", "acwr", "status",
-    "focus", "focus_feedback", "vo2max",
+    "focus", "focus_feedback", "vo2max", "race_5k_s", "race_10k_s", "race_half_s",
 )
 
 
@@ -271,12 +316,12 @@ def upsert_readiness(conn, user_id: str, rows: list[dict[str, Any]], dry_run: bo
     print(f"  readiness: upserted {len(rows)} row(s)")
 
 
-def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: bool) -> None:
+def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: bool, label: str = "training") -> None:
     if not rows:
-        print("  training: nothing to write")
+        print(f"  {label}: nothing to write")
         return
     if dry_run:
-        print(f"  training: would write {len(rows)} row(s) (dry run)")
+        print(f"  {label}: would write {len(rows)} row(s) (dry run)")
         for row in rows[-3:]:
             print(f"    {row}")
         return
@@ -295,7 +340,7 @@ def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: boo
                 {**values, "user_id": user_id, "local_date": row["local_date"]},
             )
     conn.commit()
-    print(f"  training: upserted {len(rows)} row(s)")
+    print(f"  {label}: upserted {len(rows)} row(s)")
 
 
 def main() -> None:
@@ -344,6 +389,22 @@ def main() -> None:
                 time.sleep(PER_DAY_PAUSE_S)
             print(f"Fetched training status for {len(rows)} day(s)")
             upsert_training(conn, user_id, rows, args.dry_run)
+
+        if "race" in datasets:
+            rows = []
+            for first, last in chunks(start, end, RANGE_CHUNK_DAYS):
+                rows += race_rows(garmin.get_race_predictions(first.isoformat(), last.isoformat(), "daily"))
+                time.sleep(PER_DAY_PAUSE_S)
+            print(f"Fetched race predictions for {len(rows)} day(s)")
+            upsert_training(conn, user_id, rows, args.dry_run, "race")
+
+        if "vo2" in datasets:
+            rows = []
+            for first, last in chunks(start, end, RANGE_CHUNK_DAYS):
+                rows += vo2_rows(garmin.get_max_metrics_range(first.isoformat(), last.isoformat()))
+                time.sleep(PER_DAY_PAUSE_S)
+            print(f"Fetched VO2 max for {len(rows)} day(s)")
+            upsert_training(conn, user_id, rows, args.dry_run, "vo2")
 
     print("Done.")
 

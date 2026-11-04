@@ -68,7 +68,8 @@ export interface DashboardData {
   sleep: SleepNight[];
   /** Every day's body composition, unbounded, oldest first (Weight tab). */
   bodyComposition: BodyCompositionDay[];
-  /** Daily training snapshots over the same span as `recovery`, oldest first (Training tab). */
+  /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
+   * unbounded at the start, for VO2 max's history. */
   training: DailyTraining[];
   dateRange: DateRange;
 }

@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import readiness_row, training_row, window
+from import_unofficial import chunks, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -55,6 +55,23 @@ class TrainingRowTest(unittest.TestCase):
     def test_skips_parts_dated_another_day(self):
         self.assertIsNone(training_row(self.payload, "2026-11-02"))
         self.assertIsNone(training_row(None, "2026-11-03"))
+
+
+class RaceAndVo2Test(unittest.TestCase):
+    def test_race_rows_per_day(self):
+        rows = race_rows(json.loads((FIXTURES / "race-predictions-daily.json").read_text()))
+        self.assertEqual(rows[0], {"local_date": "2026-10-28", "race_5k_s": 1775, "race_10k_s": 3884, "race_half_s": 9057})
+        self.assertEqual(len(rows), 7)
+        self.assertEqual(race_rows(None), [])
+
+    def test_vo2_rows_only_on_update_days(self):
+        rows = vo2_rows(json.loads((FIXTURES / "max-metrics.json").read_text()))
+        self.assertEqual([r["local_date"] for r in rows], ["2026-10-29", "2026-11-01", "2026-11-03"])
+        self.assertEqual(rows[-1]["vo2max"], 42.2)
+
+    def test_chunks_cover_the_window_without_gaps(self):
+        parts = list(chunks(date(2026, 1, 1), date(2026, 4, 15), 90))
+        self.assertEqual(parts, [(date(2026, 1, 1), date(2026, 3, 31)), (date(2026, 4, 1), date(2026, 4, 15))])
 
 
 class WindowTest(unittest.TestCase):

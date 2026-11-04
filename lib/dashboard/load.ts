@@ -80,7 +80,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
     needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
     needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
-    needs.training ? fetchTraining(profile.id, recoverySpan) : [],
+    needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
   ]);
 
   return {

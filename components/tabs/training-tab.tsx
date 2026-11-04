@@ -1,7 +1,9 @@
 import { TAB_KPIS } from "@/dashboard.config";
 import { RunEfficiencyChart } from "@/components/charts/run-efficiency-chart";
 import { RunningVolumeChart } from "@/components/charts/running-volume-chart";
+import { FitnessChart } from "@/components/charts/fitness-chart";
 import { LoadFocusCard } from "@/components/charts/load-focus-card";
+import { RaceCard } from "@/components/charts/race-card";
 import { TrainingLoadChart } from "@/components/charts/training-load-chart";
 import { ZonesChart } from "@/components/charts/zones-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
@@ -10,10 +12,7 @@ import { RunsTable } from "@/components/dashboard/runs-table";
 import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
 import type { DashboardData } from "@/lib/dashboard/types";
 
-/**
- * Training: effort and load, then fitness and speed. VO2 max and fitness age, and race
- * predictions, join section 02 in the next step.
- */
+/** Training: effort and load, then fitness and speed. */
 export function TrainingTab({ data }: { data: DashboardData }) {
   return (
     <>
@@ -41,8 +40,14 @@ export function TrainingTab({ data }: { data: DashboardData }) {
       <Section>
         <SectionHeading n="02">Am I getting fitter and faster?</SectionHeading>
         <CardGrid>
-          <Cell span={5}>
+          <Cell span={6}>
             <RunEfficiencyChart data={data} />
+          </Cell>
+          <Cell span={6}>
+            <FitnessChart data={data} />
+          </Cell>
+          <Cell span={5}>
+            <RaceCard data={data} />
           </Cell>
           <Cell span={7}>
             <RunsTable data={data} />
