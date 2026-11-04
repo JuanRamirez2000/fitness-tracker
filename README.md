@@ -34,7 +34,7 @@ npm run dev                  # terminal 2: http://localhost:3000
 ### Database
 
 `db/schema.sql` is the whole schema: `profiles` (one row, the owner),
-`weigh_ins`, `injections` (shots), `daily_steps`, `garmin_token_cache`, and two views (`daily_weight`,
+`weigh_ins`, `injections` (shots), `daily_steps`, `activities`, and two views (`daily_weight`,
 `weight_trend`) that do the per-day and 7-day-average math in SQL.
 
 `npm run db:import -- <folder>` applies that schema to an **empty**
@@ -52,10 +52,8 @@ applies every `db/migrations/*.sql` file. Each one is safe to re-run.
 2. Load it once, from your machine:
    `DATABASE_URL='<neon url>' npx tsx scripts/db-import.ts backups/<date>`
 3. In the Vercel project, set `DATABASE_URL`, `OWNER_PASSWORD`,
-   and `SESSION_SECRET`, then redeploy.
-4. In the GitHub repo's Actions secrets, add `DATABASE_URL` for the nightly
-   Garmin job (and delete the old `SUPABASE_*` / `GARMIN_IMPORT_USER_ID`
-   secrets).
+   `SESSION_SECRET`, `GARMIN_PERSONAL_ACCESS_TOKEN` and `CRON_SECRET`, then
+   redeploy.
 
 ## Scripts
 
@@ -68,20 +66,31 @@ npm test             # vitest (pure logic: KPIs, heatmap, charts, dates, auth to
 npm run db:local     # PGlite Postgres server on :5433, data in .pglite/
 npm run db:import -- backups/<date>   # schema + data into an empty DATABASE_URL
 npm run db:migrate   # apply db/migrations/*.sql to an existing DATABASE_URL
+npm run garmin:import -- --days 30   # Garmin backfill or dry run (see below)
 ```
 
 ## Real data from Garmin Connect
 
-`scripts/garmin/` is a separate Python project (its own venv) that imports
-weigh-ins and daily steps from Garmin Connect via the unofficial
-[`cyberjunky/python-garminconnect`](https://github.com/cyberjunky/python-garminconnect)
-library. See `scripts/garmin/README.md` for setup, and
-`.github/workflows/garmin-nightly.yml` for the nightly cloud job.
+`lib/garmin/` imports weigh-ins, daily steps and activities through Garmin's
+official [Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api/).
 
-- **Nightly**, automatically, in GitHub Actions: yesterday's weigh-ins and steps.
-- **On demand**: the dashboard's "Refresh" button (owner only) pulls today.
-- Both write `source = 'garmin'` rows, keyed by Garmin's own per-record ID,
-  so any window is safe to re-run.
+**Setup:** in Garmin Connect Web, open the Personal API Key page, create a key
+(it expires after 30 days to 1 year; Garmin emails a week before), and set it
+as `GARMIN_PERSONAL_ACCESS_TOKEN` in `.env.local` and in Vercel. The importer
+swaps it for a 24-hour bearer token on its own. When the key expires, the
+Refresh button says so; create a new key and replace the variable.
+
+- **Nightly**: Vercel Cron (`vercel.json`) calls `/api/garmin/cron` at 09:00 UTC,
+  which imports yesterday in the profile's timezone. Needs `CRON_SECRET` set on
+  the Vercel project.
+- **On demand**: the dashboard's "Refresh" button (owner only) imports today.
+- **By hand**: `npm run garmin:import` with `--yesterday`, `--days N`,
+  `--since YYYY-MM-DD`, `--only weigh-ins|steps|activities` (repeatable) and
+  `--dry-run`. Default is the last 7 days. Use `--only` for any backfill
+  reaching before the program's start, since an older weigh-in would move the
+  start weight.
+- Everything writes `source = 'garmin'` rows, keyed by Garmin's own per-record
+  ID (steps by day), so any window is safe to re-run.
 
 ## Project structure
 
@@ -90,19 +99,21 @@ app/
   page.tsx                 The dashboard: cards, heatmap, charts, table
   actions.ts               Server actions: add/edit/delete weigh-ins, settings
   login/                   Owner password to unlock editing
-  api/garmin/refresh/      Dispatches the Garmin GitHub Actions job on demand
+  api/garmin/refresh/      Imports today from Garmin (the Refresh button)
+  api/garmin/cron/         Nightly Garmin import (Vercel Cron)
 components/                UI (dashboard/, heatmap/, charts/, ui/)
 lib/
   auth/                    Session tokens, cookie, sign-in/out
   data/                    zod schemas; queries.ts holds every SQL query
   db.ts                    The Postgres connection pool
+  garmin/                  Garmin Personal API client, row mapping and importer
   kpis/  heatmap/  charts/ Pure, unit-tested data shaping for each section
   shots/                   Lines shots up with the weekly schedule (taken / scheduled / missed)
   dates/  range/           Timezone-safe local dates and the range picker
 db/schema.sql              The whole database schema
 db/migrations/             Changes to apply to a database made before them
 scripts/db-import.ts       Loads an export into an empty database
-scripts/garmin/            Garmin Connect importer (Python)
+scripts/garmin-import.ts   Garmin import from the command line
 ```
 
 ## Design principles this codebase follows

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { localDateSchema } from "@/lib/dates/calendar";
 import { sourceSchema, timestampSchema, uuidSchema } from "./common";
 
-/** One Garmin activity (scripts/garmin/import_garmin.py). Every type is stored; see isRun. */
+/** One Garmin activity (lib/garmin/import.ts). Every type is stored; see isRun. */
 export const activityRowSchema = z.object({
   id: uuidSchema,
   user_id: uuidSchema,

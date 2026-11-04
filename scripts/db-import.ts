@@ -1,7 +1,7 @@
 /**
  * Loads a Supabase export (backups/<date>/*.json) into an EMPTY Postgres database:
- * applies db/schema.sql, then copies the profile, every weigh-in, every shot, every day's
- * steps and the Garmin session.
+ * applies db/schema.sql, then copies the profile, every weigh-in, every shot and every day's
+ * steps.
  *
  *   npm run db:import -- backups/2026-09-30
  *
@@ -36,7 +36,6 @@ async function main() {
     const steps = load<Record<string, string>>(dir, "daily_metrics")
       .filter((m) => m.user_id === owner.id && m.metric === "steps")
       .map((m) => ({ user_id: m.user_id, local_date: m.local_date, steps: Math.round(Number(m.value)), source: m.source, updated_at: m.updated_at }));
-    const tokens = load<{ tokens: unknown }>(dir, "garmin_token_cache");
 
     await sql.begin(async (tx) => {
       await tx.unsafe(readFileSync("db/schema.sql", "utf8"));
@@ -51,11 +50,10 @@ async function main() {
       for (let i = 0; i < steps.length; i += 500) {
         await tx`insert into daily_steps ${tx(steps.slice(i, i + 500), "user_id", "local_date", "steps", "source", "updated_at")}`;
       }
-      if (tokens[0]) await tx`insert into garmin_token_cache (id, tokens) values (1, ${tx.json(tokens[0].tokens as never)})`;
     });
 
     const [{ count }] = await sql`select count(*)::int as count from weigh_ins`;
-    console.log(`Imported profile "${owner.display_name}", ${count} weigh-ins, ${injections.length} shots, ${steps.length} days of steps${tokens[0] ? ", and the Garmin session" : ""}.`);
+    console.log(`Imported profile "${owner.display_name}", ${count} weigh-ins, ${injections.length} shots, ${steps.length} days of steps.`);
   } finally {
     await sql.end();
   }

@@ -3,16 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Status = "idle" | "loading" | "error" | "pending";
+type Status = "idle" | "loading" | "error";
 
 /**
  * Sits right next to "+ Log today" (frame 2A's header, extended past the design — no frame
  * covers this). Pulls today only from Garmin via /api/garmin/refresh, on demand — the
- * nightly GitHub Actions job (.github/workflows/garmin-nightly.yml) already covers
- * yesterday every night, so this exists for "I just logged a run/weighed in and want it to
- * show up now" rather than waiting. The route dispatches and polls that same GH Actions
- * workflow (mode=today) rather than running anything in this process, so this can easily
- * take 20-30s — the loading state stays up the whole time, not just for the initial request.
+ * nightly cron already covers yesterday, so this exists for "I just logged a run/weighed in
+ * and want it to show up now" rather than waiting. The route imports in-request from the
+ * Garmin Personal API, so it takes a few seconds.
  */
 export function GarminRefreshButton() {
   const router = useRouter();
@@ -30,7 +28,7 @@ export function GarminRefreshButton() {
         router.refresh();
         return;
       }
-      setStatus(res.status === 202 ? "pending" : "error");
+      setStatus("error");
       setMessage(body.error ?? null);
     } catch {
       setStatus("error");
@@ -51,9 +49,6 @@ export function GarminRefreshButton() {
       </button>
       {status === "error" && (
         <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>
-      )}
-      {status === "pending" && (
-        <span className="text-[11px] text-warn">{message ?? "Still running…"}</span>
       )}
     </div>
   );

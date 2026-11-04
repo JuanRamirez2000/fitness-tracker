@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:local": "pglite-server --db=./.pglite --port=5433 --max-connections=10",
     "db:import": "tsx --env-file=.env.local scripts/db-import.ts",
-    "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts"
+    "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
+    "garmin:import": "tsx --env-file=.env.local scripts/garmin-import.ts"
   },
   "dependencies": {
     "@visx/curve": "^4.0.0",

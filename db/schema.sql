@@ -93,14 +93,6 @@ create table activities (
 );
 create index activities_user_date_idx on activities (user_id, local_date);
 
--- The Garmin session, shared between the nightly GitHub Actions job and a local Mac
--- (see scripts/garmin/README.md). Only the importer touches it; the app never does.
-create table garmin_token_cache (
-  id int primary key default 1,
-  tokens jsonb not null,
-  updated_at timestamptz not null default now(),
-  constraint garmin_token_cache_single_row check (id = 1)
-);
 
 -- ---------- Views ----------
 
