@@ -17,14 +17,22 @@ export async function GET(request: NextRequest) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
+  // A failed import (Garmin rate-limiting, say) still leaves the summaries to write from what's
+  // already stored: the Weight and Training tabs don't need this morning's rows.
+  let imported: Awaited<ReturnType<typeof importGarmin>> | { error: string };
   try {
-    const imported = await importGarmin({
+    imported = await importGarmin({
       window: { kind: "today" },
       datasets: ["weigh-ins", "sleep", "recovery", "fitness-age"],
       log: console.log,
     });
+  } catch (err) {
+    console.error("Morning import failed:", err);
+    imported = { error: err instanceof Error ? err.message : String(err) };
+  }
+  try {
     const summaries = await generateSummaries({ log: console.log });
-    return NextResponse.json({ ok: true, imported, summaries });
+    return NextResponse.json({ ok: !("error" in imported), imported, summaries });
   } catch (err) {
     console.error("Morning summary failed:", err);
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

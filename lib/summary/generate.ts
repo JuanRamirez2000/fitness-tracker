@@ -47,6 +47,8 @@ export interface GenerateOptions {
   model?: string;
   /** For tests. */
   fetch?: typeof fetch;
+  /** For tests: replaces the pause before a retry. */
+  wait?: (ms: number) => Promise<void>;
 }
 
 /** The parts of a generateContent response read here. */
@@ -56,17 +58,23 @@ interface GeminiResponse {
   modelVersion?: string;
 }
 
-/** One generateContent call (REST, no SDK): the summary text, or why there is none. */
-async function callGemini(
+/** Gemini statuses worth another try, and the waits before each retry. */
+const TRANSIENT_STATUSES = new Set([429, 500, 503]);
+export const RETRY_DELAYS_MS = [5_000, 20_000];
+
+/** One generateContent call (REST, no SDK): the summary text, or why there is none. Retries
+ * a busy or rate-limited answer twice. */
+export async function callGemini(
   model: string,
   system: string,
   userMessage: string,
   fetchImpl: typeof fetch,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<{ text: string; modelVersion: string } | { skipped: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set. Create a free key at aistudio.google.com/apikey.");
 
-  const res = await fetchImpl(`${GEMINI_ENDPOINT}/${model}:generateContent`, {
+  const request = () => fetchImpl(`${GEMINI_ENDPOINT}/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
@@ -80,6 +88,14 @@ async function callGemini(
       },
     }),
   });
+  // The free tier answers 503 ("high demand") and 429 at busy times; both pass in seconds.
+  let res = await request();
+  for (const delay of RETRY_DELAYS_MS) {
+    if (res.ok || !TRANSIENT_STATUSES.has(res.status)) break;
+    await res.body?.cancel();
+    await wait(delay);
+    res = await request();
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Gemini API ${res.status}: ${body.slice(0, 500)}`);
@@ -151,7 +167,7 @@ const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profil
 export const SUMMARY_TABS = Object.keys(TABS) as TabKey[];
 
 /** Writes (or, with dryRun, prints) today's summary for each tab. One tab failing to have
- * enough data skips only that tab. */
+ * enough data, or whose Gemini call fails, skips only that tab. */
 export async function generateSummaries(options: GenerateOptions = {}): Promise<SummaryResult[]> {
   const { dryRun = false, log = () => {}, tabs = SUMMARY_TABS } = options;
   const sql = db();
@@ -177,7 +193,13 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
       continue;
     }
 
-    const call = await callGemini(model, spec.system, summaryUserMessage(facts), options.fetch ?? fetch);
+    let call: Awaited<ReturnType<typeof callGemini>>;
+    try {
+      call = await callGemini(model, spec.system, summaryUserMessage(facts), options.fetch ?? fetch, options.wait);
+    } catch (err) {
+      // One tab's API failure (Gemini still busy after the retries) leaves the others to run.
+      call = { skipped: err instanceof Error ? err.message : String(err) };
+    }
     if ("skipped" in call) {
       log(`[${tab}] ${call.skipped}; nothing written.`);
       results.push({ tab, date: today, text: null, model, skipped: call.skipped });
