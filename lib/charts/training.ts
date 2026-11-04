@@ -1,4 +1,5 @@
 import type { DashboardData } from "@/lib/dashboard/types";
+import type { Profile } from "@/lib/data/profiles";
 import { LOAD_FOCUS_KEYS, type DailyTraining, type LoadFocusKey } from "@/lib/data/training";
 import { addDays, eachDay, type LocalDate } from "@/lib/dates/calendar";
 import { isInRange } from "@/lib/heatmap/cell-state";
@@ -44,7 +45,9 @@ const easyShareOf = (z: Zones) => {
 };
 
 /** Time in each HR zone across runs, stacked per day (a week or less) or per week, with the miles run. */
-export function buildZoneChart(data: Pick<DashboardData, "activities" | "dateRange" | "today" | "profile">): ZoneChartData | null {
+export function buildZoneChart(
+  data: Pick<DashboardData, "activities" | "dateRange" | "today"> & { profile: Pick<Profile, "hr_zone_bounds"> },
+): ZoneChartData | null {
   const allRuns = runsOf(data.activities);
   const runs = allRuns.filter((r) => r.hr_zone_s !== null);
   const inRange = runs.filter((r) => isInRange(r.local_date, data.dateRange));

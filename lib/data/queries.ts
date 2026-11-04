@@ -155,10 +155,10 @@ export async function fetchTraining(userId: string, to: string): Promise<DailyTr
   return rows.map((row) => dailyTrainingRowSchema.parse(row));
 }
 
-/** The AI daily summary written for `date`, if any. */
-export async function fetchDailySummary(userId: string, date: string): Promise<DailySummary | null> {
+/** The AI summary written for `tab` on `date`, if any. */
+export async function fetchDailySummary(userId: string, date: string, tab: string): Promise<DailySummary | null> {
   const [row] = await db()`
-    select local_date, text, model, generated_at from daily_summaries
-    where user_id = ${userId} and local_date = ${date}`;
+    select local_date, tab, text, model, generated_at from daily_summaries
+    where user_id = ${userId} and local_date = ${date} and tab = ${tab}`;
   return row ? dailySummaryRowSchema.parse(row) : null;
 }

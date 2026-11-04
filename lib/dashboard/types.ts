@@ -68,7 +68,7 @@ export interface DashboardData {
   sleep: SleepNight[];
   /** Every day's body composition, unbounded, oldest first (Weight tab). */
   bodyComposition: BodyCompositionDay[];
-  /** Today's AI-written summary (Daily feel tab), or null when none was written today. */
+  /** Today's AI-written summary for the active tab, or null when none was written today. */
   summary: DailySummary | null;
   /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
    * unbounded at the start, for VO2 max's history. */

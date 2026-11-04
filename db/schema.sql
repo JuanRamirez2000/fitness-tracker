@@ -167,14 +167,15 @@ create table daily_training (
   primary key (user_id, local_date)
 );
 
--- The AI-written daily summary (app/api/summary/cron), one per day.
+-- The AI-written summaries (app/api/summary/cron), one per tab per day.
 create table daily_summaries (
   user_id uuid not null references profiles(id) on delete cascade,
   local_date date not null,
+  tab text not null default 'today',     -- today | weight | training
   text text not null,
-  model text,                            -- the model that wrote it (it may be a fallback)
+  model text,                            -- the model that wrote it
   generated_at timestamptz not null default now(),
-  primary key (user_id, local_date)
+  primary key (user_id, local_date, tab)
 );
 
 -- The unofficial Garmin login session, shared by a local run and the GitHub Actions job

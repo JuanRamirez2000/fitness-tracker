@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { importGarmin } from "@/lib/garmin/import";
-import { generateDailySummary } from "@/lib/summary/generate";
+import { generateSummaries } from "@/lib/summary/generate";
 
 export const maxDuration = 60;
 
 /**
  * The morning job, called by Vercel Cron (vercel.json) after the athlete has woken: imports
  * today's sleep, recovery, weigh-in and fitness age from the Personal API (the 1 AM nightly
- * run is too early for last night's sleep), then writes the AI daily summary. Readiness comes
+ * run is too early for last night's sleep), then writes the AI summaries, one per tab. Readiness comes
  * from the unofficial import, scheduled shortly before this (.github/workflows/garmin-unofficial.yml).
  *
  * Same auth as the nightly cron: Vercel sends `Authorization: Bearer $CRON_SECRET`.
@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
       datasets: ["weigh-ins", "sleep", "recovery", "fitness-age"],
       log: console.log,
     });
-    const summary = await generateDailySummary({ log: console.log });
-    return NextResponse.json({ ok: true, imported, summary });
+    const summaries = await generateSummaries({ log: console.log });
+    return NextResponse.json({ ok: true, imported, summaries });
   } catch (err) {
     console.error("Morning summary failed:", err);
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

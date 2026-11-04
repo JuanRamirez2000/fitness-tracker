@@ -6,6 +6,7 @@ import { RaceCard } from "@/components/charts/race-card";
 import { TrainingLoadChart } from "@/components/charts/training-load-chart";
 import { ZonesChart } from "@/components/charts/zones-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
+import { DailySummary } from "@/components/today/daily-summary";
 import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
 import { RunsTable } from "@/components/dashboard/runs-table";
 import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
@@ -15,6 +16,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 export function TrainingTab({ data }: { data: DashboardData }) {
   return (
     <>
+      <DailySummary data={data} />
       <KpiCards data={data} ids={TAB_KPIS.training} />
       <Section>
         <SectionHeading n="01">Am I training at the right effort and load?</SectionHeading>

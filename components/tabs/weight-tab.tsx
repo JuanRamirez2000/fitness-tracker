@@ -3,6 +3,7 @@ import { BodyMassChart } from "@/components/charts/body-mass-chart";
 import { CompositionCard } from "@/components/charts/composition-card";
 import { WeightTrendChart } from "@/components/charts/weight-trend-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
+import { DailySummary } from "@/components/today/daily-summary";
 import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
 import { WeighInTable } from "@/components/dashboard/weigh-in-table";
 import { WeightHeatmap } from "@/components/heatmap/heatmaps";
@@ -12,6 +13,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
   return (
     <>
+      <DailySummary data={data} />
       <KpiCards data={data} ids={TAB_KPIS.weight} />
       <Section>
         <SectionHeading n="01">Am I losing fat, not muscle?</SectionHeading>

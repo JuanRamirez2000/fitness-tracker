@@ -55,9 +55,10 @@ export const sleepNightRowSchema = z.object({
 
 export type SleepNight = z.infer<typeof sleepNightRowSchema>;
 
-/** The AI-written summary for one day (db/schema.sql daily_summaries). */
+/** The AI-written summary for one tab on one day (db/schema.sql daily_summaries). */
 export const dailySummaryRowSchema = z.object({
   local_date: localDateSchema,
+  tab: z.enum(["today", "weight", "training"]).default("today"),
   text: z.string(),
   model: z.string().nullable(),
   generated_at: timestampSchema,

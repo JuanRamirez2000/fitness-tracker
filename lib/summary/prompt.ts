@@ -98,7 +98,7 @@ Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Sa
 
 Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would ("7.5 hours"). This is a training log, not medical advice: don't diagnose or suggest treatment.`;
 
-/** The user turn: the facts as JSON. */
+/** The user turn: the facts as JSON (every tab's). */
 export function summaryUserMessage(facts: Record<string, unknown>): string {
   return `Today's data:\n${JSON.stringify(facts, null, 2)}`;
 }
