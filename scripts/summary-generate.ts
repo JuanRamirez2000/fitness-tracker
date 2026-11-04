@@ -1,6 +1,6 @@
 /**
  * Writes today's AI daily summary by hand (the morning cron, app/api/summary/cron, does the
- * same after importing). Reads ANTHROPIC_API_KEY and DATABASE_URL from .env.local.
+ * same after importing). Reads GEMINI_API_KEY and DATABASE_URL from .env.local.
  *
  *   npm run summary:generate              # write today's summary
  *   npm run summary:generate -- --dry-run # print the facts and the summary, write nothing

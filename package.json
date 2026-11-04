@@ -16,7 +16,6 @@
     "summary:generate": "tsx --env-file=.env.local scripts/summary-generate.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.4.0",
     "@visx/curve": "^4.0.0",
     "@visx/group": "^4.0.0",
     "@visx/scale": "^4.0.0",
