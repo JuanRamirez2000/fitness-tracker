@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { jwtExpiryMs, parseTokenResponse } from "./client";
 import { resolveWindow, wellnessWindow } from "./import";
 import { readFileSync } from "node:fs";
-import { buildActivityRows, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows } from "./map";
-import type { RawHrvDay, RawSleepNight, RawUserSummary, RawWeighIn } from "./map";
+import { buildActivityRows, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows, buildZoneBounds } from "./map";
+import type { RawActivity, RawHrvDay, RawHrZones, RawSleepNight, RawUserSummary, RawWeighIn } from "./map";
 
 /** A sample Garmin response from lib/garmin/fixtures/ (real, anonymised). */
 function fixture<T>(name: string): T {
@@ -176,5 +176,30 @@ describe("buildRecoveryRows", () => {
     expect(rows).toEqual([
       expect.objectContaining({ local_date: "2026-11-02", resting_hr: 52, avg_stress: null, body_battery_low: 0 }),
     ]);
+  });
+});
+
+describe("HR zones", () => {
+  it("reads seconds in each zone from a real activity", () => {
+    const [row] = buildActivityRows(fixture<RawActivity[]>("activity-search.json"));
+    expect(row.hr_zone_s).toEqual([9, 158, 1017, 544, 0]);
+    // The Personal API's activity list carries no VO2 max (docs/garmin-fields.md).
+    expect(row.vo2max).toBeNull();
+  });
+
+  it("is null for an activity without HR", () => {
+    const [row] = buildActivityRows([{ activityId: 1, startTimeLocal: "2026-11-02 18:30:00", startTimeGMT: "2026-11-03 02:30:00" }]);
+    expect(row.hr_zone_s).toBeNull();
+  });
+
+  it("turns the DEFAULT sport's floors into [low, high] bounds", () => {
+    expect(buildZoneBounds(fixture<RawHrZones[]>("heart-rate-zones.json"))).toEqual([
+      [101, 120],
+      [121, 140],
+      [141, 160],
+      [161, 180],
+      [181, 201],
+    ]);
+    expect(buildZoneBounds([])).toBeNull();
   });
 });

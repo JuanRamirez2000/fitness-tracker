@@ -9,7 +9,7 @@
  * No server-only guard: scripts/garmin-import.ts runs this from the command line too.
  */
 import { dayChunks, eachDay } from "../dates/calendar";
-import type { RawActivity, RawHrvDay, RawSleepNight, RawStepsDay, RawUserSummary, RawWeighIn } from "./map";
+import type { RawActivity, RawHrvDay, RawHrZones, RawSleepNight, RawStepsDay, RawUserSummary, RawWeighIn } from "./map";
 
 const BASE_URL = "https://personal.connectapi.garmin.com";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
@@ -179,6 +179,11 @@ export class GarminClient {
       if (summary) all.push({ ...summary, calendarDate: summary.calendarDate ?? day });
     }
     return all;
+  }
+
+  /** The athlete's HR zone settings, one entry per sport. */
+  async hrZones(): Promise<RawHrZones[]> {
+    return (await this.get<RawHrZones[] | null>("/biometric-service/heartRateZones/v2", { generateDefaults: true })) ?? [];
   }
 
   /** Every activity whose local start falls in the window, across as many pages as it takes. */

@@ -6,6 +6,7 @@ import {
   fetchRecovery,
   fetchSleepNights,
   fetchSteps,
+  fetchTraining,
   fetchWeighIns,
   fetchWeightTrend,
 } from "@/lib/data/queries";
@@ -40,6 +41,7 @@ export function tabNeeds(tab: TabKey): {
   weighIns: boolean;
   recovery: boolean;
   bodyComposition: boolean;
+  training: boolean;
 } {
   return {
     activities: tab === "weight" || tab === "training", // run ticks on the weight trend; every running view
@@ -47,6 +49,7 @@ export function tabNeeds(tab: TabKey): {
     weighIns: tab === "weight",
     recovery: tab === "today", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
+    training: tab === "training", // daily_training
   };
 }
 
@@ -68,15 +71,16 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     from: dateRange.from < window.from ? dateRange.from : window.from,
     to: dateRange.to > window.to ? dateRange.to : window.to,
   };
-  // Recovery and sleep cover the range and always today too: the hero is about today
-  // whatever range is selected.
+  // Recovery, sleep and training cover the range and always today too: the hero and the
+  // "latest" stats are about today whatever range is selected.
   const recoverySpan = { from: dateRange.from, to: dateRange.to > today ? dateRange.to : today };
-  const [weighIns, allSteps, recovery, sleep, bodyComposition] = await Promise.all([
+  const [weighIns, allSteps, recovery, sleep, bodyComposition, training] = await Promise.all([
     needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
     needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
     needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
     needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
     needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
+    needs.training ? fetchTraining(profile.id, recoverySpan) : [],
   ]);
 
   return {
@@ -94,6 +98,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     recovery,
     sleep,
     bodyComposition,
+    training,
     dateRange,
   };
 }

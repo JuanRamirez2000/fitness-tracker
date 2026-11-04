@@ -23,14 +23,14 @@ describe("resolveProgramStart", () => {
 
 describe("tabNeeds", () => {
   it("loads weigh-ins and activities (run ticks) for the weight tab, not steps", () => {
-    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: false, bodyComposition: true });
+    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: false, bodyComposition: true, training: false });
   });
 
   it("loads activities and steps for the training tab, not weigh-ins", () => {
-    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: false, bodyComposition: false });
+    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: false, bodyComposition: false, training: true });
   });
 
   it("loads only recovery and sleep for the daily feel tab", () => {
-    expect(tabNeeds("today")).toEqual({ activities: false, steps: false, weighIns: false, recovery: true, bodyComposition: false });
+    expect(tabNeeds("today")).toEqual({ activities: false, steps: false, weighIns: false, recovery: true, bodyComposition: false, training: false });
   });
 });

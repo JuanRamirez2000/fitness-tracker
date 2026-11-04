@@ -29,6 +29,8 @@ export const activityRowSchema = z.object({
   training_load: z.number().nullable(),
   vo2max: z.number().int().nullable(),
   fastest_mile_s: z.number().nullable(),
+  /** [z1..z5] seconds in each HR zone (null without HR, and before migration 007). */
+  hr_zone_s: z.array(z.number()).length(5).nullable().default(null),
 });
 
 export type Activity = z.infer<typeof activityRowSchema>;

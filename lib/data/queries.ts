@@ -5,6 +5,7 @@ import { activityRowSchema, type Activity } from "./activities";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import { dailyRecoveryRowSchema, sleepNightRowSchema, type DailyRecovery, type SleepNight } from "./recovery";
+import { dailyTrainingRowSchema, type DailyTraining } from "./training";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
 import { bodyCompositionDaySchema, weighInRowSchema, type BodyCompositionDay, type WeighIn, type WeighInInput } from "./weigh-ins";
 import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
@@ -17,7 +18,7 @@ import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
 export async function fetchOwnerProfile(): Promise<Profile | null> {
   const [row] = await db()`
     select id, display_name, timezone, program_start_date,
-           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday
+           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds
     from profiles order by created_at limit 1`;
   return row ? profileSchema.parse(row) : null;
 }
@@ -132,4 +133,16 @@ export async function fetchBodyComposition(userId: string): Promise<BodyComposit
     where user_id = ${userId} and body_fat_pct is not null
     order by local_date, measured_at`;
   return rows.map((row) => bodyCompositionDaySchema.parse(row));
+}
+
+/** Each day's training snapshot inside `range`, oldest first. */
+export async function fetchTraining(userId: string, range: DayWindow): Promise<DailyTraining[]> {
+  const rows = await db()`
+    select local_date, acute_load, chronic_load, chronic_low, chronic_high, acwr, status, focus, focus_feedback,
+           vo2max, race_5k_s, race_10k_s, race_half_s, fitness_age, fitness_age_achievable, chronological_age,
+           fitness_age_factors
+    from daily_training
+    where user_id = ${userId} and local_date between ${range.from} and ${range.to}
+    order by local_date`;
+  return rows.map((row) => dailyTrainingRowSchema.parse(row));
 }

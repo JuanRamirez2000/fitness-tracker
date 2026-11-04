@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import type { Activity } from "@/lib/data/activities";
 import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
+import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
 import type { BodyCompositionDay, WeighIn } from "@/lib/data/weigh-ins";
@@ -31,7 +32,7 @@ export interface DateRange extends DayWindow {
 /**
  * Everything a tab renders. Only the active tab's data is fetched (lib/dashboard/load.ts,
  * tabNeeds): on a tab that doesn't render them, `activities`, `steps`, `heatmap.steps`,
- * `weighIns`, `recovery`, `sleep` and `bodyComposition` are empty arrays, not real "no data" — read them only
+ * `weighIns`, `recovery`, `sleep`, `bodyComposition` and `training` are empty arrays, not real "no data" — read them only
  * from that tab's views.
  */
 export interface DashboardData {
@@ -67,6 +68,8 @@ export interface DashboardData {
   sleep: SleepNight[];
   /** Every day's body composition, unbounded, oldest first (Weight tab). */
   bodyComposition: BodyCompositionDay[];
+  /** Daily training snapshots over the same span as `recovery`, oldest first (Training tab). */
+  training: DailyTraining[];
   dateRange: DateRange;
 }
 

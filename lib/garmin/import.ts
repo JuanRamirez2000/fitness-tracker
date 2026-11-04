@@ -26,9 +26,10 @@ import {
   buildSleepRows,
   buildStepsRows,
   buildWeighInRows,
+  buildZoneBounds,
 } from "./map";
 
-export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery"] as const;
+export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery", "hr-zones"] as const;
 export type Dataset = (typeof DATASETS)[number];
 
 export type ImportWindow =
@@ -82,7 +83,13 @@ export function wellnessWindow(window: ImportWindow, today: LocalDate): { start:
 }
 
 const updates = (columns: readonly string[]) => columns.map((c) => `${c} = excluded.${c}`).join(", ");
-const ACTIVITY_UPDATES = updates(ACTIVITY_COLUMNS);
+/**
+ * The Personal API's activity list has no VO2 max, so a re-import must not erase one an
+ * earlier (unofficial) import stored: keep the old value when the new one is null.
+ */
+const ACTIVITY_UPDATES = ACTIVITY_COLUMNS.map((c) =>
+  c === "vo2max" ? "vo2max = coalesce(excluded.vo2max, activities.vo2max)" : `${c} = excluded.${c}`,
+).join(", ");
 const SLEEP_UPDATES = updates(SLEEP_COLUMNS);
 const RECOVERY_UPDATES = updates(RECOVERY_COLUMNS);
 const WEIGH_IN_UPDATES = updates(WEIGH_IN_COLUMNS);
@@ -105,7 +112,7 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
   const want = (d: Dataset) => datasets.includes(d);
 
   // Fetch everything first, so a Garmin failure partway leaves the database untouched.
-  const [weighIns, steps, activities, sleep, recovery] = await Promise.all([
+  const [weighIns, steps, activities, sleep, recovery, zoneBounds] = await Promise.all([
     want("weigh-ins") ? garmin.weighIns(start, end).then((r) => buildWeighInRows(r, (m) => log(`  note: ${m}`))) : [],
     want("steps") ? garmin.steps(start, end).then(buildStepsRows) : [],
     want("activities") ? garmin.activities(start, end).then(buildActivityRows) : [],
@@ -115,10 +122,12 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
           ([hrv, summaries]) => buildRecoveryRows(hrv, summaries),
         )
       : [],
+    want("hr-zones") ? garmin.hrZones().then(buildZoneBounds) : null,
   ]);
   log(
     `Fetched ${weighIns.length} weigh-in(s), ${steps.length} step-day(s), ${activities.length} activit${activities.length === 1 ? "y" : "ies"}, ` +
-      `${sleep.length} night(s), ${recovery.length} recovery day(s)`,
+      `${sleep.length} night(s), ${recovery.length} recovery day(s)` +
+      (zoneBounds ? `, HR zones ${zoneBounds.map(([lo, hi]) => `${lo}-${hi}`).join(" / ")}` : ""),
   );
 
   if (dryRun) {
@@ -157,11 +166,19 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
       if (activities.length) {
         await tx`
           insert into activities ${tx(
-            activities.map((r) => ({ ...r, user_id: userId, source: "garmin" })),
+            activities.map((r) => ({
+              ...r,
+              hr_zone_s: r.hr_zone_s ? tx.json(r.hr_zone_s) : null,
+              user_id: userId,
+              source: "garmin",
+            })),
             "user_id", "source", "external_id", ...ACTIVITY_COLUMNS,
           )}
           on conflict (user_id, source, external_id)
           do update set ${tx.unsafe(ACTIVITY_UPDATES)}, updated_at = now()`;
+      }
+      if (zoneBounds) {
+        await tx`update profiles set hr_zone_bounds = ${tx.json(zoneBounds)} where id = ${userId}`;
       }
       if (sleep.length) {
         await tx`

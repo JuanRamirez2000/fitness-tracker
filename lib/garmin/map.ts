@@ -44,6 +44,22 @@ export interface RawActivity {
   activityTrainingLoad?: number | null;
   vO2MaxValue?: number | null;
   fastestSplit_1609?: number | null;
+  hrTimeInZone_1?: number | null; // seconds
+  hrTimeInZone_2?: number | null;
+  hrTimeInZone_3?: number | null;
+  hrTimeInZone_4?: number | null;
+  hrTimeInZone_5?: number | null;
+}
+
+/** One sport's zones from /biometric-service/heartRateZones/v2. */
+export interface RawHrZones {
+  sport?: string | null;
+  zone1Floor?: number | null;
+  zone2Floor?: number | null;
+  zone3Floor?: number | null;
+  zone4Floor?: number | null;
+  zone5Floor?: number | null;
+  maxHeartRateUsed?: number | null;
 }
 
 export interface WeighInRow {
@@ -90,6 +106,8 @@ export interface ActivityRow {
   training_load: number | null;
   vo2max: number | null;
   fastest_mile_s: number | null;
+  /** [z1..z5] seconds in each HR zone, or null when the activity has no HR. */
+  hr_zone_s: number[] | null;
 }
 
 /** Every activities column the importer writes, besides user_id, source and external_id. */
@@ -97,7 +115,7 @@ export const ACTIVITY_COLUMNS = [
   "activity_type", "name", "started_at", "local_date", "duration_s", "moving_duration_s", "distance_m",
   "elevation_gain_m", "avg_speed_mps", "avg_grade_adjusted_speed_mps", "avg_hr", "max_hr", "avg_cadence_spm",
   "avg_stride_cm", "avg_ground_contact_ms", "calories", "aerobic_training_effect", "training_effect_label",
-  "training_load", "vo2max", "fastest_mile_s",
+  "training_load", "vo2max", "fastest_mile_s", "hr_zone_s",
 ] as const satisfies readonly (keyof ActivityRow)[];
 
 const roundOrNull = (value: number | null | undefined) => (value ? Math.round(value) : null);
@@ -163,6 +181,7 @@ export function buildActivityRows(activities: RawActivity[]): ActivityRow[] {
       training_load: orNull(a.activityTrainingLoad),
       vo2max: roundOrNull(a.vO2MaxValue),
       fastest_mile_s: orNull(a.fastestSplit_1609),
+      hr_zone_s: hrZoneSeconds(a),
     });
   }
   return rows;
@@ -316,4 +335,25 @@ export function buildRecoveryRows(hrv: RawHrvDay[], summaries: RawUserSummary[])
   }
 
   return [...byDate.values()].sort((a, b) => a.local_date.localeCompare(b.local_date));
+}
+
+/** [z1..z5] seconds, rounded; null when Garmin recorded no time in any zone. */
+function hrZoneSeconds(a: RawActivity): number[] | null {
+  const zones = [a.hrTimeInZone_1, a.hrTimeInZone_2, a.hrTimeInZone_3, a.hrTimeInZone_4, a.hrTimeInZone_5].map((s) =>
+    Math.round(s ?? 0),
+  );
+  return zones.some((s) => s > 0) ? zones : null;
+}
+
+/**
+ * The athlete's five zones as [low, high] bpm, from the "DEFAULT" sport (what running uses):
+ * zone N runs from its floor to one below the next floor, zone 5 up to max HR.
+ */
+export function buildZoneBounds(sports: RawHrZones[]): [number, number][] | null {
+  const z = sports.find((s) => s.sport === "DEFAULT") ?? sports[0];
+  if (!z) return null;
+  const floors = [z.zone1Floor, z.zone2Floor, z.zone3Floor, z.zone4Floor, z.zone5Floor];
+  if (floors.some((f) => f == null) || z.maxHeartRateUsed == null) return null;
+  const f = floors as number[];
+  return f.map((low, i) => [low, i < 4 ? f[i + 1] - 1 : (z.maxHeartRateUsed as number)]);
 }

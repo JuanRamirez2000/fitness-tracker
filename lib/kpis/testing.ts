@@ -17,6 +17,7 @@ export function testProfile(over: Partial<Profile> = {}): Profile {
     goal_pace_lb_per_week: null,
     start_weight_lb: null,
     shot_weekday: 4,
+    hr_zone_bounds: null,
     ...over,
   };
 }
@@ -48,6 +49,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     recovery: [],
     sleep: [],
     bodyComposition: [],
+    training: [],
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
     ...over,
@@ -82,6 +84,7 @@ export function testRun(over: Partial<Activity> & { local_date: string }): Activ
     training_load: 40,
     vo2max: 41,
     fastest_mile_s: 700,
+    hr_zone_s: null,
     ...over,
   };
 }

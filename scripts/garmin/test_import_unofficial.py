@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import readiness_row, window
+from import_unofficial import readiness_row, training_row, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -34,6 +34,27 @@ class ReadinessRowTest(unittest.TestCase):
         row = readiness_row({"calendarDate": "2026-11-02", "score": 70, "timestamp": "2026-11-02T14:00:00.0"})
         self.assertEqual(row["readiness_score"], 70)
         self.assertIsNone(row["readiness_morning_score"])
+
+
+class TrainingRowTest(unittest.TestCase):
+    def setUp(self):
+        self.payload = json.loads((FIXTURES / "training-status.json").read_text())
+
+    def test_reads_load_status_focus_and_vo2(self):
+        row = training_row(self.payload, "2026-11-03")
+        self.assertEqual(row["acute_load"], 237)
+        self.assertEqual(row["chronic_load"], 172)
+        self.assertEqual((row["chronic_low"], row["chronic_high"]), (137.6, 258.0))
+        self.assertEqual(row["acwr"], 1.3)
+        self.assertEqual(row["status"], "PRODUCTIVE")
+        self.assertEqual(row["focus"]["aerobic_low"], {"value": 300.92786, "low": 80, "high": 240})
+        self.assertEqual(row["focus"]["anaerobic"]["value"], 0.0)
+        self.assertEqual(row["focus_feedback"], "ABOVE_TARGETS")
+        self.assertEqual(row["vo2max"], 42.2)
+
+    def test_skips_parts_dated_another_day(self):
+        self.assertIsNone(training_row(self.payload, "2026-11-02"))
+        self.assertIsNone(training_row(None, "2026-11-03"))
 
 
 class WindowTest(unittest.TestCase):

@@ -40,6 +40,12 @@
   --sleep-rem: #a58aec;
   --sleep-light: #a9bedf;
   --sleep-awake: #e0896f;
+  /* HR zones, a cool-to-hot ramp; stacked in fixed order so position also encodes the zone. */
+  --z1: #64748f;
+  --z2: #6fa3e0;
+  --z3: #5fb3a5;
+  --z4: #e3b25c;
+  --z5: #e0735a;
 }
 
 /*
@@ -82,6 +88,11 @@
   --sleep-rem: #7a5bd0;
   --sleep-light: #7d93bd;
   --sleep-awake: #c25a40;
+  --z1: #7d8aa3;
+  --z2: #3f78bd;
+  --z3: #24806f;
+  --z4: #a8781a;
+  --z5: #bf452e;
 }
 
 @theme inline {
@@ -108,6 +119,11 @@
   --color-sleep-rem: var(--sleep-rem);
   --color-sleep-light: var(--sleep-light);
   --color-sleep-awake: var(--sleep-awake);
+  --color-z1: var(--z1);
+  --color-z2: var(--z2);
+  --color-z3: var(--z3);
+  --color-z4: var(--z4);
+  --color-z5: var(--z5);
 
   --font-sans: var(--font-plex-sans), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;

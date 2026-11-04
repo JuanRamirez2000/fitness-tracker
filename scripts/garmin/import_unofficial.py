@@ -5,6 +5,8 @@
 Datasets:
   readiness  training readiness: the day's latest snapshot (score, level, six factors,
              recovery time) plus the morning score -> daily_recovery's readiness columns.
+  training   training status: acute and chronic load, the optimal chronic band, ACWR,
+             status, load focus with its targets, and VO2 max -> daily_training.
 
 Uses cyberjunky/python-garminconnect, which logs in like the Garmin Connect app. The login
 session lives in ~/.garminconnect and is mirrored to the garmin_token_cache table, so a local
@@ -40,7 +42,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / ".env.local"
 TOKEN_DIR = Path(os.getenv("GARMINTOKENS", "~/.garminconnect")).expanduser()
 TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
-DATASETS = ("readiness",)
+DATASETS = ("readiness", "training")
 PER_DAY_PAUSE_S = 0.4
 
 # readiness_factors keys -> Garmin's field names (the hero's six rows).
@@ -81,6 +83,74 @@ def readiness_row(snapshots: list[dict[str, Any]] | dict[str, Any] | None) -> di
         "readiness_morning_score": int(morning["score"]) if morning else None,
         "recovery_hours": round(recovery_min / 60, 1) if recovery_min is not None else None,
     }
+
+
+FOCUS_FIELDS = {
+    "aerobic_low": "monthlyLoadAerobicLow",
+    "aerobic_high": "monthlyLoadAerobicHigh",
+    "anaerobic": "monthlyLoadAnaerobic",
+}
+
+
+def _primary(device_map: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Training status keys its data by device ID; take the primary training device's."""
+    if not device_map:
+        return None
+    entries = [v for v in device_map.values() if isinstance(v, dict)]
+    return next((e for e in entries if e.get("primaryTrainingDevice")), entries[0] if entries else None)
+
+
+def _status_word(phrase: str | None) -> str | None:
+    """"PRODUCTIVE_3" -> "PRODUCTIVE"; Garmin appends a feedback variant number."""
+    if not phrase:
+        return None
+    head, _, tail = phrase.rpartition("_")
+    return head if tail.isdigit() and head else phrase
+
+
+def training_row(payload: dict[str, Any] | None, day: str) -> dict[str, Any] | None:
+    """daily_training's unofficial columns for `day` from get_training_status(day). Each part
+    is kept only when Garmin dated it `day`, so a day without its own update stays empty
+    rather than repeating an older value."""
+    if not payload:
+        return None
+    row: dict[str, Any] = {"local_date": day}
+
+    status = _primary((payload.get("mostRecentTrainingStatus") or {}).get("latestTrainingStatusData"))
+    if status and status.get("calendarDate") == day:
+        load = status.get("acuteTrainingLoadDTO") or {}
+        row.update({
+            "acute_load": load.get("dailyTrainingLoadAcute"),
+            "chronic_load": load.get("dailyTrainingLoadChronic"),
+            "chronic_low": load.get("minTrainingLoadChronic"),
+            "chronic_high": load.get("maxTrainingLoadChronic"),
+            "acwr": load.get("dailyAcuteChronicWorkloadRatio"),
+            "status": _status_word(status.get("trainingStatusFeedbackPhrase")),
+        })
+
+    balance = _primary((payload.get("mostRecentTrainingLoadBalance") or {}).get("metricsTrainingLoadBalanceDTOMap"))
+    if balance and balance.get("calendarDate") == day:
+        row["focus"] = {
+            key: {
+                "value": balance.get(field),
+                "low": balance.get(f"{field}TargetMin"),
+                "high": balance.get(f"{field}TargetMax"),
+            }
+            for key, field in FOCUS_FIELDS.items()
+        }
+        row["focus_feedback"] = balance.get("trainingBalanceFeedbackPhrase")
+
+    vo2 = ((payload.get("mostRecentVO2Max") or {}).get("generic")) or {}
+    if vo2.get("calendarDate") == day and vo2.get("vo2MaxPreciseValue") is not None:
+        row["vo2max"] = vo2["vo2MaxPreciseValue"]
+
+    return row if len(row) > 1 else None
+
+
+TRAINING_COLUMNS = (
+    "acute_load", "chronic_load", "chronic_low", "chronic_high", "acwr", "status",
+    "focus", "focus_feedback", "vo2max",
+)
 
 
 def window(today: date, days: int, yesterday: bool, since: date | None) -> tuple[date, date]:
@@ -201,6 +271,33 @@ def upsert_readiness(conn, user_id: str, rows: list[dict[str, Any]], dry_run: bo
     print(f"  readiness: upserted {len(rows)} row(s)")
 
 
+def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: bool) -> None:
+    if not rows:
+        print("  training: nothing to write")
+        return
+    if dry_run:
+        print(f"  training: would write {len(rows)} row(s) (dry run)")
+        for row in rows[-3:]:
+            print(f"    {row}")
+        return
+    from psycopg.types.json import Jsonb
+
+    with conn.cursor() as cur:
+        for row in rows:
+            # Only the parts Garmin dated this day: a missing part keeps what the row had.
+            cols = [c for c in TRAINING_COLUMNS if c in row]
+            values = {c: Jsonb(row[c]) if c == "focus" else row[c] for c in cols}
+            cur.execute(
+                f"""insert into daily_training (user_id, local_date, {", ".join(cols)})
+                    values (%(user_id)s, %(local_date)s, {", ".join(f"%({c})s" for c in cols)})
+                    on conflict (user_id, local_date) do update set
+                      {", ".join(f"{c} = excluded.{c}" for c in cols)}, updated_at = now()""",
+                {**values, "user_id": user_id, "local_date": row["local_date"]},
+            )
+    conn.commit()
+    print(f"  training: upserted {len(rows)} row(s)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"trailing days ending today (default {DEFAULT_DAYS})")
@@ -235,6 +332,18 @@ def main() -> None:
                 time.sleep(PER_DAY_PAUSE_S)
             print(f"Fetched readiness for {len(rows)} day(s)")
             upsert_readiness(conn, user_id, rows, args.dry_run)
+
+        if "training" in datasets:
+            rows = []
+            day = start
+            while day <= end:
+                row = training_row(garmin.get_training_status(day.isoformat()), day.isoformat())
+                if row:
+                    rows.append(row)
+                day += timedelta(days=1)
+                time.sleep(PER_DAY_PAUSE_S)
+            print(f"Fetched training status for {len(rows)} day(s)")
+            upsert_training(conn, user_id, rows, args.dry_run)
 
     print("Done.")
 

@@ -1,7 +1,7 @@
 name: Garmin unofficial import
 
-# Runs scripts/garmin/import_unofficial.py: training readiness (and, later, training status,
-# race predictions and VO2 max), which Garmin's official Personal API doesn't serve. The rest
+# Runs scripts/garmin/import_unofficial.py: training readiness and training status (load, load
+# focus, VO2 max), which Garmin's official Personal API doesn't serve. The rest
 # of the import is the Vercel Cron job (app/api/garmin/cron). See scripts/garmin/README.md.
 #
 # The Garmin login session comes from the garmin_token_cache table, shared with local runs.

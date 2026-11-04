@@ -12,6 +12,9 @@ export const profileSchema = z.object({
   start_weight_lb: z.number().nullable(),
   /** 0 = Sunday ... 6 = Saturday: the weekday shots are scheduled on. */
   shot_weekday: z.number().int().min(0).max(6),
+  /** [[low, high] x 5] bpm from Garmin's own zone settings (lib/garmin/), or null before the
+   * first import. */
+  hr_zone_bounds: z.array(z.tuple([z.number(), z.number()])).length(5).nullable().default(null),
 });
 
 export type Profile = z.infer<typeof profileSchema>;

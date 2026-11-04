@@ -16,6 +16,7 @@ create table profiles (
   goal_weight_lb numeric(5,1),           -- progress-to-goal card and goal line
   goal_pace_lb_per_week numeric(3,1),    -- optional; draws a pace line when set
   start_weight_lb numeric(5,1),          -- optional override; default = first weigh-in
+  hr_zone_bounds jsonb,                  -- [[low, high] x 5] bpm, from Garmin's zone settings
   shot_weekday smallint not null default 4
     check (shot_weekday between 0 and 6),  -- 0 = Sunday ... 4 = Thursday
   created_at timestamptz not null default now()
@@ -93,6 +94,7 @@ create table activities (
   training_load numeric(6,1),
   vo2max smallint,
   fastest_mile_s numeric(7,1),
+  hr_zone_s jsonb,                       -- [z1..z5] seconds in each HR zone
   updated_at timestamptz not null default now(),
   unique (user_id, source, external_id)
 );
@@ -136,6 +138,31 @@ create table sleep_nights (
   awake_s int,
   score smallint,
   need_s int,                            -- Garmin's sleep need for that night
+  updated_at timestamptz not null default now(),
+  primary key (user_id, local_date)
+);
+
+-- One row per day. The unofficial import (scripts/garmin/import_unofficial.py) writes the
+-- training-status columns; the Personal API import writes fitness age. Each updates only its own.
+create table daily_training (
+  user_id uuid not null references profiles(id) on delete cascade,
+  local_date date not null,
+  acute_load numeric(6,1),
+  chronic_load numeric(6,1),
+  chronic_low numeric(6,1),              -- Garmin's optimal chronic band for the day
+  chronic_high numeric(6,1),
+  acwr numeric(4,2),
+  status text,                           -- PRODUCTIVE, MAINTAINING, RECOVERY, ...
+  focus jsonb,                           -- {aerobic_low|aerobic_high|anaerobic: {value, low, high}}
+  focus_feedback text,                   -- ABOVE_TARGETS, BALANCED, ...
+  vo2max numeric(4,1),                   -- running VO2 max, when Garmin updated it that day
+  race_5k_s int,
+  race_10k_s int,
+  race_half_s int,
+  fitness_age numeric(4,1),
+  fitness_age_achievable numeric(4,1),
+  chronological_age smallint,
+  fitness_age_factors jsonb,             -- Garmin's components, with priority
   updated_at timestamptz not null default now(),
   primary key (user_id, local_date)
 );
