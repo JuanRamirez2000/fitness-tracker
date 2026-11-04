@@ -43,7 +43,9 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
       runs: last7.length,
       miles: round1(last7.reduce((sum, r) => sum + runMiles(r), 0)),
       miles_the_week_before: round1(prior7.reduce((sum, r) => sum + runMiles(r), 0)),
-      ...(zones && zones.totalMinutes > 0
+      // Only when every run that week has zone data: a share from some of the runs (say, a
+      // backfill still in progress) would misstate the week.
+      ...(zones && zones.totalMinutes > 0 && last7.every((r) => r.hr_zone_s !== null)
         ? { easy_share_of_time_percent: Math.round(zones.easyShare * 100), easy_share_aim_percent: 80 }
         : {}),
     };

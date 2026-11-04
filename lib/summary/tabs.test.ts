@@ -110,6 +110,16 @@ describe("trainingFacts", () => {
     expect(hasEnoughForTrainingSummary(facts)).toBe(true);
   });
 
+  it("leaves out the easy share when some of the week's runs have no zone data", () => {
+    const facts = trainingFacts({
+      today: TODAY,
+      profile: { hr_zone_bounds: null },
+      activities: [testRun({ local_date: "2026-11-01", hr_zone_s: null }), testRun({ local_date: "2026-11-03", hr_zone_s: [9, 158, 1017, 544, 0] })],
+      training: [],
+    });
+    expect(facts.running_last_7_days).toEqual({ runs: 2, miles: 6, miles_the_week_before: 0 });
+  });
+
   it("is empty without recent running or load", () => {
     const facts = trainingFacts({ today: TODAY, profile: { hr_zone_bounds: null }, activities: [], training: [] });
     expect(facts).toEqual({ date: TODAY });
