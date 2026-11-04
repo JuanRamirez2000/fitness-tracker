@@ -1,6 +1,5 @@
 import { TAB_KPIS } from "@/dashboard.config";
 import { RunEfficiencyChart } from "@/components/charts/run-efficiency-chart";
-import { RunningVolumeChart } from "@/components/charts/running-volume-chart";
 import { FitnessChart } from "@/components/charts/fitness-chart";
 import { LoadFocusCard } from "@/components/charts/load-focus-card";
 import { RaceCard } from "@/components/charts/race-card";
@@ -26,11 +25,8 @@ export function TrainingTab({ data }: { data: DashboardData }) {
           <Cell span={6}>
             <TrainingLoadChart data={data} />
           </Cell>
-          <Cell span={5}>
+          <Cell span={12}>
             <LoadFocusCard data={data} />
-          </Cell>
-          <Cell span={7}>
-            <RunningVolumeChart data={data} />
           </Cell>
           <Cell span={12}>
             <ActivityHeatmap data={data} />

@@ -2,7 +2,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import { LOAD_FOCUS_KEYS, type DailyTraining, type LoadFocusKey } from "@/lib/data/training";
 import { addDays, eachDay, type LocalDate } from "@/lib/dates/calendar";
 import { isInRange } from "@/lib/heatmap/cell-state";
-import { runsOf } from "@/lib/running/runs";
+import { runMiles, runsOf } from "@/lib/running/runs";
 import { weeklyBuckets } from "./weekly-buckets";
 
 // ---------- Time in HR zones ----------
@@ -17,6 +17,8 @@ export interface ZoneBar {
   label: LocalDate;
   /** Minutes in Z1..Z5. */
   minutes: [number, number, number, number, number];
+  /** Miles run in this bar's day or week (every run, with or without HR). */
+  miles: number;
 }
 
 export interface ZoneChartData {
@@ -26,6 +28,9 @@ export interface ZoneChartData {
   easyShare: number;
   easyShareLast7: number | null;
   totalMinutes: number;
+  /** Miles and runs in the range (every run), folded in from the old running volume card. */
+  totalMiles: number;
+  runCount: number;
   /** Garmin's own zone bounds, [low, high] bpm, when imported. */
   bounds: [number, number][] | null;
 }
@@ -38,23 +43,33 @@ const easyShareOf = (z: Zones) => {
   return total > 0 ? (z[0] + z[1]) / total : null;
 };
 
-/** Time in each HR zone across runs, stacked per day (a week or less) or per week. */
+/** Time in each HR zone across runs, stacked per day (a week or less) or per week, with the miles run. */
 export function buildZoneChart(data: Pick<DashboardData, "activities" | "dateRange" | "today" | "profile">): ZoneChartData | null {
-  const runs = runsOf(data.activities).filter((r) => r.hr_zone_s !== null);
+  const allRuns = runsOf(data.activities);
+  const runs = allRuns.filter((r) => r.hr_zone_s !== null);
   const inRange = runs.filter((r) => isInRange(r.local_date, data.dateRange));
-  if (inRange.length === 0) return null;
+  const runsInRange = allRuns.filter((r) => isInRange(r.local_date, data.dateRange));
+  if (runsInRange.length === 0) return null;
 
   const secondsByDate = new Map<LocalDate, Zones>();
   for (const r of inRange) secondsByDate.set(r.local_date, add(secondsByDate.get(r.local_date) ?? ZERO, r.hr_zone_s!));
+  const milesByDate = new Map<LocalDate, number>();
+  for (const r of runsInRange) milesByDate.set(r.local_date, (milesByDate.get(r.local_date) ?? 0) + runMiles(r));
   const toMinutes = (z: Zones) => z.map((s) => s / 60) as Zones;
+  const milesOf = (days: LocalDate[]) => days.reduce((sum, d) => sum + (milesByDate.get(d) ?? 0), 0);
 
   const weekly = eachDay(data.dateRange.from, data.dateRange.to).length > DAILY_ZONE_BARS_MAX_DAYS;
   const bars: ZoneBar[] = weekly
     ? weeklyBuckets(data.dateRange).map((week) => ({
         label: week[0],
         minutes: toMinutes(week.reduce((acc, d) => add(acc, secondsByDate.get(d) ?? ZERO), ZERO)),
+        miles: milesOf(week),
       }))
-    : eachDay(data.dateRange.from, data.dateRange.to).map((d) => ({ label: d, minutes: toMinutes(secondsByDate.get(d) ?? ZERO) }));
+    : eachDay(data.dateRange.from, data.dateRange.to).map((d) => ({
+        label: d,
+        minutes: toMinutes(secondsByDate.get(d) ?? ZERO),
+        miles: milesOf([d]),
+      }));
 
   const rangeTotal = inRange.reduce((acc, r) => add(acc, r.hr_zone_s!), ZERO);
   const last7 = { from: addDays(data.today, -6), to: data.today };
@@ -66,6 +81,8 @@ export function buildZoneChart(data: Pick<DashboardData, "activities" | "dateRan
     easyShare: easyShareOf(rangeTotal) ?? 0,
     easyShareLast7: easyShareOf(last7Total),
     totalMinutes: rangeTotal.reduce((s, v) => s + v, 0) / 60,
+    totalMiles: milesOf([...milesByDate.keys()]),
+    runCount: runsInRange.length,
     bounds: data.profile.hr_zone_bounds,
   };
 }

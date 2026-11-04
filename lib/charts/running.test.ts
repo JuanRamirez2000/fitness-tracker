@@ -1,34 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { testDashboardData, testRun } from "@/lib/kpis/testing";
 import { buildRunEfficiency } from "./run-efficiency";
-import { buildRunningVolume } from "./running-volume";
 
 const SEPT = { key: "custom" as const, from: "2026-09-01", to: "2026-09-30" };
-
-describe("buildRunningVolume", () => {
-  it("totals each day's runs in range, ignoring other activities", () => {
-    const data = testDashboardData({
-      dateRange: SEPT,
-      activities: [
-        testRun({ local_date: "2026-08-31" }), // before the range
-        testRun({ local_date: "2026-09-05" }),
-        testRun({ local_date: "2026-09-05", id: "00000000-0000-4000-8000-000000000001", distance_m: 1609.344 }),
-        testRun({ local_date: "2026-09-06", activity_type: "cycling" }),
-      ],
-    });
-    const volume = buildRunningVolume(data);
-    expect(volume.aggregated).toBe(false);
-    expect(volume.bars).toHaveLength(30);
-    expect(volume.bars.find((b) => b.label === "2026-09-05")).toMatchObject({ runs: 2 });
-    expect(volume.totalMiles).toBeCloseTo(4);
-    expect(volume.runCount).toBe(2);
-  });
-
-  it("switches to weekly totals on a long range", () => {
-    const data = testDashboardData({ dateRange: { key: "6m", from: "2026-03-20", to: "2026-09-20" } });
-    expect(buildRunningVolume(data).aggregated).toBe(true);
-  });
-});
 
 describe("buildRunEfficiency", () => {
   it("scores easy runs in range with a rolling median that can look back before it", () => {

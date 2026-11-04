@@ -5,9 +5,14 @@ import { CardGrid, Cell, Section, SectionHeading, SectionLabel } from "@/compone
 import { DailySummary } from "@/components/today/daily-summary";
 import { TodayHero } from "@/components/today/today-hero";
 import type { DashboardData } from "@/lib/dashboard/types";
+import { diffDays } from "@/lib/dates/calendar";
+
+/** The Body Battery card adds history the hero can't; on a week or less it only repeats the hero. */
+const BODY_BATTERY_MIN_DAYS = 8;
 
 /** Daily feel: "How am I doing today?" The AI summary and readiness hero, then recovery and sleep detail. */
 export function TodayTab({ data }: { data: DashboardData }) {
+  const showBattery = diffDays(data.dateRange.to, data.dateRange.from) + 1 >= BODY_BATTERY_MIN_DAYS;
   return (
     <>
       <Section>
@@ -26,9 +31,11 @@ export function TodayTab({ data }: { data: DashboardData }) {
           <Cell span={6}>
             <HeartChart data={data} />
           </Cell>
-          <Cell span={12}>
-            <BodyBatteryChart data={data} />
-          </Cell>
+          {showBattery && (
+            <Cell span={12}>
+              <BodyBatteryChart data={data} />
+            </Cell>
+          )}
         </CardGrid>
       </Section>
     </>

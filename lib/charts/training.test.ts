@@ -27,6 +27,10 @@ describe("buildZoneChart", () => {
     expect(chart.easyShareLast7).toBeCloseTo(easy / total, 6);
     expect(chart.totalMinutes).toBeCloseTo(total / 60, 6);
     expect(chart.bounds).toEqual(BOUNDS);
+    // Miles count every run, the HR-less one on Nov 2 too (testRun is 3 mi).
+    expect(chart.totalMiles).toBeCloseTo(9, 6);
+    expect(chart.runCount).toBe(3);
+    expect(chart.bars.map((b) => b.miles)).toEqual([0, 0, 0, 0, 3, 3, 3]);
   });
 
   it("groups by week past seven days", () => {
@@ -36,7 +40,13 @@ describe("buildZoneChart", () => {
     expect(chart.bars[2].minutes[0]).toBe(10);
   });
 
-  it("is null with no runs carrying HR zones in range", () => {
+  it("still shows miles when no run in range has HR zones", () => {
+    const chart = buildZoneChart(testDashboardData({ activities: [testRun({ local_date: "2026-11-02", hr_zone_s: null })], dateRange: WEEK, today: "2026-11-03" }))!;
+    expect(chart.totalMinutes).toBe(0);
+    expect(chart.totalMiles).toBeCloseTo(3, 6);
+  });
+
+  it("is null with no runs in range", () => {
     expect(buildZoneChart(testDashboardData({ activities: [], dateRange: WEEK }))).toBeNull();
   });
 });
