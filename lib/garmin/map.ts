@@ -10,6 +10,10 @@ export interface RawWeighIn {
   calendarDate?: string | null;
   timestampGMT?: number | null;
   weight?: number | null; // grams
+  bodyFat?: number | null; // %
+  bodyWater?: number | null; // %
+  muscleMass?: number | null; // grams
+  boneMass?: number | null; // grams
 }
 
 export interface RawStepsDay {
@@ -47,7 +51,16 @@ export interface WeighInRow {
   local_date: string;
   weight_lb: number;
   external_id: string;
+  body_fat_pct: number | null;
+  muscle_mass_lb: number | null;
+  bone_mass_lb: number | null;
+  body_water_pct: number | null;
 }
+
+/** The weigh_ins columns the import writes besides user_id, source and external_id. */
+export const WEIGH_IN_COLUMNS = [
+  "measured_at", "local_date", "weight_lb", "body_fat_pct", "muscle_mass_lb", "bone_mass_lb", "body_water_pct",
+] as const satisfies readonly (keyof WeighInRow)[];
 
 export interface StepsRow {
   local_date: string;
@@ -88,6 +101,8 @@ export const ACTIVITY_COLUMNS = [
 ] as const satisfies readonly (keyof ActivityRow)[];
 
 const roundOrNull = (value: number | null | undefined) => (value ? Math.round(value) : null);
+const round1 = (value: number) => Math.round(value * 10) / 10;
+const round2 = (value: number) => Math.round(value * 100) / 100;
 const orNull = <T>(value: T | null | undefined): T | null => value ?? null;
 
 export function buildWeighInRows(entries: RawWeighIn[], warn: (msg: string) => void = () => {}): WeighInRow[] {
@@ -104,6 +119,10 @@ export function buildWeighInRows(entries: RawWeighIn[], warn: (msg: string) => v
       local_date: e.calendarDate,
       weight_lb: weightLb,
       external_id: String(e.samplePk),
+      body_fat_pct: e.bodyFat ? round1(e.bodyFat) : null,
+      muscle_mass_lb: e.muscleMass ? round2(e.muscleMass / GRAMS_PER_LB) : null,
+      bone_mass_lb: e.boneMass ? round2(e.boneMass / GRAMS_PER_LB) : null,
+      body_water_pct: e.bodyWater ? round1(e.bodyWater) : null,
     });
   }
   return rows;

@@ -20,6 +20,7 @@ import {
   ACTIVITY_COLUMNS,
   RECOVERY_COLUMNS,
   SLEEP_COLUMNS,
+  WEIGH_IN_COLUMNS,
   buildActivityRows,
   buildRecoveryRows,
   buildSleepRows,
@@ -84,6 +85,7 @@ const updates = (columns: readonly string[]) => columns.map((c) => `${c} = exclu
 const ACTIVITY_UPDATES = updates(ACTIVITY_COLUMNS);
 const SLEEP_UPDATES = updates(SLEEP_COLUMNS);
 const RECOVERY_UPDATES = updates(RECOVERY_COLUMNS);
+const WEIGH_IN_UPDATES = updates(WEIGH_IN_COLUMNS);
 
 export async function importGarmin(options: ImportOptions): Promise<ImportResult> {
   const { datasets = DATASETS, dryRun = false, log = () => {} } = options;
@@ -138,11 +140,10 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
         await tx`
           insert into weigh_ins ${tx(
             weighIns.map((r) => ({ ...r, user_id: userId, source: "garmin" })),
-            "user_id", "measured_at", "local_date", "weight_lb", "source", "external_id",
+            "user_id", "source", "external_id", ...WEIGH_IN_COLUMNS,
           )}
           on conflict (user_id, source, external_id) where external_id is not null
-          do update set measured_at = excluded.measured_at, local_date = excluded.local_date,
-                        weight_lb = excluded.weight_lb`;
+          do update set ${tx.unsafe(WEIGH_IN_UPDATES)}`;
       }
       if (steps.length) {
         await tx`

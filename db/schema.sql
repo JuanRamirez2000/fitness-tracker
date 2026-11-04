@@ -31,6 +31,11 @@ create table weigh_ins (
   weight_lb numeric(6,2) not null check (weight_lb between 50 and 800),
   source text not null default 'manual' check (source in ('manual', 'garmin', 'apple_health')),
   external_id text,
+  -- Body composition from the Index scale (null for manual entries). Fat mass = weight x pct.
+  body_fat_pct numeric(4,1),
+  muscle_mass_lb numeric(6,2),
+  bone_mass_lb numeric(5,2),
+  body_water_pct numeric(4,1),
   created_at timestamptz not null default now()
 );
 create index weigh_ins_user_date_idx on weigh_ins (user_id, local_date);

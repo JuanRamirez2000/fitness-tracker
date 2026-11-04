@@ -6,7 +6,7 @@ import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import { dailyRecoveryRowSchema, sleepNightRowSchema, type DailyRecovery, type SleepNight } from "./recovery";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
-import { weighInRowSchema, type WeighIn, type WeighInInput } from "./weigh-ins";
+import { bodyCompositionDaySchema, weighInRowSchema, type BodyCompositionDay, type WeighIn, type WeighInInput } from "./weigh-ins";
 import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
 
 // Every database query lives here, apart from the pure schemas next to them, so a client
@@ -117,4 +117,19 @@ export async function fetchSleepNights(userId: string, range: DayWindow): Promis
     where user_id = ${userId} and local_date between ${range.from} and ${range.to}
     order by local_date`;
   return rows.map((row) => sleepNightRowSchema.parse(row));
+}
+
+/**
+ * Each day's body composition (the earliest weigh-in of the day that has one), oldest first.
+ * Never windowed: the "since the first scale reading" stats need the very first one, and it
+ * is one row a day.
+ */
+export async function fetchBodyComposition(userId: string): Promise<BodyCompositionDay[]> {
+  const rows = await db()`
+    select distinct on (local_date)
+      local_date, weight_lb, body_fat_pct, muscle_mass_lb, bone_mass_lb, body_water_pct
+    from weigh_ins
+    where user_id = ${userId} and body_fat_pct is not null
+    order by local_date, measured_at`;
+  return rows.map((row) => bodyCompositionDaySchema.parse(row));
 }

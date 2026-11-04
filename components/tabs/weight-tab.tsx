@@ -1,6 +1,6 @@
 import { TAB_KPIS } from "@/dashboard.config";
-import { ProgressChart } from "@/components/charts/progress-chart";
-import { WeeklyRateChart } from "@/components/charts/weekly-rate-chart";
+import { BodyMassChart } from "@/components/charts/body-mass-chart";
+import { CompositionCard } from "@/components/charts/composition-card";
 import { WeightTrendChart } from "@/components/charts/weight-trend-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
@@ -8,10 +8,7 @@ import { WeighInTable } from "@/components/dashboard/weigh-in-table";
 import { WeightHeatmap } from "@/components/heatmap/heatmaps";
 import type { DashboardData } from "@/lib/dashboard/types";
 
-/**
- * Weight: "Am I losing fat, not muscle?" Progress and Weekly rate hold the 7/5 row where the
- * fat-and-lean-mass and composition cards go once body composition is imported.
- */
+/** Weight: "Am I losing fat, not muscle?" */
 export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
   return (
     <>
@@ -23,10 +20,10 @@ export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boo
             <WeightTrendChart data={data} />
           </Cell>
           <Cell span={7}>
-            <ProgressChart data={data} />
+            <BodyMassChart data={data} />
           </Cell>
           <Cell span={5}>
-            <WeeklyRateChart data={data} />
+            <CompositionCard data={data} />
           </Cell>
           <Cell span={12}>
             <WeightHeatmap data={data} />

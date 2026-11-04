@@ -25,7 +25,7 @@ function lightTokens(): Record<string, string> {
 
 const TEXT_TOKENS = ["ink", "muted-1", "muted-2", "muted-3", "accent", "good", "warn", "bad"];
 /** Chart marks, not text: WCAG's 3:1 for graphics, against the card they sit on. */
-const GRAPHIC_TOKENS = ["domain-rec", "sleep-deep", "sleep-rem", "sleep-light", "sleep-awake"];
+const GRAPHIC_TOKENS = ["domain-rec", "domain-body", "sleep-deep", "sleep-rem", "sleep-light", "sleep-awake"];
 const MIN_GRAPHIC_CONTRAST = 3;
 const SURFACES = ["bg", "card"];
 const MIN_TEXT_CONTRAST = 4.5;

@@ -18,8 +18,25 @@ export const weighInRowSchema = weighInSchema.extend({
   measured_at: timestampSchema,
   source: sourceSchema,
   external_id: z.string().nullable(),
+  // Index scale body composition (null for manual entries, and before migration 006).
+  body_fat_pct: z.number().nullable().default(null),
+  muscle_mass_lb: z.number().nullable().default(null),
+  bone_mass_lb: z.number().nullable().default(null),
+  body_water_pct: z.number().nullable().default(null),
   created_at: timestampSchema,
 });
+
+/** One day's body composition: the day's earliest weigh-in that carries one. */
+export const bodyCompositionDaySchema = z.object({
+  local_date: localDateSchema,
+  weight_lb: z.number(),
+  body_fat_pct: z.number(),
+  muscle_mass_lb: z.number().nullable(),
+  bone_mass_lb: z.number().nullable(),
+  body_water_pct: z.number().nullable(),
+});
+
+export type BodyCompositionDay = z.infer<typeof bodyCompositionDaySchema>;
 
 export type WeighInInput = z.infer<typeof weighInSchema>;
 export type WeighIn = z.infer<typeof weighInRowSchema>;

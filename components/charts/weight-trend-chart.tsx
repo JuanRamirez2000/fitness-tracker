@@ -6,7 +6,8 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import { buildWeightTrend, type WeightTrendChartData, type WeightTrendPoint } from "@/lib/charts/weight-trend";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
 import type { ShotStarState } from "@/lib/shots/match";
-import { ChartCard } from "./chart-card";
+import { ChartCard, type ChartLegendItem } from "./chart-card";
+import { Swatch } from "./parts";
 
 const WIDTH = 900;
 const HEIGHT = 200;
@@ -35,18 +36,25 @@ export function WeightTrendChart({ data }: { data: DashboardData }) {
     );
   }
 
+  const glyph = (text: string, className: string) => <span className={`text-[11px] leading-none ${className}`}>{text}</span>;
+  const legend: ChartLegendItem[] = [
+    { label: "daily", swatch: Swatch.dot("bg-muted-3") },
+    { label: "7-day avg", swatch: Swatch.line("bg-accent") },
+    ...(chart.paceLine ? [{ label: "plan pace", swatch: Swatch.dashed("border-muted-2") }] : []),
+    ...(goalInDomain(chart) ? [{ label: `goal ${chart.goal}`, swatch: Swatch.dashed("border-good") }] : []),
+    ...(chart.runDays.length > 0 ? [{ label: "run day", swatch: glyph("▎", "text-good") }] : []),
+    { label: "Zepbound shot", swatch: glyph("★", "text-accent") },
+    ...(chart.programStartMs !== null ? [{ label: "program start", swatch: Swatch.dashed("border-border-strong") }] : []),
+  ];
+
   return (
     <ChartCard
       title="Weight trend"
-      caption={
-        <>
-          <Legend swatch="●" className="text-muted-3" label="raw" />
-          <Legend swatch="—" className="text-accent" label="7-day avg" />
-          {chart.paceLine && <Legend swatch="┄" className="text-muted-2" label="pace" />}
-          {goalInDomain(chart) && <Legend swatch="┄" className="text-good" label={`goal ${chart.goal}`} />}
-          <Legend swatch="★" className="text-accent" label="shot" />
-          {chart.runDays.length > 0 && <Legend swatch="▎" className="text-good" label="run" />}
-        </>
+      legend={legend}
+      note={
+        chart.goalBelowAvg !== null && chart.goal !== null
+          ? `goal ${chart.goal} lb is off this scale, ${Math.abs(chart.goalBelowAvg).toFixed(1)} lb ${chart.goalBelowAvg >= 0 ? "below" : "above"} the latest 7-day average`
+          : undefined
       }
     >
       <WeightTrendPlot chart={chart} />
@@ -97,6 +105,11 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
             strokeWidth={1}
             strokeDasharray="3 3"
           />
+        )}
+        {chart.programStartMs !== null && (
+          <text x={x(chart.programStartMs) + 4} y={10} className="fill-muted-2 font-mono text-[9px]">
+            program start{chart.startWeight !== null ? ` · ${Math.round(chart.startWeight)}` : ""}
+          </text>
         )}
 
         {showGoal && (
@@ -186,11 +199,4 @@ function goalInDomain(chart: WeightTrendChartData): boolean {
   return chart.goal !== null && chart.goal >= chart.yDomain[0] && chart.goal <= chart.yDomain[1];
 }
 
-function Legend({ swatch, className, label }: { swatch: string; className: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1">
-      <span className={className}>{swatch}</span>
-      {label}
-    </span>
-  );
-}
+

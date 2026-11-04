@@ -3,7 +3,7 @@ import { jwtExpiryMs, parseTokenResponse } from "./client";
 import { resolveWindow, wellnessWindow } from "./import";
 import { readFileSync } from "node:fs";
 import { buildActivityRows, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows } from "./map";
-import type { RawHrvDay, RawSleepNight, RawUserSummary } from "./map";
+import type { RawHrvDay, RawSleepNight, RawUserSummary, RawWeighIn } from "./map";
 
 /** A sample Garmin response from lib/garmin/fixtures/ (real, anonymised). */
 function fixture<T>(name: string): T {
@@ -21,8 +21,23 @@ describe("buildWeighInRows", () => {
         local_date: "2026-11-03",
         weight_lb: 272.4,
         external_id: "1793716361000",
+        body_fat_pct: null,
+        muscle_mass_lb: null,
+        bone_mass_lb: null,
+        body_water_pct: null,
       },
     ]);
+  });
+
+  it("carries the Index scale's body composition, converted to pounds", () => {
+    const body = fixture<{ dailyWeightSummaries: { allWeightMetrics: RawWeighIn[] }[] }>("weight-range.json");
+    const rows = buildWeighInRows(body.dailyWeightSummaries.flatMap((d) => d.allWeightMetrics));
+    const scale = rows.find((r) => r.body_fat_pct !== null)!;
+    expect(scale).toMatchObject({ local_date: "2026-11-03", weight_lb: 272.4, body_fat_pct: 33.9, body_water_pct: 48.3 });
+    expect(scale.muscle_mass_lb).toBeCloseTo(99.58, 2); // 45169 g
+    expect(scale.bone_mass_lb).toBeCloseTo(16.75, 2); // 7599 g
+    const manual = rows.find((r) => r.body_fat_pct === null);
+    if (manual) expect(manual.muscle_mass_lb).toBeNull();
   });
 
   it("skips entries without an ID and out-of-range weights", () => {

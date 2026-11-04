@@ -36,6 +36,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     weighIns: [],
     recovery: [],
     sleep: [],
+    bodyComposition: [],
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };

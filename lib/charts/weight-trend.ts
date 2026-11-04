@@ -41,6 +41,12 @@ export interface WeightTrendChartData {
   stars: WeightTrendStar[];
   /** Each day in range with at least one run, as day-start ms, for the run tick marks. */
   runDays: number[];
+  /** The program's start weight (profile override, else the first weigh-in), for the
+   * "program start · 288" label. */
+  startWeight: number | null;
+  /** How far the goal sits below the range's latest 7-day average when the goal is off the
+   * y-axis (null when it's on the axis or there is no goal). */
+  goalBelowAvg: number | null;
   fromLabel: string;
   toLabel: string;
 }
@@ -93,6 +99,8 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
     programStartMs: inRange ? programStartMs : null,
     stars,
     runDays,
+    startWeight: data.profile.start_weight_lb ?? data.firstWeighIn?.weight_lb ?? null,
+    goalBelowAvg: goal !== null && (goal < yMin || goal > yMax) ? points[points.length - 1].avg7 - goal : null,
     fromLabel: from,
     toLabel: to,
   };

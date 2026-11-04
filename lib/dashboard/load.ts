@@ -1,6 +1,7 @@
 import type { Profile } from "@/lib/data/profiles";
 import {
   fetchActivities,
+  fetchBodyComposition,
   fetchInjections,
   fetchRecovery,
   fetchSleepNights,
@@ -33,12 +34,19 @@ export interface LoadDashboardDataOptions {
 
 /** Which of the optional loads each tab renders. weightTrend and injections are always
  * loaded: the program start (and so every range) is derived from them. */
-export function tabNeeds(tab: TabKey): { activities: boolean; steps: boolean; weighIns: boolean; recovery: boolean } {
+export function tabNeeds(tab: TabKey): {
+  activities: boolean;
+  steps: boolean;
+  weighIns: boolean;
+  recovery: boolean;
+  bodyComposition: boolean;
+} {
   return {
     activities: tab === "weight" || tab === "training", // run ticks on the weight trend; every running view
     steps: tab === "training",
     weighIns: tab === "weight",
     recovery: tab === "today", // daily_recovery and sleep_nights
+    bodyComposition: tab === "weight",
   };
 }
 
@@ -63,11 +71,12 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
   // Recovery and sleep cover the range and always today too: the hero is about today
   // whatever range is selected.
   const recoverySpan = { from: dateRange.from, to: dateRange.to > today ? dateRange.to : today };
-  const [weighIns, allSteps, recovery, sleep] = await Promise.all([
+  const [weighIns, allSteps, recovery, sleep, bodyComposition] = await Promise.all([
     needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
     needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
     needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
     needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
+    needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
   ]);
 
   return {
@@ -84,6 +93,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     weighIns,
     recovery,
     sleep,
+    bodyComposition,
     dateRange,
   };
 }

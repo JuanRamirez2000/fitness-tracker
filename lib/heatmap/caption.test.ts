@@ -16,6 +16,7 @@ function data(over: Partial<DashboardData>): DashboardData {
     weighIns: [],
     recovery: [],
     sleep: [],
+    bodyComposition: [],
     steps: [],
     dateRange: { key: "week", from: "2026-09-20", to: "2026-09-20" },
     ...over,
