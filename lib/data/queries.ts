@@ -4,6 +4,7 @@ import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
+import { dailyRecoveryRowSchema, sleepNightRowSchema, type DailyRecovery, type SleepNight } from "./recovery";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
 import { weighInRowSchema, type WeighIn, type WeighInInput } from "./weigh-ins";
 import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
@@ -93,4 +94,27 @@ export async function fetchSteps(userId: string, range: DayWindow): Promise<Dail
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const rows = await db()`select * from activities where user_id = ${userId} order by started_at`;
   return rows.map((row) => activityRowSchema.parse(row));
+}
+
+/** Each day's recovery row inside `range`, oldest first. */
+export async function fetchRecovery(userId: string, range: DayWindow): Promise<DailyRecovery[]> {
+  const rows = await db()`
+    select user_id, local_date, resting_hr, hrv_ms, hrv_baseline_low, hrv_baseline_high, hrv_status,
+           body_battery_high, body_battery_low, body_battery_wake, avg_stress,
+           readiness_score, readiness_level, readiness_factors, readiness_at,
+           readiness_morning_score, recovery_hours
+    from daily_recovery
+    where user_id = ${userId} and local_date between ${range.from} and ${range.to}
+    order by local_date`;
+  return rows.map((row) => dailyRecoveryRowSchema.parse(row));
+}
+
+/** Each night inside `range` (by wake-up day), oldest first. */
+export async function fetchSleepNights(userId: string, range: DayWindow): Promise<SleepNight[]> {
+  const rows = await db()`
+    select user_id, local_date, bedtime, wake_time, duration_s, deep_s, rem_s, light_s, awake_s, score, need_s
+    from sleep_nights
+    where user_id = ${userId} and local_date between ${range.from} and ${range.to}
+    order by local_date`;
+  return rows.map((row) => sleepNightRowSchema.parse(row));
 }

@@ -8,7 +8,7 @@
  *   npm run garmin:import -- --since 2024-01-01 --only activities   # run history alone
  *   npm run garmin:import -- --dry-run         # fetch and map, print, write nothing
  *
- * Default window: the last 7 days. `--only weigh-ins|steps|activities` (repeatable) narrows
+ * Default window: the last 7 days. `--only weigh-ins|steps|activities|sleep|recovery` (repeatable) narrows
  * what's pulled; use it for a backfill reaching before the program's start, since a weigh-in
  * from before then would move the start weight and the heatmap's first day.
  *

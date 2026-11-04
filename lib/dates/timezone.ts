@@ -99,3 +99,15 @@ export function defaultMeasuredAt(date: LocalDate, timeZone: string, now: Date =
   const { hour, minute } = wallClock(now, timeZone);
   return instantAt(date, hour, minute, timeZone);
 }
+
+/** Minutes after local midnight at which clocks in `timeZone` read `instant` (0..1439). */
+export function minuteOfDayIn(instant: Date | string, timeZone: string): number {
+  const { hour, minute } = wallClock(toInstant(instant), timeZone);
+  return hour * 60 + minute;
+}
+
+/** "4:30 pm" for `instant` in `timeZone`. */
+export function clockTimeIn(instant: Date | string, timeZone: string): string {
+  const { hour, minute } = wallClock(toInstant(instant), timeZone);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
+}

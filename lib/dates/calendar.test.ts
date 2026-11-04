@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  dayChunks,
   addMonths,
   dayStartUtcMs,
   diffDays,
@@ -103,5 +104,27 @@ describe("eachDay", () => {
   it("returns one day for a single-day window and none for a reversed one", () => {
     expect(eachDay("2026-09-20", "2026-09-20")).toEqual(["2026-09-20"]);
     expect(eachDay("2026-09-20", "2026-09-19")).toEqual([]);
+  });
+});
+
+describe("dayChunks", () => {
+  it("splits a window into consecutive chunks of at most maxDays", () => {
+    expect(dayChunks("2026-10-01", "2026-11-03", 28)).toEqual([
+      { from: "2026-10-01", to: "2026-10-28" },
+      { from: "2026-10-29", to: "2026-11-03" },
+    ]);
+  });
+
+  it("keeps a short window whole and a single day as one chunk", () => {
+    expect(dayChunks("2026-11-01", "2026-11-03", 28)).toEqual([{ from: "2026-11-01", to: "2026-11-03" }]);
+    expect(dayChunks("2026-11-03", "2026-11-03", 28)).toEqual([{ from: "2026-11-03", to: "2026-11-03" }]);
+  });
+
+  it("ends exactly on a chunk boundary without an empty trailing chunk", () => {
+    expect(dayChunks("2026-10-01", "2026-10-28", 28)).toEqual([{ from: "2026-10-01", to: "2026-10-28" }]);
+  });
+
+  it("is empty for a reversed window", () => {
+    expect(dayChunks("2026-11-03", "2026-11-01", 28)).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
--- The Garmin import moved to the official Personal API (lib/garmin/), which authenticates
--- with an API key from the environment, so the unofficial library's shared login session
--- is no longer needed. Already gone from db/schema.sql. Safe to re-run.
-drop table if exists garmin_token_cache;
+-- Originally dropped garmin_token_cache when the import moved to the official Personal API.
+-- The table came back with the hybrid import (005-recovery-sleep.sql: readiness and training
+-- status still need the unofficial library's login session). Migrations re-run in order on
+-- every `npm run db:migrate`, so this one must not drop it again: now a no-op.
+select 1;

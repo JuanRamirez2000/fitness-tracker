@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { jwtExpiryMs, parseTokenResponse } from "./client";
-import { resolveWindow } from "./import";
-import { buildActivityRows, buildStepsRows, buildWeighInRows } from "./map";
+import { resolveWindow, wellnessWindow } from "./import";
+import { readFileSync } from "node:fs";
+import { buildActivityRows, buildRecoveryRows, buildSleepRows, buildStepsRows, buildWeighInRows } from "./map";
+import type { RawHrvDay, RawSleepNight, RawUserSummary } from "./map";
+
+/** A sample Garmin response from lib/garmin/fixtures/ (real, anonymised). */
+function fixture<T>(name: string): T {
+  return JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8")) as T;
+}
 
 describe("buildWeighInRows", () => {
   it("converts grams to pounds and keys on samplePk", () => {
@@ -81,6 +88,17 @@ describe("resolveWindow", () => {
   });
 });
 
+describe("wellnessWindow", () => {
+  it("extends the nightly yesterday window to today, since sleep lands on the wake-up day", () => {
+    expect(wellnessWindow({ kind: "yesterday" }, "2026-11-03")).toEqual({ start: "2026-11-02", end: "2026-11-03" });
+  });
+
+  it("leaves every other window as is", () => {
+    expect(wellnessWindow({ kind: "today" }, "2026-11-03")).toEqual({ start: "2026-11-03", end: "2026-11-03" });
+    expect(wellnessWindow({ kind: "days", days: 7 }, "2026-11-03")).toEqual({ start: "2026-10-28", end: "2026-11-03" });
+  });
+});
+
 describe("token helpers", () => {
   it("reads a bare or JSON token response", () => {
     expect(parseTokenResponse("abc.def.ghi\n")).toBe("abc.def.ghi");
@@ -91,5 +109,57 @@ describe("token helpers", () => {
     const payload = Buffer.from(JSON.stringify({ exp: 1_800_000_000 })).toString("base64url");
     expect(jwtExpiryMs(`h.${payload}.s`)).toBe(1_800_000_000_000);
     expect(jwtExpiryMs("not-a-jwt")).toBeNull();
+  });
+});
+
+describe("buildSleepRows", () => {
+  it("maps a real night, keyed by the wake-up day, and skips the empty day", () => {
+    const rows = buildSleepRows(fixture<RawSleepNight[]>("sleep-summaries.json"));
+    expect(rows).toEqual([
+      {
+        local_date: "2026-11-03",
+        bedtime: new Date(1793689415000).toISOString(),
+        wake_time: new Date(1793718575000).toISOString(),
+        duration_s: 27000,
+        deep_s: 7380,
+        rem_s: 6900,
+        light_s: 12720,
+        awake_s: 2160,
+        score: 85,
+        need_s: 460 * 60,
+      },
+    ]);
+  });
+});
+
+describe("buildRecoveryRows", () => {
+  it("merges HRV nights with the day's summary", () => {
+    const hrv = fixture<{ hrvSummaries: RawHrvDay[] }>("hrv-daily.json").hrvSummaries;
+    const summary = fixture<RawUserSummary>("usersummary-daily.json");
+    const rows = buildRecoveryRows(hrv, [summary]);
+    expect(rows.map((r) => r.local_date)).toEqual(["2026-11-02", "2026-11-03"]);
+    expect(rows[1]).toMatchObject({
+      local_date: "2026-11-03",
+      resting_hr: 51,
+      body_battery_high: 80,
+      body_battery_low: 18,
+      body_battery_wake: 80,
+      avg_stress: 26,
+      hrv_status: "BALANCED",
+    });
+    expect(rows[1].hrv_ms).toBeGreaterThan(0);
+    expect(rows[1].hrv_baseline_low).toBeLessThan(rows[1].hrv_baseline_high!);
+    // Nov 2 has HRV only: the summary columns stay null.
+    expect(rows[0].resting_hr).toBeNull();
+  });
+
+  it("treats Garmin's not-enough-data sentinels as missing and drops empty days", () => {
+    const rows = buildRecoveryRows([], [
+      { calendarDate: "2026-11-01", restingHeartRate: 0, averageStressLevel: -1, bodyBatteryAtWakeTime: null },
+      { calendarDate: "2026-11-02", restingHeartRate: 52, averageStressLevel: -2, bodyBatteryLowestValue: 0 },
+    ]);
+    expect(rows).toEqual([
+      expect.objectContaining({ local_date: "2026-11-02", resting_hr: 52, avg_stress: null, body_battery_low: 0 }),
+    ]);
   });
 });

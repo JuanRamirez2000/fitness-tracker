@@ -7,7 +7,7 @@ sample responses live in `lib/garmin/fixtures/`.
 
 The Personal API does **not** serve training readiness, training status (acute and chronic
 load, ACWR, load focus), race predictions, daily VO2 max or endurance score: every such path
-returns 404. The owner chose a hybrid (2026-11-04): those fields come from the unofficial
+returns 404. The owner chose a hybrid: those fields come from the unofficial
 `python-garminconnect` library (see "Unofficial API" below), everything else from the
 Personal API.
 
@@ -140,19 +140,65 @@ only reflects older runs. VO2 max now has to come from the unofficial API's max 
 ## Unofficial API (hybrid)
 
 Not reachable with the Personal API key (404 on `personal.connectapi.garmin.com`). These
-come from `python-garminconnect` on `connectapi.garmin.com` with a logged-in session. The method
-names are the library's; their JSON paths are not confirmed yet and will be added here, with
-fixtures, from real payloads once the login is restored.
+come from `python-garminconnect` 0.3.16 (`scripts/garmin/`) on `connectapi.garmin.com` with
+the logged-in session cached in `~/.garminconnect`. Confirmed with real calls on
+2026-11-03; fixtures in `lib/garmin/fixtures/unofficial/`.
 
-| Chart | Fields | Library method (endpoint) |
+### Training readiness: `get_training_readiness(date)`
+
+Returns a **list of snapshots** for the day, each with an `inputContext`:
+`AFTER_WAKEUP_RESET` (the morning score), `AFTER_POST_EXERCISE_RESET` (recomputed after a
+workout), `UPDATE_REALTIME_VARIABLES`. On Nov 3 the morning score was 85 and the
+post-run score 63. The hero shows the **latest snapshot** (largest `timestamp`), which is
+what the watch shows and what carries the recovery time; the morning score is kept too.
+
+| Field | JSON path | Unit |
 | --- | --- | --- |
-| Readiness hero | score, level, six factor percentages, recovery hours | `get_training_readiness(date)` (`/metrics-service/metrics/trainingreadiness/{date}`) |
-| Training load, load focus | acute and chronic load, optimal chronic band, ACWR, status label; aerobic low / high / anaerobic with targets | `get_training_status(date)` (`/metrics-service/metrics/trainingstatus/aggregated/{date}`) |
-| Race predictions | 5K, 10K, half marathon seconds | `get_race_predictions()` (`/metrics-service/metrics/racepredictions/latest/{displayName}`) |
-| VO2 max (daily) | running VO2 max | `get_max_metrics(date)` (`/metrics-service/metrics/maxmet/daily/{start}/{end}`) |
+| score, level | `score`, `level` (`LOW`, `MODERATE`, `HIGH`, …) | 0–100, text |
+| sleep (last night) | `sleepScoreFactorPercent` | % |
+| recovery time | `recoveryTimeFactorPercent`; hours left = `recoveryTime` / 60 | %, **minutes** |
+| acute load ratio | `acwrFactorPercent` | % |
+| stress history | `stressHistoryFactorPercent` | % |
+| HRV | `hrvFactorPercent` | % |
+| sleep history | `sleepHistoryFactorPercent` | % |
+| snapshot time | `timestamp` (UTC), `timestampLocal`, `inputContext` | |
 
-Readiness is computed when the athlete wakes, so these are fetched in the morning, not at
-the 1 AM nightly run (which would only ever see the previous day).
+### Training load, status and load focus: `get_training_status(date)`
+
+Device-keyed maps: take the entry whose `primaryTrainingDevice` is true.
+
+| Field | JSON path (under `mostRecentTrainingStatus.latestTrainingStatusData.{deviceId}`) | Unit |
+| --- | --- | --- |
+| acute load | `acuteTrainingLoadDTO.dailyTrainingLoadAcute` | load |
+| chronic load | `acuteTrainingLoadDTO.dailyTrainingLoadChronic` | load |
+| optimal chronic band | `acuteTrainingLoadDTO.minTrainingLoadChronic`, `maxTrainingLoadChronic` | load |
+| ACWR | `acuteTrainingLoadDTO.dailyAcuteChronicWorkloadRatio`, status `acwrStatus` | ratio |
+| training status | `trainingStatusFeedbackPhrase` (`PRODUCTIVE_3` → Productive), code `trainingStatus` | text |
+
+Load focus, under `mostRecentTrainingLoadBalance.metricsTrainingLoadBalanceDTOMap.{deviceId}`:
+`monthlyLoadAerobicLow`, `monthlyLoadAerobicHigh`, `monthlyLoadAnaerobic`, each with
+`…TargetMin` and `…TargetMax`, plus `trainingBalanceFeedbackPhrase` (`ABOVE_TARGETS`).
+
+The same response carries `mostRecentVO2Max.generic.vo2MaxPreciseValue` (42.2 on Nov 3).
+
+### Race predictions: `get_race_predictions(start, end, "daily")`
+
+One entry per day (range at most a year): `calendarDate`, `time5K`, `time10K`,
+`timeHalfMarathon`, `timeMarathon`, in seconds. `get_race_predictions()` with no arguments
+returns today's.
+
+### VO2 max: `get_max_metrics_range(start, end)`
+
+Only days on which VO2 max was updated: `generic.calendarDate`, `generic.vo2MaxPreciseValue`
+(and the rounded `generic.vo2MaxValue`). Carry the last value forward between updates.
+
+### Endurance score: `get_endurance_score(date)`
+
+Available (`overallScore` 4787, `classification`), but no chart in the design uses it.
+
+Readiness is computed when the athlete wakes and again after workouts, so these are fetched
+in the morning and on Refresh, not only at the 1 AM nightly run (which would only ever see
+the previous day).
 
 ## Charts that lose data without the unofficial API
 

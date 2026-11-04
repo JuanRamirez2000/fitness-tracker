@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import type { Activity } from "@/lib/data/activities";
+import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
 import type { WeighIn } from "@/lib/data/weigh-ins";
@@ -29,8 +30,9 @@ export interface DateRange extends DayWindow {
 
 /**
  * Everything a tab renders. Only the active tab's data is fetched (lib/dashboard/load.ts,
- * tabNeeds): on a tab that doesn't render them, `activities`, `steps`, `heatmap.steps` and
- * `weighIns` are empty arrays, not real "no data" — read them only from that tab's views.
+ * tabNeeds): on a tab that doesn't render them, `activities`, `steps`, `heatmap.steps`,
+ * `weighIns`, `recovery` and `sleep` are empty arrays, not real "no data" — read them only
+ * from that tab's views.
  */
 export interface DashboardData {
   tab: TabKey;
@@ -58,6 +60,11 @@ export interface DashboardData {
   steps: DailySteps[];
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */
   weighIns: WeighIn[];
+  /** Daily recovery rows from dateRange.from through max(dateRange.to, today), oldest first
+   * (Daily feel tab). Today is always included: the hero is about today. */
+  recovery: DailyRecovery[];
+  /** Nights (by wake-up day) over the same span as `recovery`, oldest first. */
+  sleep: SleepNight[];
   dateRange: DateRange;
 }
 

@@ -8,7 +8,8 @@
  *
  * No server-only guard: scripts/garmin-import.ts runs this from the command line too.
  */
-import type { RawActivity, RawStepsDay, RawWeighIn } from "./map";
+import { dayChunks, eachDay } from "../dates/calendar";
+import type { RawActivity, RawHrvDay, RawSleepNight, RawStepsDay, RawUserSummary, RawWeighIn } from "./map";
 
 const BASE_URL = "https://personal.connectapi.garmin.com";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
@@ -17,6 +18,12 @@ const EXPIRY_MARGIN_MS = 10 * 60_000;
 /** Used when the token's own expiry can't be read: Garmin documents 24 hours. */
 const FALLBACK_LIFETIME_MS = 23 * 60 * 60_000;
 const ACTIVITY_PAGE_SIZE = 100;
+/** Per-request day limits, measured against the Personal API (docs/garmin-fields.md). */
+const STEPS_MAX_DAYS = 28;
+const SLEEP_MAX_DAYS = 31;
+const HRV_MAX_DAYS = 31;
+/** Pause between one-day-per-call requests during a backfill. */
+const PER_DAY_PAUSE_MS = 250;
 
 export class GarminError extends Error {
   constructor(
@@ -113,7 +120,9 @@ export class GarminClient {
     if (res.status === 401) res = await send(await this.token(true));
     if (res.status === 429) throw new GarminError("Garmin rate-limited this request; try again later.", 429);
     if (!res.ok) throw new GarminError(`Garmin ${url.pathname} failed (${res.status}).`, res.status);
-    return (await res.json()) as T;
+    // Some endpoints answer a day with no data with an empty body rather than JSON.
+    const text = await res.text();
+    return (text.trim() ? JSON.parse(text) : null) as T;
   }
 
   /**
@@ -129,8 +138,47 @@ export class GarminClient {
     return (body.dailyWeightSummaries ?? []).flatMap((day) => day.allWeightMetrics ?? []);
   }
 
+  /** Daily steps, in 28-day requests (a longer one returns 400). */
   async steps(start: string, end: string): Promise<RawStepsDay[]> {
-    return this.get<RawStepsDay[]>(`/usersummary-service/stats/steps/daily/${start}/${end}`);
+    const all: RawStepsDay[] = [];
+    for (const { from, to } of dayChunks(start, end, STEPS_MAX_DAYS)) {
+      all.push(...(await this.get<RawStepsDay[]>(`/usersummary-service/stats/steps/daily/${from}/${to}`)));
+    }
+    return all;
+  }
+
+  /** Every night that ended in the window (calendarDate = wake-up day). */
+  async sleep(start: string, end: string): Promise<RawSleepNight[]> {
+    const all: RawSleepNight[] = [];
+    for (const { from, to } of dayChunks(start, end, SLEEP_MAX_DAYS)) {
+      const page = await this.get<RawSleepNight[] | null>("/sleep-service/sleep/dailySleepSummariesByDate", {
+        startDate: from,
+        endDate: to,
+      });
+      all.push(...(page ?? []));
+    }
+    return all;
+  }
+
+  async hrv(start: string, end: string): Promise<RawHrvDay[]> {
+    const all: RawHrvDay[] = [];
+    for (const { from, to } of dayChunks(start, end, HRV_MAX_DAYS)) {
+      const body = await this.get<{ hrvSummaries?: RawHrvDay[] } | null>(`/hrv-service/hrv/daily/${from}/${to}`);
+      all.push(...(body?.hrvSummaries ?? []));
+    }
+    return all;
+  }
+
+  /** Resting HR, stress and Body Battery (incl. at wake): one request per day. */
+  async userSummaries(start: string, end: string): Promise<RawUserSummary[]> {
+    const all: RawUserSummary[] = [];
+    const days = eachDay(start, end);
+    for (const [i, day] of days.entries()) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, PER_DAY_PAUSE_MS));
+      const summary = await this.get<RawUserSummary | null>("/usersummary-service/usersummary/daily", { calendarDate: day });
+      if (summary) all.push({ ...summary, calendarDate: summary.calendarDate ?? day });
+    }
+    return all;
   }
 
   /** Every activity whose local start falls in the window, across as many pages as it takes. */

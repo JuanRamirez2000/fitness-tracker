@@ -148,3 +148,153 @@ export function buildActivityRows(activities: RawActivity[]): ActivityRow[] {
   }
   return rows;
 }
+
+// ---------- Sleep and recovery (dashboard v2, Daily feel) ----------
+// Field paths and units are documented in docs/garmin-fields.md.
+
+/** One night from /sleep-service/sleep/dailySleepSummariesByDate. calendarDate is the
+ * wake-up day; a day without a night comes back with every field null. */
+export interface RawSleepNight {
+  calendarDate?: string | null;
+  sleepTimeSeconds?: number | null;
+  deepSleepSeconds?: number | null;
+  lightSleepSeconds?: number | null;
+  remSleepSeconds?: number | null;
+  awakeSleepSeconds?: number | null;
+  sleepStartTimestampGMT?: number | null; // epoch ms
+  sleepEndTimestampGMT?: number | null; // epoch ms
+  sleepScores?: { overall?: { value?: number | null } | null } | null;
+  sleepNeed?: { actual?: number | null } | null; // minutes
+}
+
+/** One night from /hrv-service/hrv/daily/{start}/{end} (`hrvSummaries[]`). */
+export interface RawHrvDay {
+  calendarDate?: string | null;
+  lastNightAvg?: number | null;
+  baseline?: { balancedLow?: number | null; balancedUpper?: number | null } | null;
+  status?: string | null;
+}
+
+/** The recovery fields of /usersummary-service/usersummary/daily. */
+export interface RawUserSummary {
+  calendarDate?: string | null;
+  restingHeartRate?: number | null;
+  bodyBatteryHighestValue?: number | null;
+  bodyBatteryLowestValue?: number | null;
+  bodyBatteryAtWakeTime?: number | null;
+  averageStressLevel?: number | null; // negative = not enough data
+}
+
+export interface SleepRow {
+  local_date: string;
+  bedtime: string | null;
+  wake_time: string | null;
+  duration_s: number;
+  deep_s: number | null;
+  rem_s: number | null;
+  light_s: number | null;
+  awake_s: number | null;
+  score: number | null;
+  need_s: number | null;
+}
+
+export const SLEEP_COLUMNS = [
+  "bedtime", "wake_time", "duration_s", "deep_s", "rem_s", "light_s", "awake_s", "score", "need_s",
+] as const satisfies readonly (keyof SleepRow)[];
+
+/** The daily_recovery columns the Personal API import owns (the readiness columns belong to
+ * the unofficial import and are never touched here). */
+export interface RecoveryRow {
+  local_date: string;
+  resting_hr: number | null;
+  hrv_ms: number | null;
+  hrv_baseline_low: number | null;
+  hrv_baseline_high: number | null;
+  hrv_status: string | null;
+  body_battery_high: number | null;
+  body_battery_low: number | null;
+  body_battery_wake: number | null;
+  avg_stress: number | null;
+}
+
+export const RECOVERY_COLUMNS = [
+  "resting_hr", "hrv_ms", "hrv_baseline_low", "hrv_baseline_high", "hrv_status",
+  "body_battery_high", "body_battery_low", "body_battery_wake", "avg_stress",
+] as const satisfies readonly (keyof RecoveryRow)[];
+
+const intOrNull = (value: number | null | undefined) => (value == null ? null : Math.round(value));
+/** Garmin reports "not enough data" as 0 or a negative sentinel for HR, stress and battery. */
+const positiveIntOrNull = (value: number | null | undefined) => (value == null || value <= 0 ? null : Math.round(value));
+const isoOrNull = (ms: number | null | undefined) => (ms == null ? null : new Date(ms).toISOString());
+
+export function buildSleepRows(nights: RawSleepNight[]): SleepRow[] {
+  const rows: SleepRow[] = [];
+  for (const n of nights) {
+    if (!n.calendarDate || !n.sleepTimeSeconds) continue;
+    const needMin = n.sleepNeed?.actual;
+    rows.push({
+      local_date: n.calendarDate,
+      bedtime: isoOrNull(n.sleepStartTimestampGMT),
+      wake_time: isoOrNull(n.sleepEndTimestampGMT),
+      duration_s: Math.round(n.sleepTimeSeconds),
+      deep_s: intOrNull(n.deepSleepSeconds),
+      rem_s: intOrNull(n.remSleepSeconds),
+      light_s: intOrNull(n.lightSleepSeconds),
+      awake_s: intOrNull(n.awakeSleepSeconds),
+      score: intOrNull(n.sleepScores?.overall?.value),
+      need_s: needMin == null ? null : Math.round(needMin * 60),
+    });
+  }
+  return rows;
+}
+
+/**
+ * HRV nights and daily summaries merged by day. A day appears when either source has a value
+ * for it; the other source's columns are then null.
+ */
+export function buildRecoveryRows(hrv: RawHrvDay[], summaries: RawUserSummary[]): RecoveryRow[] {
+  const byDate = new Map<string, RecoveryRow>();
+  const rowFor = (date: string) => {
+    let row = byDate.get(date);
+    if (!row) {
+      row = {
+        local_date: date,
+        resting_hr: null,
+        hrv_ms: null,
+        hrv_baseline_low: null,
+        hrv_baseline_high: null,
+        hrv_status: null,
+        body_battery_high: null,
+        body_battery_low: null,
+        body_battery_wake: null,
+        avg_stress: null,
+      };
+      byDate.set(date, row);
+    }
+    return row;
+  };
+
+  for (const h of hrv) {
+    if (!h.calendarDate || h.lastNightAvg == null) continue;
+    const row = rowFor(h.calendarDate);
+    row.hrv_ms = h.lastNightAvg;
+    row.hrv_baseline_low = h.baseline?.balancedLow ?? null;
+    row.hrv_baseline_high = h.baseline?.balancedUpper ?? null;
+    row.hrv_status = h.status ?? null;
+  }
+
+  for (const s of summaries) {
+    if (!s.calendarDate) continue;
+    const values = {
+      resting_hr: positiveIntOrNull(s.restingHeartRate),
+      body_battery_high: positiveIntOrNull(s.bodyBatteryHighestValue),
+      body_battery_low: intOrNull(s.bodyBatteryLowestValue != null && s.bodyBatteryLowestValue < 0 ? null : s.bodyBatteryLowestValue),
+      body_battery_wake: positiveIntOrNull(s.bodyBatteryAtWakeTime),
+      avg_stress: positiveIntOrNull(s.averageStressLevel),
+    };
+    if (Object.values(values).every((v) => v == null)) continue;
+    Object.assign(rowFor(s.calendarDate), values);
+  }
+
+  return [...byDate.values()].sort((a, b) => a.local_date.localeCompare(b.local_date));
+}

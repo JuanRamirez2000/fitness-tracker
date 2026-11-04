@@ -44,8 +44,8 @@ next-env.d.ts
 # local tooling
 /.claude/
 
-# Leftovers from the old Python Garmin importer (replaced by lib/garmin/), kept
-# ignored until the local folder is deleted.
+# The Python half of the Garmin import (scripts/garmin/): its venv and caches, never the
+# scripts. The login session lives outside the repo, in ~/.garminconnect.
 /scripts/garmin/.venv/
 /scripts/garmin/your_data/
 /scripts/garmin/response.json

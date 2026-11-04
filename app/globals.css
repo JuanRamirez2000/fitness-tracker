@@ -30,6 +30,15 @@
   --field-border: #242b34;
   --track: #1b2129;
   --scroll-thumb: #2a3038;
+
+  /* Chart domains and sleep stages (dashboard v2). Graphics, not text: each must reach 3:1
+   * against --card (lib/tokens.test.ts). Sleep stages also differ by lightness and stack
+   * order, so they never rely on hue alone. */
+  --domain-rec: #b59cf0;
+  --sleep-deep: #5b6ad6;
+  --sleep-rem: #a58aec;
+  --sleep-light: #a9bedf;
+  --sleep-awake: #e0896f;
 }
 
 /*
@@ -65,6 +74,12 @@
   --field-border: #d9d2c4;
   --track: #ece6da;
   --scroll-thumb: #cfc7b7;
+
+  --domain-rec: #6f48c0;
+  --sleep-deep: #33429e;
+  --sleep-rem: #7a5bd0;
+  --sleep-light: #7d93bd;
+  --sleep-awake: #c25a40;
 }
 
 @theme inline {
@@ -85,6 +100,11 @@
   --color-inset: var(--inset);
   --color-field-border: var(--field-border);
   --color-track: var(--track);
+  --color-domain-rec: var(--domain-rec);
+  --color-sleep-deep: var(--sleep-deep);
+  --color-sleep-rem: var(--sleep-rem);
+  --color-sleep-light: var(--sleep-light);
+  --color-sleep-awake: var(--sleep-awake);
 
   --font-sans: var(--font-plex-sans), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;

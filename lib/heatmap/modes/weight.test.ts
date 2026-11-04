@@ -34,6 +34,8 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     activities: [],
     heatmap: { window: { from: WINDOW_FROM, to: "2027-09-18" }, steps: [] },
     weighIns: [],
+    recovery: [],
+    sleep: [],
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eachDay } from "./calendar";
-import { defaultMeasuredAt, instantAt, localDateIn, todayIn } from "./timezone";
+import { clockTimeIn, defaultMeasuredAt, instantAt, localDateIn, minuteOfDayIn, todayIn } from "./timezone";
 
 const LA = "America/Los_Angeles";
 
@@ -130,5 +130,20 @@ describe("defaultMeasuredAt", () => {
     const now = new Date("2026-09-20T21:07:00Z");
     const instant = defaultMeasuredAt("2026-09-20", LA, now);
     expect(Math.abs(instant.getTime() - now.getTime())).toBeLessThan(60_000);
+  });
+});
+
+describe("minuteOfDayIn and clockTimeIn", () => {
+  // 2026-11-03 07:03:35 UTC = 2026-11-02 23:03 in Los Angeles (PST, UTC-8).
+  const bedtime = new Date(1793689415000);
+
+  it("reads the local wall clock, not UTC", () => {
+    expect(minuteOfDayIn(bedtime, "America/Los_Angeles")).toBe(23 * 60 + 3);
+    expect(clockTimeIn(bedtime, "America/Los_Angeles")).toBe("11:03 pm");
+  });
+
+  it("formats midnight and noon in 12-hour time", () => {
+    expect(clockTimeIn("2026-11-03T08:05:00Z", "America/Los_Angeles")).toBe("12:05 am");
+    expect(clockTimeIn("2026-11-03T20:00:00Z", "America/Los_Angeles")).toBe("12:00 pm");
   });
 });

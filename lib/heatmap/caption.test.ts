@@ -14,6 +14,8 @@ function data(over: Partial<DashboardData>): DashboardData {
     activities: [],
     heatmap: { window: { from: "2026-09-13", to: "2027-09-18" }, steps: [] },
     weighIns: [],
+    recovery: [],
+    sleep: [],
     steps: [],
     dateRange: { key: "week", from: "2026-09-20", to: "2026-09-20" },
     ...over,

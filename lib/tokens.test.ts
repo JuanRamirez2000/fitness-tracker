@@ -15,7 +15,18 @@ function rootTokens(): Record<string, string> {
   );
 }
 
+/** The same, for the light theme's `:root[data-theme="light"]` block. */
+function lightTokens(): Record<string, string> {
+  const block = /:root\[data-theme="light"\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+  return Object.fromEntries(
+    [...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})\s*;/gi)].map((m) => [m[1], m[2]]),
+  );
+}
+
 const TEXT_TOKENS = ["ink", "muted-1", "muted-2", "muted-3", "accent", "good", "warn", "bad"];
+/** Chart marks, not text: WCAG's 3:1 for graphics, against the card they sit on. */
+const GRAPHIC_TOKENS = ["domain-rec", "sleep-deep", "sleep-rem", "sleep-light", "sleep-awake"];
+const MIN_GRAPHIC_CONTRAST = 3;
 const SURFACES = ["bg", "card"];
 const MIN_TEXT_CONTRAST = 4.5;
 
@@ -52,4 +63,16 @@ describe("design tokens", () => {
       });
     }
   }
+
+  describe("chart tokens", () => {
+    const themes = { dark: tokens, light: lightTokens() };
+    for (const [theme, t] of Object.entries(themes)) {
+      for (const name of GRAPHIC_TOKENS) {
+        it(`${theme} ${name} is at least ${MIN_GRAPHIC_CONTRAST}:1 on card`, () => {
+          expect(t[name], `${theme} --${name}`).toBeDefined();
+          expect(contrastRatio(t[name], t.card)).toBeGreaterThanOrEqual(MIN_GRAPHIC_CONTRAST);
+        });
+      }
+    }
+  });
 });

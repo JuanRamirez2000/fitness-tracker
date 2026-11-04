@@ -1,0 +1,35 @@
+name: Garmin unofficial import
+
+# Runs scripts/garmin/import_unofficial.py: training readiness (and, later, training status,
+# race predictions and VO2 max), which Garmin's official Personal API doesn't serve. The rest
+# of the import is the Vercel Cron job (app/api/garmin/cron). See scripts/garmin/README.md.
+#
+# The Garmin login session comes from the garmin_token_cache table, shared with local runs.
+
+on:
+  schedule:
+    # Readiness is computed on waking and again after each workout. GitHub cron is UTC:
+    # 15:30 UTC is 7:30 am PST / 8:30 am PDT (the morning score); 05:30 UTC is 9:30 pm PST /
+    # 10:30 pm PDT (after the day's workouts).
+    - cron: "30 15 * * *"
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/garmin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install -r requirements.txt
+
+      - run: python import_unofficial.py --yesterday
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

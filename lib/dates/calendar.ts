@@ -78,3 +78,16 @@ export function eachDay(from: LocalDate, to: LocalDate): LocalDate[] {
   const count = diffDays(to, from) + 1;
   return Array.from({ length: Math.max(count, 0) }, (_, i) => addDays(from, i));
 }
+
+/**
+ * `from`..`to` split into consecutive windows of at most `maxDays` days each, oldest first
+ * (Garmin caps how many days one request may span). Empty when `to` is before `from`.
+ */
+export function dayChunks(from: LocalDate, to: LocalDate, maxDays: number): DayWindow[] {
+  const chunks: DayWindow[] = [];
+  for (let start = from; diffDays(to, start) >= 0; start = addDays(start, maxDays)) {
+    const end = addDays(start, maxDays - 1);
+    chunks.push({ from: start, to: diffDays(to, end) < 0 ? to : end });
+  }
+  return chunks;
+}
