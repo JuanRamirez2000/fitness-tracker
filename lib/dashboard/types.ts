@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import type { Activity } from "@/lib/data/activities";
-import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
+import type { DailyRecovery, DailySummary, SleepNight } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
@@ -68,6 +68,8 @@ export interface DashboardData {
   sleep: SleepNight[];
   /** Every day's body composition, unbounded, oldest first (Weight tab). */
   bodyComposition: BodyCompositionDay[];
+  /** Today's AI-written summary (Daily feel tab), or null when none was written today. */
+  summary: DailySummary | null;
   /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
    * unbounded at the start, for VO2 max's history. */
   training: DailyTraining[];

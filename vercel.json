@@ -1,4 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [{ "path": "/api/garmin/cron", "schedule": "0 9 * * *" }]
+  "crons": [
+    {
+      "path": "/api/garmin/cron",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/summary/cron",
+      "schedule": "45 15 * * *"
+    }
+  ]
 }

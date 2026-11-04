@@ -4,7 +4,14 @@ import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
-import { dailyRecoveryRowSchema, sleepNightRowSchema, type DailyRecovery, type SleepNight } from "./recovery";
+import {
+  dailyRecoveryRowSchema,
+  dailySummaryRowSchema,
+  sleepNightRowSchema,
+  type DailyRecovery,
+  type DailySummary,
+  type SleepNight,
+} from "./recovery";
 import { dailyTrainingRowSchema, type DailyTraining } from "./training";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
 import { bodyCompositionDaySchema, weighInRowSchema, type BodyCompositionDay, type WeighIn, type WeighInInput } from "./weigh-ins";
@@ -146,4 +153,12 @@ export async function fetchTraining(userId: string, to: string): Promise<DailyTr
     where user_id = ${userId} and local_date <= ${to}
     order by local_date`;
   return rows.map((row) => dailyTrainingRowSchema.parse(row));
+}
+
+/** The AI daily summary written for `date`, if any. */
+export async function fetchDailySummary(userId: string, date: string): Promise<DailySummary | null> {
+  const [row] = await db()`
+    select local_date, text, model, generated_at from daily_summaries
+    where user_id = ${userId} and local_date = ${date}`;
+  return row ? dailySummaryRowSchema.parse(row) : null;
 }

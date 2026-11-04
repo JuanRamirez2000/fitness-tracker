@@ -167,6 +167,16 @@ create table daily_training (
   primary key (user_id, local_date)
 );
 
+-- The AI-written daily summary (app/api/summary/cron), one per day.
+create table daily_summaries (
+  user_id uuid not null references profiles(id) on delete cascade,
+  local_date date not null,
+  text text not null,
+  model text,                            -- the model that wrote it (it may be a fallback)
+  generated_at timestamptz not null default now(),
+  primary key (user_id, local_date)
+);
+
 -- The unofficial Garmin login session, shared by a local run and the GitHub Actions job
 -- (scripts/garmin/). Only the Python importer touches it; the app never does.
 create table garmin_token_cache (

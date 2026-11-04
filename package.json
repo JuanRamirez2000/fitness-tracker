@@ -12,9 +12,11 @@
     "db:local": "pglite-server --db=./.pglite --port=5433 --max-connections=10",
     "db:import": "tsx --env-file=.env.local scripts/db-import.ts",
     "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
-    "garmin:import": "tsx --env-file=.env.local scripts/garmin-import.ts"
+    "garmin:import": "tsx --env-file=.env.local scripts/garmin-import.ts",
+    "summary:generate": "tsx --env-file=.env.local scripts/summary-generate.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.4.0",
     "@visx/curve": "^4.0.0",
     "@visx/group": "^4.0.0",
     "@visx/scale": "^4.0.0",

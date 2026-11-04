@@ -2,13 +2,11 @@ import { BodyBatteryChart } from "@/components/charts/body-battery-chart";
 import { HeartChart } from "@/components/charts/heart-chart";
 import { SleepChart } from "@/components/charts/sleep-chart";
 import { CardGrid, Cell, Section, SectionHeading, SectionLabel } from "@/components/dashboard/layout";
+import { DailySummary } from "@/components/today/daily-summary";
 import { TodayHero } from "@/components/today/today-hero";
 import type { DashboardData } from "@/lib/dashboard/types";
 
-/**
- * Daily feel: "How am I doing today?" The readiness hero, then recovery and sleep detail.
- * (The AI daily summary goes above the hero once it is generated.)
- */
+/** Daily feel: "How am I doing today?" The AI summary and readiness hero, then recovery and sleep detail. */
 export function TodayTab({ data }: { data: DashboardData }) {
   return (
     <>
@@ -16,6 +14,7 @@ export function TodayTab({ data }: { data: DashboardData }) {
         <SectionHeading n="01" rule={false}>
           How am I doing today?
         </SectionHeading>
+        <DailySummary data={data} />
         <TodayHero data={data} />
       </Section>
       <Section>

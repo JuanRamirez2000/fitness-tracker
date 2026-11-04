@@ -51,6 +51,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     sleep: [],
     bodyComposition: [],
     training: [],
+    summary: null,
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
     ...over,

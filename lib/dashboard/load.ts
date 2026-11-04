@@ -2,6 +2,7 @@ import type { Profile } from "@/lib/data/profiles";
 import {
   fetchActivities,
   fetchBodyComposition,
+  fetchDailySummary,
   fetchInjections,
   fetchRecovery,
   fetchSleepNights,
@@ -74,13 +75,14 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
   // Recovery, sleep and training cover the range and always today too: the hero and the
   // "latest" stats are about today whatever range is selected.
   const recoverySpan = { from: dateRange.from, to: dateRange.to > today ? dateRange.to : today };
-  const [weighIns, allSteps, recovery, sleep, bodyComposition, training] = await Promise.all([
+  const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary] = await Promise.all([
     needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
     needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
     needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
     needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
     needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
     needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
+    needs.recovery ? fetchDailySummary(profile.id, today) : null,
   ]);
 
   return {
@@ -99,6 +101,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     sleep,
     bodyComposition,
     training,
+    summary,
     dateRange,
   };
 }
