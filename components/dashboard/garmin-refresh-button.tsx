@@ -10,7 +10,7 @@ type Status = "idle" | "loading" | "error";
  * covers this). Pulls today only from Garmin via /api/garmin/refresh, on demand — the
  * nightly cron already covers yesterday, so this exists for "I just logged a run/weighed in
  * and want it to show up now" rather than waiting. The route imports in-request from the
- * Garmin Personal API, so it takes a few seconds.
+ * Garmin Personal API and then rewrites today's AI summaries, so it takes several seconds.
  */
 export function GarminRefreshButton() {
   const router = useRouter();
@@ -22,9 +22,10 @@ export function GarminRefreshButton() {
     setMessage(null);
     try {
       const res = await fetch("/api/garmin/refresh", { method: "POST" });
-      const body = (await res.json()) as { ok?: boolean; error?: string };
+      const body = (await res.json()) as { ok?: boolean; error?: string; summaryFailed?: boolean };
       if (body.ok) {
         setStatus("idle");
+        setMessage(body.summaryFailed ? "Summary didn’t update" : null);
         router.refresh();
         return;
       }
@@ -50,6 +51,7 @@ export function GarminRefreshButton() {
       {status === "error" && (
         <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>
       )}
+      {status === "idle" && message && <span className="text-[11px] text-muted-1">{message}</span>}
     </div>
   );
 }

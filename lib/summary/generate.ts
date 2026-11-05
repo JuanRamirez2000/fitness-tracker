@@ -3,7 +3,8 @@
  * (Google's free API tier) -> daily_summaries. Daily feel (lib/summary/prompt.ts), Weight
  * (weight.ts) and Training (training.ts) each have their own facts and instructions. Run once
  * each morning by the summary cron (app/api/summary/cron/route.ts) after that morning's import,
- * or by hand (`npm run summary:generate`). Never per page view.
+ * again after each press of the owner's Refresh button (app/api/garmin/refresh/route.ts), or by
+ * hand (`npm run summary:generate`). Never per page view.
  *
  * Free tier terms: no card, a daily request quota far above the one call made here, and Google
  * may use free-tier prompts and responses (these summary facts) to improve its products, with

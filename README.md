@@ -83,7 +83,8 @@ Refresh button says so; create a new key and replace the variable.
 - **Nightly**: Vercel Cron (`vercel.json`) calls `/api/garmin/cron` at 09:00 UTC,
   which imports yesterday in the profile's timezone. Needs `CRON_SECRET` set on
   the Vercel project.
-- **On demand**: the dashboard's "Refresh" button (owner only) imports today.
+- **On demand**: the dashboard's "Refresh" button (owner only) imports today, then rewrites
+  today's AI summaries.
 - **By hand**: `npm run garmin:import` with `--yesterday`, `--days N`,
   `--since YYYY-MM-DD`, `--only weigh-ins|steps|activities` (repeatable) and
   `--dry-run`. Default is the last 7 days. Use `--only` for any backfill
@@ -99,7 +100,7 @@ app/
   page.tsx                 The dashboard: cards, heatmap, charts, table
   actions.ts               Server actions: add/edit/delete weigh-ins, settings
   login/                   Owner password to unlock editing
-  api/garmin/refresh/      Imports today from Garmin (the Refresh button)
+  api/garmin/refresh/      Imports today from Garmin, then the AI summaries (the Refresh button)
   api/garmin/cron/         Nightly Garmin import (Vercel Cron)
 components/                UI (dashboard/, heatmap/, charts/, ui/)
 lib/
