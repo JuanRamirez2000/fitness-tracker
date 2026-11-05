@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Stat } from "@/components/charts/parts";
 import type { ActivityView } from "@/lib/activity/view";
 import { fmtDate, weekdayName } from "@/lib/dates/format";
+import { clockTimeIn, localDateIn } from "@/lib/dates/timezone";
 import { ACTIVITY_PARAM, closeActivity, forgetPushed } from "./open";
 import { RouteMap } from "./route-map";
 import { ContextFacts, IntervalsTable, Section, SplitsTable, StatGroups, ZonesBreakdown } from "./sections";
@@ -16,9 +17,12 @@ import { SeriesChart } from "./series-chart";
  * openActivity), driven by `?activity=<id>`. Data comes from GET /api/activity/<id>; each
  * activity is fetched once per page load, so reopening one is instant.
  */
-export function ActivityModal() {
+/** GET /api/activity/<id>: the view, and whether this viewer should ask for its summary. */
+type ActivityResponse = ActivityView & { writeSummary?: boolean };
+
+export function ActivityModal({ timezone }: { timezone: string }) {
   const id = useSearchParams().get(ACTIVITY_PARAM);
-  const [views, setViews] = useState<Record<string, ActivityView>>({});
+  const [views, setViews] = useState<Record<string, ActivityResponse>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const view = id ? views[id] : undefined;
   const error = id ? errors[id] : undefined;
@@ -34,7 +38,7 @@ export function ActivityModal() {
       .then(async (res) => {
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? "Couldn’t load this activity.");
-        setViews((v) => ({ ...v, [id]: body as ActivityView }));
+        setViews((v) => ({ ...v, [id]: body as ActivityResponse }));
       })
       .catch((err) => {
         if (abort.signal.aborted) return;
@@ -53,7 +57,12 @@ export function ActivityModal() {
       <div className="flex max-h-[calc(100dvh-16px)] flex-col max-sm:h-dvh max-sm:max-h-dvh">
         {view ? (
           // Keyed so the hover readout starts fresh for each activity.
-          <ActivityBody key={view.id} view={view} />
+          <ActivityBody
+            key={view.id}
+            view={view}
+            timezone={timezone}
+            onSummary={(summary) => setViews((v) => ({ ...v, [view.id]: { ...view, summary, writeSummary: false } }))}
+          />
         ) : (
           <>
             <Header onClose={closeActivity} />
@@ -124,7 +133,15 @@ function Header({ view, onClose }: { view?: ActivityView; onClose: () => void })
   );
 }
 
-function ActivityBody({ view }: { view: ActivityView }) {
+function ActivityBody({
+  view,
+  timezone,
+  onSummary,
+}: {
+  view: ActivityResponse;
+  timezone: string;
+  onSummary: (summary: NonNullable<ActivityView["summary"]>) => void;
+}) {
   const [hover, onHover] = useState<number | null>(null);
   const hasRoute = !!view.series?.lat;
   return (
@@ -136,6 +153,8 @@ function ActivityBody({ view }: { view: ActivityView }) {
             <Stat key={s.label} label={s.label} value={s.value} unit={s.unit} />
           ))}
         </div>
+
+        <ActivitySummary view={view} timezone={timezone} onSummary={onSummary} />
 
         {view.detailState !== "ok" && (
           <p className="rounded-lg border border-border bg-inset px-3 py-2 text-[12px] text-muted-2">
@@ -203,5 +222,54 @@ function ActivityBody({ view }: { view: ActivityView }) {
         </Section>
       </div>
     </>
+  );
+}
+
+/**
+ * The AI summary under the headline numbers. When the owner opens an activity that has none,
+ * asks for one (POST /api/activity/<id>/summary) and says so while Gemini writes it.
+ */
+function ActivitySummary({
+  view,
+  timezone,
+  onSummary,
+}: {
+  view: ActivityResponse;
+  timezone: string;
+  onSummary: (summary: NonNullable<ActivityView["summary"]>) => void;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const want = !!view.writeSummary && !view.summary;
+
+  useEffect(() => {
+    if (!want) return;
+    const abort = new AbortController();
+    fetch(`/api/activity/${encodeURIComponent(view.id)}/summary`, { method: "POST", signal: abort.signal })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? "Couldn’t write a summary right now.");
+        onSummary(body);
+      })
+      .catch((err) => {
+        if (!abort.signal.aborted) setFailed(err instanceof Error ? err.message : "Couldn’t write a summary right now.");
+      });
+    return () => abort.abort();
+    // onSummary is a fresh closure each render; the request depends only on which activity this is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [want, view.id]);
+
+  if (!view.summary && !want) return null;
+  return (
+    <div className="flex max-w-[860px] flex-col gap-2 px-1">
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">
+        Activity summary · AI-written
+        {view.summary && ` · ${fmtDate(localDateIn(view.summary.generated_at, timezone))} ${clockTimeIn(view.summary.generated_at, timezone)}`}
+      </span>
+      {view.summary ? (
+        <p className="font-serif text-[clamp(16px,2vw,19px)] leading-[1.5] text-pretty">{view.summary.text}</p>
+      ) : (
+        <p className="text-[13px] text-muted-2">{failed ?? "Writing a summary from this run and the rest of your training…"}</p>
+      )}
+    </div>
   );
 }

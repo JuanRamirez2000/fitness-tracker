@@ -15,7 +15,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/activity/[i
   const { id } = await ctx.params;
   const profile = await fetchOwnerProfile();
   if (!profile) return NextResponse.json({ error: "No profile yet." }, { status: 404 });
-  const view = await loadActivityView(profile, id, { fetchMissing: (await getRole()) === "owner" });
+  const owner = (await getRole()) === "owner";
+  const view = await loadActivityView(profile, id, { fetchMissing: owner });
   if (!view) return NextResponse.json({ error: "No such activity." }, { status: 404 });
-  return NextResponse.json(view);
+  // The modal then asks POST /api/activity/<id>/summary for one, so the charts don't wait on Gemini.
+  return NextResponse.json({ ...view, writeSummary: owner && !view.summary });
 }

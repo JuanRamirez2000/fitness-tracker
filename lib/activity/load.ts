@@ -1,7 +1,7 @@
 import "server-only";
 import { addDays } from "@/lib/dates/calendar";
 import type { Profile } from "@/lib/data/profiles";
-import { fetchActivities, fetchActivity, fetchActivityDetail, fetchRecovery, fetchSleepNights, fetchTraining } from "@/lib/data/queries";
+import { fetchActivities, fetchActivity, fetchActivityDetail, fetchActivitySummary, fetchRecovery, fetchSleepNights, fetchTraining } from "@/lib/data/queries";
 import { importActivityDetails } from "@/lib/garmin/import-details";
 import { buildActivityView, type ActivityView } from "./view";
 
@@ -26,11 +26,12 @@ export async function loadActivityView(profile: Profile, id: string, { fetchMiss
     }
   }
 
-  const [activities, recovery, sleep, training] = await Promise.all([
+  const [activities, recovery, sleep, training, summary] = await Promise.all([
     fetchActivities(profile.id),
     fetchRecovery(profile.id, { from: day, to: day }),
     fetchSleepNights(profile.id, { from: day, to: day }),
     fetchTraining(profile.id, addDays(day, -1)),
+    fetchActivitySummary(profile.id, id),
   ]);
   return buildActivityView({
     activity,
@@ -40,5 +41,6 @@ export async function loadActivityView(profile: Profile, id: string, { fetchMiss
     sleep: sleep[0] ?? null,
     trainingBefore: training.at(-1) ?? null,
     profile,
+    summary,
   });
 }

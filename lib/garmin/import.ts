@@ -234,9 +234,16 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
   // After the main write, so the window's new activities exist to hang detail on.
   let details: DetailImportResult | null = null;
   if (want("details") && !dryRun) {
-    details = await importActivityDetails({ target: { start, end }, delayMs: options.detailDelayMs, log, client: garmin });
-    if (details.fetched || details.remaining) {
-      log(`Activity detail: ${details.fetched} fetched${details.remaining ? `, ${details.remaining} left (${details.stoppedBy})` : ""}.`);
+    try {
+      details = await importActivityDetails({ target: { start, end }, delayMs: options.detailDelayMs, log, client: garmin });
+      if (details.fetched || details.remaining) {
+        log(`Activity detail: ${details.fetched} fetched${details.remaining ? `, ${details.remaining} left (${details.stoppedBy})` : ""}.`);
+      }
+    } catch (err) {
+      // Everything above is already written; detail is extra (a later run or the modal fills it in).
+      const message = err instanceof Error ? err.message : String(err);
+      log(`Activity detail failed: ${message}`);
+      details = { fetched: 0, remaining: 0, stoppedBy: message };
     }
   }
 

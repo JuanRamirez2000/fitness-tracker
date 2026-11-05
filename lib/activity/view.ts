@@ -29,6 +29,8 @@ export interface ActivityViewInput {
   /** Garmin's load and status going in: the day before's row. */
   trainingBefore: DailyTraining | null;
   profile: Pick<Profile, "timezone" | "hr_zone_bounds">;
+  /** The stored AI summary, if one was written. */
+  summary?: { text: string; generated_at: string } | null;
 }
 
 export interface ViewStat {
@@ -124,6 +126,7 @@ export interface ActivityView {
   context: ActivityContext;
   /** "missing": detail never fetched; "none": Garmin has no samples for this activity. */
   detailState: "ok" | "missing" | "none";
+  summary: { text: string; generated_at: string } | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -454,6 +457,7 @@ export function buildActivityView(input: ActivityViewInput): ActivityView {
     zones: zones(a, input.profile.hr_zone_bounds),
     context: context(input),
     detailState: !d ? "missing" : d.series ? "ok" : "none",
+    summary: input.summary ?? null,
   };
 }
 

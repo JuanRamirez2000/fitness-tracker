@@ -131,6 +131,15 @@ create table activity_details (
 );
 create index activity_details_user_idx on activity_details (user_id);
 
+-- The activity modal's AI summary (migration 011): one per activity, written once.
+create table activity_summaries (
+  activity_id uuid primary key references activities(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  text text not null,
+  model text not null,
+  generated_at timestamptz not null default now()
+);
+
 -- One row per day of watch-derived recovery. The Personal API import (lib/garmin/) writes the
 -- HRV, resting HR, Body Battery and stress columns; the unofficial import
 -- (scripts/garmin/import_unofficial.py) writes the readiness columns. Each only updates its own.

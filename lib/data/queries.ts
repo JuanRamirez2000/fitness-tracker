@@ -118,6 +118,38 @@ export async function fetchActivityDetail(userId: string, activityId: string): P
   return row ? activityDetailRowSchema.parse(row) : null;
 }
 
+export interface ActivitySummary {
+  text: string;
+  model: string;
+  generated_at: string;
+}
+
+/** An activity's AI summary (migration 011), or null if none was written. */
+export async function fetchActivitySummary(userId: string, activityId: string): Promise<ActivitySummary | null> {
+  const [row] = await db()`
+    select text, model, generated_at from activity_summaries where user_id = ${userId} and activity_id = ${activityId}`;
+  return row ? { text: String(row.text), model: String(row.model), generated_at: String(row.generated_at) } : null;
+}
+
+export async function saveActivitySummary(userId: string, activityId: string, text: string, model: string): Promise<ActivitySummary> {
+  const [row] = await db()`
+    insert into activity_summaries (activity_id, user_id, text, model, generated_at)
+    values (${activityId}, ${userId}, ${text}, ${model}, now())
+    on conflict (activity_id) do update set text = excluded.text, model = excluded.model, generated_at = excluded.generated_at
+    returning text, model, generated_at`;
+  return { text: String(row.text), model: String(row.model), generated_at: String(row.generated_at) };
+}
+
+/** Activities starting in `range` that have no AI summary yet, oldest first. */
+export async function fetchActivityIdsWithoutSummary(userId: string, range: DayWindow): Promise<string[]> {
+  const rows = await db()`
+    select a.id from activities a
+    left join activity_summaries s on s.activity_id = a.id
+    where a.user_id = ${userId} and a.local_date between ${range.from} and ${range.to} and s.activity_id is null
+    order by a.started_at`;
+  return rows.map((r) => String(r.id));
+}
+
 /** Each day's recovery row inside `range`, oldest first. */
 export async function fetchRecovery(userId: string, range: DayWindow): Promise<DailyRecovery[]> {
   const rows = await db()`

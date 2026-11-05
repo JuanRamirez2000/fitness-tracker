@@ -62,7 +62,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       </main>
       {/* Reads ?activity= on the client (useSearchParams), so opening one needs no server render. */}
       <Suspense fallback={null}>
-        <ActivityModal />
+        <ActivityModal timezone={profile.timezone} />
       </Suspense>
     </>
   );
