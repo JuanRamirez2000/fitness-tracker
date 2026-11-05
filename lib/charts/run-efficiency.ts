@@ -7,6 +7,9 @@ import { easyPaceAtRefHr, median, runsIn, runsOf } from "@/lib/running/runs";
 const TREND_RUNS = 5;
 
 export interface RunEfficiencyPoint {
+  /** The run's activities.id, so a point can open it. */
+  id: string;
+  name: string;
   dateMs: number;
   local_date: string;
   /** Seconds per mile, scaled to 130 bpm. */
@@ -39,6 +42,8 @@ export function buildRunEfficiency(data: DashboardData): RunEfficiencyData | nul
     if (!inRange.has(s.run.id)) return;
     const window = scored.slice(Math.max(0, i - TREND_RUNS + 1), i + 1).map((w) => w.pace);
     points.push({
+      id: s.run.id,
+      name: s.run.name ?? "Run",
       dateMs: dayStartUtcMs(s.run.local_date),
       local_date: s.run.local_date,
       pace: s.pace,

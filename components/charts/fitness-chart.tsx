@@ -3,7 +3,8 @@ import { LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildFitness, type DatedValue, type FactorTag } from "@/lib/charts/fitness";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { ChartHover, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Swatch } from "./parts";
 
@@ -26,6 +27,8 @@ function Panel({
   reference,
   strokeClass,
   summary,
+  rows,
+  markClass,
 }: {
   label: string;
   value: string;
@@ -36,10 +39,19 @@ function Panel({
   reference?: number | null;
   strokeClass: string;
   summary: string;
+  /** The tooltip for a day: both panels' values, so either panel reads the same. */
+  rows: (date: string) => HoverRow[];
+  markClass: string;
 }) {
   const values = points.map((p) => p.value).concat(reference ?? []);
   const pad = Math.max((Math.max(...values) - Math.min(...values)) * 0.15, 0.5);
   const y = scaleLinear<number>({ domain: [Math.min(...values) - pad, Math.max(...values) + pad], range: [PANEL_HEIGHT - 5, 5] });
+  const hoverPoints = points.map((p) => ({
+    at: x(p.date) / WIDTH,
+    title: fmtPointTitle(p.date),
+    rows: rows(p.date),
+    marks: [{ y: y(p.value) / PANEL_HEIGHT, className: markClass }],
+  }));
   return (
     <div className="grid grid-cols-[100px_1fr] items-center gap-3">
       <div className="flex flex-col gap-0.5">
@@ -47,29 +59,31 @@ function Panel({
         <span className="font-mono text-[20px] leading-tight text-ink">{value}</span>
         <span className="font-mono text-[10px] text-muted-2">{note}</span>
       </div>
-      <Plot
-        width={WIDTH}
-        height={PANEL_HEIGHT}
-        label={summary}
-        markers={
-          points.length === 1 ? (
-            <Marker x={x(points[0].date)} y={y(points[0].value)} width={WIDTH} height={PANEL_HEIGHT} shape="dot" className="bg-domain-rec" />
-          ) : undefined
-        }
-      >
-        {reference != null && (
-          <line x1={0} x2={WIDTH} y1={y(reference)} y2={y(reference)} className="stroke-muted-2" strokeWidth={1.2} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
-        )}
-        <LinePath
-          data={points}
-          x={(p) => x(p.date)}
-          y={(p) => y(p.value)}
-          className={`fill-none ${strokeClass}`}
-          strokeWidth={1.8}
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      </Plot>
+      <ChartHover points={hoverPoints} label="updates">
+        <Plot
+          width={WIDTH}
+          height={PANEL_HEIGHT}
+          label={summary}
+          markers={
+            points.length === 1 ? (
+              <Marker x={x(points[0].date)} y={y(points[0].value)} width={WIDTH} height={PANEL_HEIGHT} shape="dot" className="bg-domain-rec" />
+            ) : undefined
+          }
+        >
+          {reference != null && (
+            <line x1={0} x2={WIDTH} y1={y(reference)} y2={y(reference)} className="stroke-muted-2" strokeWidth={1.2} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
+          )}
+          <LinePath
+            data={points}
+            x={(p) => x(p.date)}
+            y={(p) => y(p.value)}
+            className={`fill-none ${strokeClass}`}
+            strokeWidth={1.8}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </Plot>
+      </ChartHover>
     </div>
   );
 }
@@ -95,6 +109,17 @@ export function FitnessChart({ data }: { data: DashboardData }) {
   const toMs = Math.max(dayStartUtcMs(data.dateRange.to), fromMs + 1);
   const xScale = scaleLinear<number>({ domain: [fromMs, toMs], range: [3, WIDTH - 3] });
   const x = (date: string) => xScale(dayStartUtcMs(date));
+  // Each panel's points are its own days; the tooltip shows the latest of both as of that day.
+  const asOf = (series: { date: string; value: number }[], date: string) => [...series].reverse().find((p) => p.date <= date) ?? null;
+  const rows = (date: string): HoverRow[] => {
+    const v = asOf(fit.vo2, date);
+    const a = asOf(fit.fitnessAge, date);
+    return [
+      ...(v ? [{ label: "VO2 max", value: v.value.toFixed(1), swatch: { shape: "line" as const, className: "bg-domain-rec" } }] : []),
+      ...(a ? [{ label: "Fitness age", value: a.value.toFixed(1), swatch: { shape: "line" as const, className: "bg-accent" } }] : []),
+      ...(fit.realAge !== null ? [{ label: "Real age", value: String(fit.realAge), swatch: { shape: "dashed" as const, className: "border-muted-2" }, muted: true }] : []),
+    ];
+  };
 
   return (
     <ChartCard
@@ -116,6 +141,8 @@ export function FitnessChart({ data }: { data: DashboardData }) {
             points={fit.vo2}
             x={x}
             strokeClass="stroke-domain-rec"
+            rows={rows}
+            markClass="bg-domain-rec"
             summary={`VO2 max ${fit.vo2Latest.toFixed(1)}${fit.vo2Delta !== null ? `, ${signed(fit.vo2Delta)} in range` : ""}`}
           />
         )}
@@ -128,6 +155,8 @@ export function FitnessChart({ data }: { data: DashboardData }) {
             x={x}
             reference={fit.realAge}
             strokeClass="stroke-accent"
+            rows={rows}
+            markClass="bg-accent"
             summary={`Fitness age ${fit.fitnessAgeLatest.toFixed(1)}${fit.realAge !== null ? ` against a real age of ${fit.realAge}` : ""}`}
           />
         )}

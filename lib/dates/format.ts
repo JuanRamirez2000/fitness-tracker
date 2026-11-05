@@ -15,3 +15,10 @@ export function fmtDate(date: LocalDate): string {
 export function weekdayName(date: LocalDate): string {
   return WEEKDAYS[weekdayOf(date)];
 }
+
+const SHORT_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** A chart tooltip's header: "Tue, Nov 3", or "Week of Oct 27" for a weekly bucket. */
+export function fmtPointTitle(date: LocalDate, weekly = false): string {
+  return weekly ? `Week of ${fmtDate(date)}` : `${SHORT_WEEKDAYS[weekdayOf(date)]}, ${fmtDate(date)}`;
+}

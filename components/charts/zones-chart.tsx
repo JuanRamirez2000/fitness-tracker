@@ -1,7 +1,8 @@
 import { scaleBand, scaleLinear } from "@visx/scale";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { EASY_SHARE_AIM, buildZoneChart } from "@/lib/charts/training";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
@@ -40,6 +41,22 @@ export function ZonesChart({ data }: { data: DashboardData }) {
     swatch: Swatch.square(ZONE_BG[i]),
   }));
 
+  // Hover: each bar's minutes per zone (Z5 on top, as stacked), its easy share and its miles.
+  const points: HoverPoint[] = chart.bars.map((b) => {
+    const total = b.minutes.reduce((s, m) => s + m, 0);
+    return {
+      at: (Y_LABEL_W + (x(b.label) ?? 0) + x.bandwidth() / 2) / WIDTH,
+      title: fmtPointTitle(b.label, chart.weekly),
+      rows: [
+        ...[4, 3, 2, 1, 0].flatMap((i) =>
+          b.minutes[i] >= 0.5 ? [{ label: `Z${i + 1}`, value: `${Math.round(b.minutes[i])} min`, swatch: { shape: "square" as const, className: ZONE_BG[i] } }] : [],
+        ),
+        ...(total > 0 ? [{ label: "Easy (Z1–2)", value: pct((b.minutes[0] + b.minutes[1]) / total) }] : [{ label: "Heart rate", value: "none recorded" }]),
+        { label: "Distance", value: `${b.miles.toFixed(1)} mi`, muted: true },
+      ],
+    };
+  });
+
   return (
     <ChartCard
       title={title}
@@ -55,44 +72,46 @@ export function ZonesChart({ data }: { data: DashboardData }) {
         <Stat label="Time" value={Math.round(chart.totalMinutes)} unit="min" />
         <Stat label="Distance" value={chart.totalMiles.toFixed(1)} unit="mi" note={`${chart.runCount} run${chart.runCount === 1 ? "" : "s"}`} />
       </StatRow>
-      <Plot
-        width={WIDTH}
-        height={HEIGHT}
-        label={`Time in heart rate zones ${unit}: ${pct(chart.easyShare)} easy over the range, ${Math.round(chart.totalMinutes)} minutes and ${chart.totalMiles.toFixed(1)} miles in all`}
-      >
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={Y_LABEL_W} x2={WIDTH} y1={y(t)} y2={y(t)} className="stroke-divider" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            <text x={0} y={y(t) + 3} className="fill-muted-2 font-mono text-[9px]">
-              {t}m
-            </text>
-          </g>
-        ))}
-        {chart.bars.map((b) => {
-          let top = HEIGHT;
-          const barTop = y(b.minutes.reduce((sum, m) => sum + m, 0));
-          return (
-            <g key={b.label}>
-              {b.miles > 0 && (
-                <text
-                  x={Y_LABEL_W + (x(b.label) ?? 0) + x.bandwidth() / 2}
-                  y={Math.min(barTop, HEIGHT) - 4}
-                  textAnchor="middle"
-                  className="fill-muted-2 font-mono text-[9px]"
-                >
-                  {b.miles.toFixed(1)}
-                </text>
-              )}
-              {b.minutes.map((m, i) => {
-                const h = HEIGHT - y(m);
-                if (h <= 0.2) return null;
-                top -= h;
-                return <rect key={i} x={Y_LABEL_W + (x(b.label) ?? 0)} y={top} width={x.bandwidth()} height={Math.max(h - 1, 0.5)} className={ZONE_FILL[i]} />;
-              })}
+      <ChartHover points={points} label={chart.weekly ? "weeks" : "days"} band={x.bandwidth() / WIDTH}>
+        <Plot
+          width={WIDTH}
+          height={HEIGHT}
+          label={`Time in heart rate zones ${unit}: ${pct(chart.easyShare)} easy over the range, ${Math.round(chart.totalMinutes)} minutes and ${chart.totalMiles.toFixed(1)} miles in all`}
+        >
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={Y_LABEL_W} x2={WIDTH} y1={y(t)} y2={y(t)} className="stroke-divider" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              <text x={0} y={y(t) + 3} className="fill-muted-2 font-mono text-[9px]">
+                {t}m
+              </text>
             </g>
-          );
-        })}
-      </Plot>
+          ))}
+          {chart.bars.map((b) => {
+            let top = HEIGHT;
+            const barTop = y(b.minutes.reduce((sum, m) => sum + m, 0));
+            return (
+              <g key={b.label}>
+                {b.miles > 0 && (
+                  <text
+                    x={Y_LABEL_W + (x(b.label) ?? 0) + x.bandwidth() / 2}
+                    y={Math.min(barTop, HEIGHT) - 4}
+                    textAnchor="middle"
+                    className="fill-muted-2 font-mono text-[9px]"
+                  >
+                    {b.miles.toFixed(1)}
+                  </text>
+                )}
+                {b.minutes.map((m, i) => {
+                  const h = HEIGHT - y(m);
+                  if (h <= 0.2) return null;
+                  top -= h;
+                  return <rect key={i} x={Y_LABEL_W + (x(b.label) ?? 0)} y={top} width={x.bandwidth()} height={Math.max(h - 1, 0.5)} className={ZONE_FILL[i]} />;
+                })}
+              </g>
+            );
+          })}
+        </Plot>
+      </ChartHover>
       <AxisRow start={fmtDate(chart.bars[0].label)} end={fmtDate(chart.bars.at(-1)!.label)} />
     </ChartCard>
   );

@@ -3,7 +3,8 @@ import { Area, LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildHeartChart, type HrvPoint } from "@/lib/charts/heart";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { ChartHover, type HoverPoint, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
@@ -46,6 +47,42 @@ export function HeartChart({ data }: { data: DashboardData }) {
   const banded = chart.hrv.filter((p): p is HrvPoint & { low: number; high: number } => p.low !== null && p.high !== null);
   const latestBand = chart.hrvLatest && chart.hrvLatest.low !== null ? `${chart.hrvLatest.low}–${chart.hrvLatest.high} ms normal` : undefined;
 
+  // Hover: either panel shows the day's resting HR, HRV and normal range together.
+  const rhrBy = new Map(chart.restingHr.map((p) => [p.date, p]));
+  const hrvBy = new Map(chart.hrv.map((p) => [p.date, p]));
+  const days = [...new Set([...rhrBy.keys(), ...hrvBy.keys()])].sort();
+  const rowsFor = (date: string): HoverRow[] => {
+    const r = rhrBy.get(date);
+    const h = hrvBy.get(date);
+    return [
+      ...(r ? [{ label: "Resting HR", value: `${r.value} bpm`, swatch: { shape: "line" as const, className: "bg-muted-1" } }] : []),
+      ...(h
+        ? [
+            {
+              label: "HRV",
+              value: `${Math.round(h.value)} ms`,
+              swatch: h.inBand ? { shape: "dot" as const, className: "bg-domain-rec" } : { shape: "square" as const, className: "bg-bad" },
+            },
+          ]
+        : []),
+      ...(h?.low != null && h.high != null
+        ? [{ label: h.inBand ? "Normal range" : "Outside range", value: `${h.low}–${h.high} ms`, swatch: { shape: "band" as const, className: "bg-domain-rec/20" }, muted: true }]
+        : []),
+    ];
+  };
+  const pointsFor = (mark: (date: string) => number | null, className: string): HoverPoint[] =>
+    days.map((date) => {
+      const y = mark(date);
+      return {
+        at: x(dayStartUtcMs(date)) / WIDTH,
+        title: fmtPointTitle(date),
+        rows: rowsFor(date),
+        marks: y === null ? undefined : [{ y: y / PANEL_HEIGHT, className }],
+      };
+    });
+  const rhrPoints = yRhr ? pointsFor((d) => (rhrBy.has(d) ? yRhr(rhrBy.get(d)!.value) : null), "bg-muted-1") : [];
+  const hrvPoints = yHrv ? pointsFor((d) => (hrvBy.has(d) ? yHrv(hrvBy.get(d)!.value) : null), "bg-domain-rec") : [];
+
   return (
     <ChartCard
       title={title}
@@ -73,65 +110,69 @@ export function HeartChart({ data }: { data: DashboardData }) {
       {yRhr && (
         <div className="flex flex-col gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">Resting HR · bpm</span>
-          <Plot
-            width={WIDTH}
-            height={PANEL_HEIGHT}
-            label={`Resting heart rate, latest ${chart.rhrLatest} bpm${chart.rhrDelta !== null ? `, ${signed(chart.rhrDelta, "bpm")}` : ""}`}
-          >
-            <LinePath
-              data={chart.restingHr}
-              x={xOf}
-              y={(p) => yRhr(p.value)}
-              className="fill-none stroke-muted-1"
-              strokeWidth={1.8}
-              vectorEffect="non-scaling-stroke"
-            />
-            {yRhr.ticks(3).map((t) => (
-              <text key={t} x={WIDTH} y={yRhr(t) + 3} textAnchor="end" className="fill-muted-3 font-mono text-[9px]">
-                {t}
-              </text>
-            ))}
-          </Plot>
+          <ChartHover points={rhrPoints} label="days">
+            <Plot
+              width={WIDTH}
+              height={PANEL_HEIGHT}
+              label={`Resting heart rate, latest ${chart.rhrLatest} bpm${chart.rhrDelta !== null ? `, ${signed(chart.rhrDelta, "bpm")}` : ""}`}
+            >
+              <LinePath
+                data={chart.restingHr}
+                x={xOf}
+                y={(p) => yRhr(p.value)}
+                className="fill-none stroke-muted-1"
+                strokeWidth={1.8}
+                vectorEffect="non-scaling-stroke"
+              />
+              {yRhr.ticks(3).map((t) => (
+                <text key={t} x={WIDTH} y={yRhr(t) + 3} textAnchor="end" className="fill-muted-3 font-mono text-[9px]">
+                  {t}
+                </text>
+              ))}
+            </Plot>
+          </ChartHover>
         </div>
       )}
 
       {yHrv && (
         <div className="flex flex-col gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">HRV · ms overnight</span>
-          <Plot
-            width={WIDTH}
-            height={PANEL_HEIGHT}
-            label={`Overnight HRV, latest ${chart.hrvLatest ? Math.round(chart.hrvLatest.value) : "none"} ms, ${chart.hrvOutOfBand} of ${chart.hrv.length} nights outside the normal range`}
-            markers={chart.hrv.map((p) => (
-              <Marker
-                key={p.date}
-                x={xOf(p)}
-                y={yHrv(p.value)}
-                width={WIDTH}
-                height={PANEL_HEIGHT}
-                shape={p.inBand ? "dot" : "square"}
-                className={p.inBand ? "bg-domain-rec" : "bg-bad"}
-                size={p.inBand ? 5 : 7}
+          <ChartHover points={hrvPoints} label="days">
+            <Plot
+              width={WIDTH}
+              height={PANEL_HEIGHT}
+              label={`Overnight HRV, latest ${chart.hrvLatest ? Math.round(chart.hrvLatest.value) : "none"} ms, ${chart.hrvOutOfBand} of ${chart.hrv.length} nights outside the normal range`}
+              markers={chart.hrv.map((p) => (
+                <Marker
+                  key={p.date}
+                  x={xOf(p)}
+                  y={yHrv(p.value)}
+                  width={WIDTH}
+                  height={PANEL_HEIGHT}
+                  shape={p.inBand ? "dot" : "square"}
+                  className={p.inBand ? "bg-domain-rec" : "bg-bad"}
+                  size={p.inBand ? 5 : 7}
+                />
+              ))}
+            >
+              <Area
+                data={banded}
+                x={xOf}
+                y0={(p) => yHrv(p.low)}
+                y1={(p) => yHrv(p.high)}
+                className="fill-domain-rec/15"
               />
-            ))}
-          >
-            <Area
-              data={banded}
-              x={xOf}
-              y0={(p) => yHrv(p.low)}
-              y1={(p) => yHrv(p.high)}
-              className="fill-domain-rec/15"
-            />
-            <LinePath
-              data={chart.hrv}
-              x={xOf}
-              y={(p) => yHrv(p.value)}
-              className="fill-none stroke-domain-rec"
-              strokeWidth={1.5}
-              strokeOpacity={0.8}
-              vectorEffect="non-scaling-stroke"
-            />
-          </Plot>
+              <LinePath
+                data={chart.hrv}
+                x={xOf}
+                y={(p) => yHrv(p.value)}
+                className="fill-none stroke-domain-rec"
+                strokeWidth={1.5}
+                strokeOpacity={0.8}
+                vectorEffect="non-scaling-stroke"
+              />
+            </Plot>
+          </ChartHover>
         </div>
       )}
       <AxisRow start={fmtDate(from)} end={fmtDate(data.dateRange.to)} />

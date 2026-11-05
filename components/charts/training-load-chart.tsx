@@ -3,7 +3,8 @@ import { Area, LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { ACWR_RANGE, buildTrainingLoad, type LoadPoint, type StatusTone } from "@/lib/charts/training";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
@@ -33,6 +34,22 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
   const values = chart.points.flatMap((p) => [p.acute, p.chronic, p.low ?? p.chronic, p.high ?? p.chronic]);
   const y = scaleLinear<number>({ domain: [0, Math.max(...values) * 1.1], range: [HEIGHT - 2, 4] });
   const banded = chart.points.filter((p): p is LoadPoint & { low: number; high: number } => p.low !== null && p.high !== null);
+  const points: HoverPoint[] = chart.points.map((p) => ({
+    at: xOf(p) / WIDTH,
+    title: fmtPointTitle(p.date),
+    rows: [
+      { label: "Acute", value: String(Math.round(p.acute)), swatch: { shape: "line", className: "bg-accent" } },
+      { label: "Chronic", value: String(Math.round(p.chronic)), swatch: { shape: "dashed", className: "border-muted-1" } },
+      ...(p.chronic > 0 ? [{ label: "Ratio", value: (p.acute / p.chronic).toFixed(2) }] : []),
+      ...(p.low !== null && p.high !== null
+        ? [{ label: "Optimal band", value: `${Math.round(p.low)}–${Math.round(p.high)}`, swatch: { shape: "band" as const, className: "bg-good/20" }, muted: true }]
+        : []),
+    ],
+    marks: [
+      { y: y(p.acute) / HEIGHT, className: "bg-accent" },
+      { y: y(p.chronic) / HEIGHT, className: "bg-muted-1" },
+    ],
+  }));
   const acwrNote = `healthy ${ACWR_RANGE[0]}–${ACWR_RANGE[1]}${latest.acwrState && latest.acwrState !== "optimal" ? ` · ${latest.acwrState}` : ""}`;
 
   return (
@@ -68,15 +85,17 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
           />
         )}
       </StatRow>
-      <Plot
-        width={WIDTH}
-        height={HEIGHT}
-        label={`Training load: acute ${Math.round(latest.acute)}, chronic ${Math.round(latest.chronic)}${latest.acwr !== null ? `, ratio ${latest.acwr.toFixed(1)}` : ""}${latest.status ? `, ${latest.status.label}` : ""}`}
-      >
-        <Area data={banded} x={xOf} y0={(p) => y(p.low)} y1={(p) => y(p.high)} className="fill-good/15" />
-        <LinePath data={chart.points} x={xOf} y={(p) => y(p.chronic)} className="fill-none stroke-muted-1" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
-        <LinePath data={chart.points} x={xOf} y={(p) => y(p.acute)} className="fill-none stroke-accent" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      </Plot>
+      <ChartHover points={points} label="days">
+        <Plot
+          width={WIDTH}
+          height={HEIGHT}
+          label={`Training load: acute ${Math.round(latest.acute)}, chronic ${Math.round(latest.chronic)}${latest.acwr !== null ? `, ratio ${latest.acwr.toFixed(1)}` : ""}${latest.status ? `, ${latest.status.label}` : ""}`}
+        >
+          <Area data={banded} x={xOf} y0={(p) => y(p.low)} y1={(p) => y(p.high)} className="fill-good/15" />
+          <LinePath data={chart.points} x={xOf} y={(p) => y(p.chronic)} className="fill-none stroke-muted-1" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
+          <LinePath data={chart.points} x={xOf} y={(p) => y(p.acute)} className="fill-none stroke-accent" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+        </Plot>
+      </ChartHover>
       <AxisRow start={fmtDate(from)} end={fmtDate(data.dateRange.to)} />
     </ChartCard>
   );

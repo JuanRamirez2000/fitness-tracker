@@ -3,7 +3,8 @@ import { AreaClosed, LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildBodyMass, type MassPoint } from "@/lib/charts/body-composition";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
-import { fmtDate } from "@/lib/dates/format";
+import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { ChartHover, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow } from "./parts";
 
@@ -20,6 +21,7 @@ function MassPanel({
   strokeClass,
   fillClass,
   x,
+  markClass,
 }: {
   label: string;
   points: MassPoint[];
@@ -28,11 +30,24 @@ function MassPanel({
   strokeClass: string;
   fillClass: string;
   x: (p: MassPoint) => number;
+  markClass: string;
 }) {
   const values = points.map(pick);
   const pad = Math.max((Math.max(...values) - Math.min(...values)) * 0.15, 0.5);
   const y = scaleLinear<number>({ domain: [Math.min(...values) - pad, Math.max(...values) + pad], range: [PANEL_HEIGHT - 4, 4] });
   const latest = values[values.length - 1];
+  // Either panel's hover shows the day's fat, lean and their sum.
+  const rows = (p: MassPoint): HoverRow[] => [
+    { label: "Fat mass", value: `${p.fat.toFixed(1)} lb`, swatch: { shape: "line", className: "bg-domain-body" } },
+    { label: "Lean mass", value: `${p.lean.toFixed(1)} lb`, swatch: { shape: "line", className: "bg-accent" } },
+    { label: "Weight", value: `${(p.fat + p.lean).toFixed(1)} lb`, muted: true },
+  ];
+  const hoverPoints = points.map((p) => ({
+    at: x(p) / WIDTH,
+    title: fmtPointTitle(p.date),
+    rows: rows(p),
+    marks: [{ y: y(pick(p)) / PANEL_HEIGHT, className: markClass }],
+  }));
   return (
     <div className="grid grid-cols-[100px_1fr] items-center gap-3">
       <div className="flex flex-col gap-0.5">
@@ -43,14 +58,16 @@ function MassPanel({
         </span>
         <span className="font-mono text-[10px] text-muted-2">{delta === null ? "one reading" : `${signedLb(delta)} lb in range`}</span>
       </div>
-      <Plot
-        width={WIDTH}
-        height={PANEL_HEIGHT}
-        label={`${label}: ${latest.toFixed(1)} pounds${delta === null ? "" : `, ${signedLb(delta)} pounds in range`}`}
-      >
-        <AreaClosed data={points} x={x} y={(p) => y(pick(p))} yScale={y} className={fillClass} />
-        <LinePath data={points} x={x} y={(p) => y(pick(p))} className={`fill-none ${strokeClass}`} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
-      </Plot>
+      <ChartHover points={hoverPoints} label="scale readings">
+        <Plot
+          width={WIDTH}
+          height={PANEL_HEIGHT}
+          label={`${label}: ${latest.toFixed(1)} pounds${delta === null ? "" : `, ${signedLb(delta)} pounds in range`}`}
+        >
+          <AreaClosed data={points} x={x} y={(p) => y(pick(p))} yScale={y} className={fillClass} />
+          <LinePath data={points} x={x} y={(p) => y(pick(p))} className={`fill-none ${strokeClass}`} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
+        </Plot>
+      </ChartHover>
     </div>
   );
 }
@@ -96,8 +113,8 @@ export function BodyMassChart({ data }: { data: DashboardData }) {
         </StatRow>
       )}
       <div className="flex flex-col gap-3">
-        <MassPanel label="Fat mass" points={chart.points} pick={(p) => p.fat} delta={chart.fatDelta} strokeClass="stroke-domain-body" fillClass="fill-domain-body/12" x={x} />
-        <MassPanel label="Lean mass" points={chart.points} pick={(p) => p.lean} delta={chart.leanDelta} strokeClass="stroke-accent" fillClass="fill-accent/10" x={x} />
+        <MassPanel label="Fat mass" points={chart.points} pick={(p) => p.fat} delta={chart.fatDelta} strokeClass="stroke-domain-body" fillClass="fill-domain-body/12" x={x} markClass="bg-domain-body" />
+        <MassPanel label="Lean mass" points={chart.points} pick={(p) => p.lean} delta={chart.leanDelta} strokeClass="stroke-accent" fillClass="fill-accent/10" x={x} markClass="bg-accent" />
       </div>
       <div className="pl-[112px]">
         <AxisRow start={fmtDate(from)} end={fmtDate(data.dateRange.to)} />

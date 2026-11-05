@@ -6,7 +6,9 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import { buildWeightTrend, type WeightTrendChartData, type WeightTrendPoint } from "@/lib/charts/weight-trend";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
 import type { ShotStarState } from "@/lib/shots/match";
+import { fmtPointTitle } from "@/lib/dates/format";
 import { ChartCard, type ChartLegendItem } from "./chart-card";
+import { ChartHover, type HoverPoint } from "./chart-hover";
 import { Swatch } from "./parts";
 
 const WIDTH = 900;
@@ -78,8 +80,41 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
   // visible data: clip it to the plot so it doesn't spill over the cards above.
   const clipId = `plot-${useId().replace(/:/g, "")}`;
 
+  // Hover: each weigh-in day's reading, its 7-day average, where the plan put you that day, and
+  // whether it was a shot or run day.
+  const starBy = new Map(chart.stars.map((s) => [s.dateMs, s.state]));
+  const runDays = new Set(chart.runDays);
+  const pace = chart.paceLine;
+  const planAt = (ms: number) =>
+    pace && ms >= pace.start.dateMs && ms <= pace.end.dateMs
+      ? pace.start.weight + ((ms - pace.start.dateMs) / (pace.end.dateMs - pace.start.dateMs || 1)) * (pace.end.weight - pace.start.weight)
+      : null;
+  const points: HoverPoint[] = chart.points.map((p) => {
+    const plan = planAt(p.dateMs);
+    const star = starBy.get(p.dateMs);
+    return {
+      at: (MARGIN.left + xOf(p)) / WIDTH,
+      title: fmtPointTitle(p.local_date),
+      rows: [
+        { label: "Weigh-in", value: `${p.weight.toFixed(1)} lb`, swatch: { shape: "dot", className: "bg-muted-3" } },
+        { label: "7-day avg", value: `${p.avg7.toFixed(1)} lb`, swatch: { shape: "line", className: "bg-accent" } },
+        ...(plan !== null
+          ? [{ label: "Plan pace", value: `${plan.toFixed(1)} lb`, swatch: { shape: "dashed" as const, className: "border-muted-2" }, muted: true }]
+          : []),
+        ...(chart.goal !== null ? [{ label: "Goal", value: `${chart.goal} lb`, swatch: { shape: "dashed" as const, className: "border-good" }, muted: true }] : []),
+        ...(star ? [{ label: "Shot", value: star === "taken" ? "taken" : star }] : []),
+        ...(runDays.has(p.dateMs) ? [{ label: "Run", value: "yes" }] : []),
+      ],
+      marks: [
+        { y: (MARGIN.top + y(p.weight)) / HEIGHT, className: "bg-muted-2" },
+        { y: (MARGIN.top + y(p.avg7)) / HEIGHT, className: "bg-accent" },
+      ],
+    };
+  });
+
   return (
-    <svg width="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className="overflow-visible">
+    <ChartHover points={points} label="weigh-ins">
+    <svg width="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className="block overflow-visible">
       <defs>
         <clipPath id={clipId}>
           <rect x={0} y={0} width={plotWidth} height={plotHeight} />
@@ -192,6 +227,7 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
         </text>
       </Group>
     </svg>
+    </ChartHover>
   );
 }
 

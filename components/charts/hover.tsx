@@ -11,6 +11,7 @@ import { useRef, type ReactNode } from "react";
 export function HoverLayer({
   onHover,
   onStep,
+  onActivate,
   label,
   steps,
   current,
@@ -20,6 +21,8 @@ export function HoverLayer({
   onHover: (fraction: number | null) => void;
   /** Arrow keys: the index of the point to move to. */
   onStep?: (index: number) => void;
+  /** Click or Enter on the current point (a run opens its modal). The layer shows a pointer while it can. */
+  onActivate?: () => void;
   /** What the arrow keys move through, for the screen-reader label. */
   label: string;
   /** How many points the arrow keys step across, and the current point's position. */
@@ -43,7 +46,8 @@ export function HoverLayer({
       aria-valuemin={0}
       aria-valuemax={steps ? steps - 1 : 1}
       aria-valuenow={current ?? 0}
-      className={`absolute inset-0 touch-pan-y outline-none focus-visible:ring-1 focus-visible:ring-accent/60 ${className}`}
+      className={`absolute inset-0 touch-pan-y outline-none focus-visible:ring-1 focus-visible:ring-accent/60 ${onActivate ? "cursor-pointer" : ""} ${className}`}
+      onClick={onActivate}
       onPointerMove={(e) => report(e.clientX)}
       onPointerDown={(e) => report(e.clientX)}
       onPointerLeave={(e) => {
@@ -51,6 +55,11 @@ export function HoverLayer({
       }}
       onBlur={() => onHover(null)}
       onKeyDown={(e) => {
+        if (e.key === "Enter" && onActivate) {
+          e.preventDefault();
+          onActivate();
+          return;
+        }
         if (!steps || steps < 2 || !onStep) return;
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
         e.preventDefault();
