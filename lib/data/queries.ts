@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
+import { activityDetailRowSchema, type ActivityDetail } from "./activity-details";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import {
@@ -102,6 +103,19 @@ export async function fetchSteps(userId: string, range: DayWindow): Promise<Dail
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const rows = await db()`select * from activities where user_id = ${userId} order by started_at`;
   return rows.map((row) => activityRowSchema.parse(row));
+}
+
+/** One activity by its row id, or null (also for a malformed id). */
+export async function fetchActivity(userId: string, id: string): Promise<Activity | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const [row] = await db()`select * from activities where user_id = ${userId} and id = ${id}`;
+  return row ? activityRowSchema.parse(row) : null;
+}
+
+/** An activity's samples and splits (migration 010), or null if never fetched. */
+export async function fetchActivityDetail(userId: string, activityId: string): Promise<ActivityDetail | null> {
+  const [row] = await db()`select * from activity_details where user_id = ${userId} and activity_id = ${activityId}`;
+  return row ? activityDetailRowSchema.parse(row) : null;
 }
 
 /** Each day's recovery row inside `range`, oldest first. */

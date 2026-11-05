@@ -8,13 +8,11 @@
  */
 import type { JSONValue } from "postgres";
 import type { LocalDate } from "../dates/calendar";
+import { onFoot } from "../data/activities";
 import { db } from "../db";
 import { GarminClient, GarminError } from "./client";
 import { ACTIVITY_DETAIL_COLUMNS, buildActivityDetailRow } from "./details";
 
-/** On-foot activities get a mile-splits table; rides and swims don't. */
-export const onFoot = (activityType: string) =>
-  activityType.endsWith("running") || activityType.endsWith("walking") || activityType === "hiking";
 
 export interface DetailImportOptions {
   /** Which activities: by activities.id, or every one starting in a window. */

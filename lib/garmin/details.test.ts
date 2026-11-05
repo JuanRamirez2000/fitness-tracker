@@ -120,6 +120,17 @@ describe("mileSplits", () => {
     expect(splits[1].distance_m).toBeCloseTo(METERS_PER_MILE / 2, 0);
   });
 
+  it("ignores elevation noise smaller than a couple of meters, but counts a real climb", () => {
+    const t = Array.from({ length: 41 }, (_, i) => i * 10);
+    const d = t.map((s) => s * 2); // 800 m: one partial "mile" of 0.5
+    const flat = t.map((_, i) => 20 + (i % 2 ? 0.8 : -0.8));
+    const climb = t.map((_, i) => 20 + i * 0.5); // +20 m, steadily
+    const [noisy] = mileSplits(readSamples(details({ sumDuration: t, sumDistance: d, directElevation: flat }))!)!;
+    const [hill] = mileSplits(readSamples(details({ sumDuration: t, sumDistance: d, directElevation: climb }))!)!;
+    expect(noisy.elevation_gain_m).toBe(0);
+    expect(hill.elevation_gain_m).toBeCloseTo(20, 0);
+  });
+
   it("is null without distance", () => {
     expect(mileSplits(readSamples(details({ sumDuration: [0, 1], directHeartRate: [90, 95] }))!)).toBeNull();
   });

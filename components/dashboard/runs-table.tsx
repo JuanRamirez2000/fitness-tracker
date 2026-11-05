@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { openActivity } from "@/components/activity/open";
 import { fmtDate } from "@/lib/dates/format";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildRunRows } from "@/lib/table/runs";
@@ -10,7 +11,7 @@ const cellPad = "px-3 py-2 md:px-4";
 const HEADERS = ["Date", "Type", "Mi", "Time", "Pace", "HR", "Cad", "Effect"];
 const NUMERIC = new Set(["Mi", "Time", "Pace", "HR", "Cad"]);
 
-/** Runs in the selected range, newest first. Read-only: every row comes from Garmin. */
+/** Runs in the selected range, newest first. Read-only: every row comes from Garmin; a row opens the run's detail. */
 export function RunsTable({ data }: { data: DashboardData }) {
   const rows = buildRunRows(data);
   const [visible, setVisible] = useState(PAGE_SIZE);
@@ -43,8 +44,26 @@ export function RunsTable({ data }: { data: DashboardData }) {
               </tr>
             )}
             {shown.map((row) => (
-              <tr key={row.id} className="border-b border-divider/60 hover:bg-raised/40" title={[row.name, row.benefit].filter(Boolean).join(" · ")}>
-                <td className={`${cellPad} whitespace-nowrap text-[12.5px] text-ink`}>{fmtDate(row.local_date)}</td>
+              <tr
+                key={row.id}
+                onClick={() => openActivity(row.id)}
+                className="cursor-pointer border-b border-divider/60 hover:bg-raised/40"
+                title={[row.name, row.benefit].filter(Boolean).join(" · ")}
+              >
+                <td className={`${cellPad} whitespace-nowrap text-[12.5px] text-ink`}>
+                  {/* The row's click target for keyboards and screen readers; the whole row is clickable with a mouse. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openActivity(row.id);
+                    }}
+                    className="text-left underline decoration-muted-3 decoration-dotted underline-offset-[3px] hover:decoration-ink"
+                    aria-label={`Open ${row.name}, ${fmtDate(row.local_date)}`}
+                  >
+                    {fmtDate(row.local_date)}
+                  </button>
+                </td>
                 <td className={`${cellPad} whitespace-nowrap`}>
                   {row.kind ? (
                     <span

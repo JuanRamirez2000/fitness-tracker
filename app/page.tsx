@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { ActivityModal } from "@/components/activity/activity-modal";
 import { AppHeader } from "@/components/app-header";
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
 import { TodayTab } from "@/components/tabs/today-tab";
@@ -58,6 +60,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
         {data.tab === "training" && <TrainingTab data={data} />}
       </main>
+      {/* Reads ?activity= on the client (useSearchParams), so opening one needs no server render. */}
+      <Suspense fallback={null}>
+        <ActivityModal />
+      </Suspense>
     </>
   );
 }

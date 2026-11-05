@@ -9,6 +9,12 @@ import type { ActivitySeries, IntervalSplit, MileSplit, SeriesKey } from "../dat
 export const METERS_PER_MILE = 1609.344;
 /** Enough points for a chart a card wide, small enough to send with the modal (~30 KB). */
 export const SERIES_POINTS = 400;
+/**
+ * Elevation changes smaller than this (meters) are watch noise: counting every wobble between
+ * samples overstates a flat mile's climb several times over, so climb and descent only count
+ * once the elevation has moved this far from the last counted point.
+ */
+const ELEVATION_STEP_M = 2;
 /** A last partial mile shorter than this is folded out of the splits table. */
 const MIN_PARTIAL_MILE_M = 0.1 * METERS_PER_MILE;
 
@@ -165,10 +171,15 @@ export function mileSplits(samples: Samples): MileSplit[] | null {
     let gain = 0;
     let loss = 0;
     const elev = (samples.cols.elev ?? []).slice(from, to).filter(finite);
-    for (let i = 1; i < elev.length; i++) {
-      const step = elev[i] - elev[i - 1];
-      if (step > 0) gain += step;
-      else loss -= step;
+    let ref = elev[0];
+    for (const e of elev) {
+      if (e - ref >= ELEVATION_STEP_M) {
+        gain += e - ref;
+        ref = e;
+      } else if (ref - e >= ELEVATION_STEP_M) {
+        loss += ref - e;
+        ref = e;
+      }
     }
     const hr = mean(samples.cols.hr);
     const cadence = mean(samples.cols.cadence);

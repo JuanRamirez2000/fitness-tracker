@@ -52,3 +52,8 @@ export type Activity = z.infer<typeof activityRowSchema>;
 export function isRun(activity: Pick<Activity, "activity_type">): boolean {
   return activity.activity_type.endsWith("running");
 }
+
+/** On-foot activities (runs, walks, hikes) get a mile-splits table; rides and swims don't. */
+export function onFoot(activityType: string): boolean {
+  return activityType.endsWith("running") || activityType.endsWith("walking") || activityType === "hiking";
+}
