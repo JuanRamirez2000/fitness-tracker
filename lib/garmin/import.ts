@@ -17,6 +17,7 @@ import { addDays, type LocalDate } from "../dates/calendar";
 import { todayIn } from "../dates/timezone";
 import { db } from "../db";
 import { GarminClient } from "./client";
+import { importActivityDetails, type DetailImportResult } from "./import-details";
 import {
   ACTIVITY_COLUMNS,
   FITNESS_AGE_COLUMNS,
@@ -32,7 +33,9 @@ import {
   buildZoneBounds,
 } from "./map";
 
-export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery", "hr-zones", "fitness-age"] as const;
+/** "details" is each new activity's samples and splits (lib/garmin/import-details.ts), fetched
+ * after the rest is written, for activities in the window that don't have them yet. */
+export const DATASETS = ["weigh-ins", "steps", "activities", "sleep", "recovery", "hr-zones", "fitness-age", "details"] as const;
 export type Dataset = (typeof DATASETS)[number];
 
 export type ImportWindow =
@@ -47,6 +50,8 @@ export interface ImportOptions {
   dryRun?: boolean;
   log?: (line: string) => void;
   client?: GarminClient;
+  /** Pause between activities' detail requests (a backfill sets this). */
+  detailDelayMs?: number;
 }
 
 export interface ImportResult {
@@ -58,6 +63,7 @@ export interface ImportResult {
   sleep: number;
   recovery: number;
   fitnessAge: number;
+  details: DetailImportResult | null;
 }
 
 /** The window's first and last local day, inclusive, in the athlete's own timezone. */
@@ -225,6 +231,15 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
     log("Upserted.");
   }
 
+  // After the main write, so the window's new activities exist to hang detail on.
+  let details: DetailImportResult | null = null;
+  if (want("details") && !dryRun) {
+    details = await importActivityDetails({ target: { start, end }, delayMs: options.detailDelayMs, log, client: garmin });
+    if (details.fetched || details.remaining) {
+      log(`Activity detail: ${details.fetched} fetched${details.remaining ? `, ${details.remaining} left (${details.stoppedBy})` : ""}.`);
+    }
+  }
+
   return {
     start,
     end,
@@ -234,5 +249,6 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
     sleep: sleep.length,
     recovery: recovery.length,
     fitnessAge: fitnessAges.length,
+    details,
   };
 }

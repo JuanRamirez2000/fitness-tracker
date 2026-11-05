@@ -95,10 +95,41 @@ create table activities (
   vo2max smallint,
   fastest_mile_s numeric(7,1),
   hr_zone_s jsonb,                       -- [z1..z5] seconds in each HR zone
+  elevation_loss_m numeric(7,1),
+  max_speed_mps numeric(6,3),
+  anaerobic_training_effect numeric(3,1),
+  avg_power_w smallint,
+  max_power_w smallint,
+  norm_power_w smallint,
+  avg_vertical_oscillation_cm numeric(4,1),
+  avg_vertical_ratio numeric(4,1),
+  min_temp_c numeric(4,1),
+  max_temp_c numeric(4,1),
+  body_battery_change smallint,          -- negative: Body Battery spent
+  steps int,
   updated_at timestamptz not null default now(),
   unique (user_id, source, external_id)
 );
 create index activities_user_date_idx on activities (user_id, local_date);
+
+-- One row per activity of detail for the activity modal (migration 010): samples thinned to a
+-- few hundred points, per-mile splits from the full-resolution samples, and Garmin's split
+-- summaries, from /activity-service/activity/{id}(/details).
+create table activity_details (
+  activity_id uuid primary key references activities(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  location_name text,
+  workout_feel smallint,                 -- 0 (very weak) .. 100 (very strong)
+  workout_rpe smallint,                  -- 10 .. 100 = RPE 1 .. 10
+  min_hr smallint,
+  stamina_start smallint,
+  stamina_end smallint,
+  series jsonb,                          -- ActivitySeries
+  mile_splits jsonb,                     -- MileSplit[]
+  interval_splits jsonb,                 -- IntervalSplit[]
+  fetched_at timestamptz not null default now()
+);
+create index activity_details_user_idx on activity_details (user_id);
 
 -- One row per day of watch-derived recovery. The Personal API import (lib/garmin/) writes the
 -- HRV, resting HR, Body Battery and stress columns; the unofficial import

@@ -31,6 +31,19 @@ export const activityRowSchema = z.object({
   fastest_mile_s: z.number().nullable(),
   /** [z1..z5] seconds in each HR zone (null without HR, and before migration 007). */
   hr_zone_s: z.array(z.number()).length(5).nullable().default(null),
+  // The rest of the activity list's fields (migration 010; null on rows imported before it).
+  elevation_loss_m: z.number().nullable().default(null),
+  max_speed_mps: z.number().nullable().default(null),
+  anaerobic_training_effect: z.number().nullable().default(null),
+  avg_power_w: z.number().int().nullable().default(null),
+  max_power_w: z.number().int().nullable().default(null),
+  norm_power_w: z.number().int().nullable().default(null),
+  avg_vertical_oscillation_cm: z.number().nullable().default(null),
+  avg_vertical_ratio: z.number().nullable().default(null),
+  min_temp_c: z.number().nullable().default(null),
+  max_temp_c: z.number().nullable().default(null),
+  body_battery_change: z.number().int().nullable().default(null),
+  steps: z.number().int().nullable().default(null),
 });
 
 export type Activity = z.infer<typeof activityRowSchema>;

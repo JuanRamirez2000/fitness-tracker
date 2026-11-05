@@ -49,6 +49,18 @@ export interface RawActivity {
   hrTimeInZone_3?: number | null;
   hrTimeInZone_4?: number | null;
   hrTimeInZone_5?: number | null;
+  elevationLoss?: number | null;
+  maxSpeed?: number | null;
+  anaerobicTrainingEffect?: number | null;
+  avgPower?: number | null;
+  maxPower?: number | null;
+  normPower?: number | null;
+  avgVerticalOscillation?: number | null; // cm
+  avgVerticalRatio?: number | null; // %
+  minTemperature?: number | null; // °C
+  maxTemperature?: number | null;
+  differenceBodyBattery?: number | null;
+  steps?: number | null;
 }
 
 /** One sport's zones from /biometric-service/heartRateZones/v2. */
@@ -108,6 +120,18 @@ export interface ActivityRow {
   fastest_mile_s: number | null;
   /** [z1..z5] seconds in each HR zone, or null when the activity has no HR. */
   hr_zone_s: number[] | null;
+  elevation_loss_m: number | null;
+  max_speed_mps: number | null;
+  anaerobic_training_effect: number | null;
+  avg_power_w: number | null;
+  max_power_w: number | null;
+  norm_power_w: number | null;
+  avg_vertical_oscillation_cm: number | null;
+  avg_vertical_ratio: number | null;
+  min_temp_c: number | null;
+  max_temp_c: number | null;
+  body_battery_change: number | null;
+  steps: number | null;
 }
 
 /** Every activities column the importer writes, besides user_id, source and external_id. */
@@ -115,7 +139,9 @@ export const ACTIVITY_COLUMNS = [
   "activity_type", "name", "started_at", "local_date", "duration_s", "moving_duration_s", "distance_m",
   "elevation_gain_m", "avg_speed_mps", "avg_grade_adjusted_speed_mps", "avg_hr", "max_hr", "avg_cadence_spm",
   "avg_stride_cm", "avg_ground_contact_ms", "calories", "aerobic_training_effect", "training_effect_label",
-  "training_load", "vo2max", "fastest_mile_s", "hr_zone_s",
+  "training_load", "vo2max", "fastest_mile_s", "hr_zone_s", "elevation_loss_m", "max_speed_mps",
+  "anaerobic_training_effect", "avg_power_w", "max_power_w", "norm_power_w", "avg_vertical_oscillation_cm",
+  "avg_vertical_ratio", "min_temp_c", "max_temp_c", "body_battery_change", "steps",
 ] as const satisfies readonly (keyof ActivityRow)[];
 
 const roundOrNull = (value: number | null | undefined) => (value ? Math.round(value) : null);
@@ -182,6 +208,19 @@ export function buildActivityRows(activities: RawActivity[]): ActivityRow[] {
       vo2max: roundOrNull(a.vO2MaxValue),
       fastest_mile_s: orNull(a.fastestSplit_1609),
       hr_zone_s: hrZoneSeconds(a),
+      elevation_loss_m: orNull(a.elevationLoss),
+      max_speed_mps: orNull(a.maxSpeed),
+      anaerobic_training_effect: a.anaerobicTrainingEffect != null ? round1(a.anaerobicTrainingEffect) : null,
+      avg_power_w: roundOrNull(a.avgPower),
+      max_power_w: roundOrNull(a.maxPower),
+      norm_power_w: roundOrNull(a.normPower),
+      avg_vertical_oscillation_cm: a.avgVerticalOscillation ? round1(a.avgVerticalOscillation) : null,
+      avg_vertical_ratio: a.avgVerticalRatio ? round1(a.avgVerticalRatio) : null,
+      min_temp_c: orNull(a.minTemperature),
+      max_temp_c: orNull(a.maxTemperature),
+      // Zero is a real answer here (no change), unlike the zero-means-missing fields above.
+      body_battery_change: a.differenceBodyBattery != null ? Math.round(a.differenceBodyBattery) : null,
+      steps: roundOrNull(a.steps),
     });
   }
   return rows;

@@ -1,0 +1,83 @@
+{
+ "activityId": 1,
+ "activityName": "Run",
+ "locationName": "Sample Town",
+ "summaryDTO": {
+  "directWorkoutFeel": 0,
+  "directWorkoutRpe": 60,
+  "minHR": 97,
+  "beginPotentialStamina": 100,
+  "endPotentialStamina": 84,
+  "distance": 4039.97,
+  "duration": 1741.062,
+  "averageHR": 154,
+  "maxHR": 172
+ },
+ "splitSummaries": [
+  {
+   "splitType": "RWD_RUN",
+   "noOfSplits": 8,
+   "distance": 3564.52,
+   "duration": 1440.004,
+   "movingDuration": 1426,
+   "averageSpeed": 2.4749999046325684,
+   "averageHR": 155,
+   "maxHR": 172,
+   "averageRunCadence": 159.984375,
+   "elevationGain": 7,
+   "elevationLoss": 4
+  },
+  {
+   "splitType": "INTERVAL_COOLDOWN",
+   "noOfSplits": 1,
+   "distance": 2.02,
+   "duration": 1.026,
+   "movingDuration": 1,
+   "averageSpeed": 1.9700000286102295,
+   "averageHR": 162,
+   "maxHR": 162,
+   "averageRunCadence": 110.5,
+   "elevationGain": 0,
+   "elevationLoss": 0
+  },
+  {
+   "splitType": "RWD_WALK",
+   "noOfSplits": 8,
+   "distance": 475.48,
+   "duration": 301.006,
+   "movingDuration": 294,
+   "averageSpeed": 1.5800000429153442,
+   "averageHR": 151,
+   "maxHR": 170,
+   "averageRunCadence": 112.75,
+   "elevationGain": 1,
+   "elevationLoss": 0
+  },
+  {
+   "splitType": "INTERVAL_ACTIVE",
+   "noOfSplits": 1,
+   "distance": 2643.8,
+   "duration": 1140,
+   "movingDuration": 1139,
+   "averageSpeed": 2.319000005722046,
+   "averageHR": 158,
+   "maxHR": 172,
+   "averageRunCadence": 147.765625,
+   "elevationGain": 6,
+   "elevationLoss": 4
+  },
+  {
+   "splitType": "INTERVAL_WARMUP",
+   "noOfSplits": 1,
+   "distance": 1394.15,
+   "duration": 600,
+   "movingDuration": 593,
+   "averageSpeed": 2.3239998817443848,
+   "averageHR": 147,
+   "maxHR": 160,
+   "averageRunCadence": 159.5625,
+   "elevationGain": 2,
+   "elevationLoss": 0
+  }
+ ]
+}

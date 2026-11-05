@@ -6,6 +6,7 @@
  *   npm run garmin:import -- --days 1          # today only (the Refresh button's window)
  *   npm run garmin:import -- --days 365        # a wider backfill
  *   npm run garmin:import -- --since 2024-01-01 --only activities   # run history alone
+ *   npm run garmin:import -- --since 2024-01-01 --only details      # samples and splits for those runs
  *   npm run garmin:import -- --dry-run         # fetch and map, print, write nothing
  *
  * Default window: the last 7 days. `--only <dataset>` (repeatable; see DATASETS in lib/garmin/import.ts) narrows
@@ -46,12 +47,20 @@ async function main() {
   const unknown = only.filter((d) => !(DATASETS as readonly string[]).includes(d));
   if (unknown.length) throw new Error(`--only must be one of ${DATASETS.join(", ")}; got ${unknown.join(", ")}.`);
 
-  await importGarmin({
+  const result = await importGarmin({
     window,
     datasets: only.length ? (only as Dataset[]) : DATASETS,
     dryRun: values["dry-run"],
     log: console.log,
+    // Two requests per activity: pace a long detail backfill under Garmin's rate limit.
+    detailDelayMs: 1500,
   });
+  if (result.details?.remaining) {
+    // Partial: what was fetched is saved. Exit non-zero so a retry loop knows to run again.
+    console.log(`Stopped with ${result.details.remaining} activities still to fetch; run again later.`);
+    process.exitCode = 1;
+    return;
+  }
   console.log("Done.");
 }
 

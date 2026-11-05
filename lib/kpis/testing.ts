@@ -87,6 +87,18 @@ export function testRun(over: Partial<Activity> & { local_date: string }): Activ
     vo2max: 41,
     fastest_mile_s: 700,
     hr_zone_s: null,
+    elevation_loss_m: 0,
+    max_speed_mps: null,
+    anaerobic_training_effect: null,
+    avg_power_w: null,
+    max_power_w: null,
+    norm_power_w: null,
+    avg_vertical_oscillation_cm: null,
+    avg_vertical_ratio: null,
+    min_temp_c: null,
+    max_temp_c: null,
+    body_battery_change: null,
+    steps: null,
     ...over,
   };
 }

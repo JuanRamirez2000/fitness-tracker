@@ -9,6 +9,7 @@
  * No server-only guard: scripts/garmin-import.ts runs this from the command line too.
  */
 import { dayChunks, eachDay } from "../dates/calendar";
+import type { RawActivityDetails, RawActivityRecord } from "./details";
 import type {
   RawActivity,
   RawFitnessAge,
@@ -27,6 +28,8 @@ const EXPIRY_MARGIN_MS = 10 * 60_000;
 /** Used when the token's own expiry can't be read: Garmin documents 24 hours. */
 const FALLBACK_LIFETIME_MS = 23 * 60 * 60_000;
 const ACTIVITY_PAGE_SIZE = 100;
+/** Samples asked for per activity; Garmin thins longer activities down to this. */
+const ACTIVITY_DETAIL_SAMPLES = 2000;
 /** Per-request day limits, measured against the Personal API (docs/garmin-fields.md). */
 const STEPS_MAX_DAYS = 28;
 const SLEEP_MAX_DAYS = 31;
@@ -218,5 +221,21 @@ export class GarminClient {
       all.push(...page);
       if (page.length < ACTIVITY_PAGE_SIZE) return all;
     }
+  }
+
+  /**
+   * One activity's samples: every metric the watch recorded, about one a second, which Garmin
+   * thins itself past maxChartSize (a two-hour run still gets a sample every few seconds).
+   */
+  async activityDetails(activityId: string): Promise<RawActivityDetails | null> {
+    return this.get<RawActivityDetails | null>(`/activity-service/activity/${activityId}/details`, {
+      maxChartSize: ACTIVITY_DETAIL_SAMPLES,
+      maxPolylineSize: 0,
+    });
+  }
+
+  /** One activity's record: location, logged feel and RPE, and split summaries by type. */
+  async activityRecord(activityId: string): Promise<RawActivityRecord | null> {
+    return this.get<RawActivityRecord | null>(`/activity-service/activity/${activityId}`);
   }
 }
