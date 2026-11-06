@@ -6,6 +6,9 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Garmin's Body Battery is an energy estimate from 0 to 100. Each bar runs from the day's high to its low, and the square marks the charge you woke up with. Waking higher means you recharged well overnight.";
+
 // Drawn for a half-width card (it shares a row with the heart chart).
 const WIDTH = 520;
 const HEIGHT = 130;
@@ -16,7 +19,7 @@ export function BodyBatteryChart({ data }: { data: DashboardData }) {
   const chart = buildBodyBattery(data);
   if (!chart) {
     return (
-      <ChartCard title="Body Battery" subtitle="Daily high to low, and the charge you woke up with">
+      <ChartCard help={HELP} title="Body Battery" subtitle="Daily high to low, and the charge you woke up with">
         <ChartEmpty>{data.recovery.length ? "no data in range" : "no Body Battery data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -39,7 +42,7 @@ export function BodyBatteryChart({ data }: { data: DashboardData }) {
   }));
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title="Body Battery"
       subtitle={`High to low, ${unit}, and the charge you woke up with`}
       note={chart.dataFrom > data.dateRange.from ? `watch data starts ${fmtDate(chart.dataFrom)}` : undefined}

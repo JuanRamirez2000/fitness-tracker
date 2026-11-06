@@ -8,6 +8,9 @@ import { ChartHover, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Your scale's estimate of fat mass and lean mass (everything that isn't fat: muscle, water, bone, organs). The aim is fat coming down while lean holds steady. Scale composition is noisy day to day, so read the trend over weeks.";
+
 const WIDTH = 520;
 const PANEL_HEIGHT = 70;
 
@@ -82,7 +85,7 @@ export function BodyMassChart({ data }: { data: DashboardData }) {
   const subtitle = "Lean mass is everything that isn't fat";
   if (!chart) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.bodyComposition.length ? "no data in range" : "no scale data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -96,7 +99,7 @@ export function BodyMassChart({ data }: { data: DashboardData }) {
   const since = chart.since;
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `scale data starts ${fmtDate(from)}` : undefined}

@@ -11,6 +11,9 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Training readiness is Garmin's 0-100 score each morning for how ready you are to train hard (75 or more is high, under 50 is low). The rows underneath are what feeds it: sleep, HRV, recovery time, training load and stress, each shaded good, fair or low that day, so you can see what pulled a low morning down.";
+
 const WIDTH = 1000;
 const LINE_HEIGHT = 120;
 const GAP = 10;
@@ -35,7 +38,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
   const subtitle = "Each morning's score, and what drove it";
   if (!t) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.recovery.some((r) => r.readiness_score !== null) ? "no readiness in range" : "no readiness yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -66,7 +69,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
   }));
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `readiness starts ${fmtDate(from)}` : undefined}

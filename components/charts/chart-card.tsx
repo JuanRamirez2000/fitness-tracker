@@ -1,3 +1,4 @@
+import { HelpTip } from "@/components/ui/help-tip";
 import type { ReactNode } from "react";
 
 export interface ChartLegendItem {
@@ -20,9 +21,12 @@ export function ChartCard({
   actions,
   legend,
   note,
+  help,
   children,
 }: {
   title: string;
+  /** What the chart shows and how to read it, behind the "?" in the card's top-right corner. */
+  help?: ReactNode;
   subtitle?: ReactNode;
   caption?: ReactNode;
   actions?: ReactNode;
@@ -37,10 +41,11 @@ export function ChartCard({
           <span className="font-serif text-[16px] md:text-[18px]">{title}</span>
           {subtitle && <span className="text-[12px] text-muted-2">{subtitle}</span>}
         </div>
-        {(caption || actions) && (
+        {(caption || actions || help) && (
           <div className="flex flex-wrap items-center gap-3">
             {caption && <div className="flex flex-wrap items-center gap-3 font-mono text-[9.5px] text-muted-2">{caption}</div>}
             {actions}
+            {help && <HelpTip title={title}>{help}</HelpTip>}
           </div>
         )}
       </div>

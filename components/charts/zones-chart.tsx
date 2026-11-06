@@ -6,6 +6,9 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Minutes running in each heart-rate zone, per day or week, with the miles run above each bar. Zones 1-2 are easy; most coaches suggest about 80% of running there to build endurance without wearing you down. Zone bounds come from your Garmin settings.";
+
 const WIDTH = 520;
 const HEIGHT = 140;
 /** Room above the tallest bar for its miles label. */
@@ -25,7 +28,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
   const title = "Time in HR zones";
   if (!chart) {
     return (
-      <ChartCard title={title} subtitle="Runs, by heart rate zone">
+      <ChartCard help={HELP} title={title} subtitle="Runs, by heart rate zone">
         <ChartEmpty>no runs in range</ChartEmpty>
       </ChartCard>
     );
@@ -58,7 +61,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
   });
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={`Runs, minutes ${unit}, Z1 at the bottom, miles over each bar${chart.bounds ? " · bpm from your Garmin zones" : ""}`}
       legend={legend}

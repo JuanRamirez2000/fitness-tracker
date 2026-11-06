@@ -7,6 +7,9 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Each bar is a night's sleep split into deep, REM, light and awake, against the sleep need Garmin works out for you (dashed). Below: Garmin's sleep score and your bedtime. Longer bars that reach the dashed line, with more deep and REM, mean better recovery. Past 5 weeks each bar is a weekly average.";
+
 const WIDTH = 520;
 const BARS_HEIGHT = 150;
 const PANEL_HEIGHT = 64;
@@ -28,7 +31,7 @@ export function SleepChart({ data }: { data: DashboardData }) {
   const chart = buildSleepChart(data);
   if (!chart) {
     return (
-      <ChartCard title="Sleep" subtitle="Stages per night, against Garmin's sleep need">
+      <ChartCard help={HELP} title="Sleep" subtitle="Stages per night, against Garmin's sleep need">
         <ChartEmpty>{data.sleep.length ? "no data in range" : "no sleep data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -88,7 +91,7 @@ export function SleepChart({ data }: { data: DashboardData }) {
     (chart.needHours !== null ? ` against a ${fmtHours(chart.needHours)} hour need` : "");
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title="Sleep"
       subtitle={`Stages ${unit}, against Garmin's sleep need`}
       note={chart.dataFrom > data.dateRange.from ? `sleep data starts ${fmtDate(chart.dataFrom)}` : undefined}

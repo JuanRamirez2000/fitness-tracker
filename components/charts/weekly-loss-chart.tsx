@@ -6,6 +6,9 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "How much the 7-day average dropped each week (up is lost, down is gained), against your planned pounds per week (dashed). Weeks at or above the line kept to plan. The outlined bar is the week still under way.";
+
 const WIDTH = 520;
 const HEIGHT = 150;
 const Y_LABEL_W = 30;
@@ -23,7 +26,7 @@ export function WeeklyLossChart({ data }: { data: DashboardData }) {
   const subtitle = "Change in the 7-day average each week; up is lost";
   if (!w) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>not enough weigh-ins yet</ChartEmpty>
       </ChartCard>
     );
@@ -53,7 +56,7 @@ export function WeeklyLossChart({ data }: { data: DashboardData }) {
 
   const ticks = y.ticks(3);
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       legend={[

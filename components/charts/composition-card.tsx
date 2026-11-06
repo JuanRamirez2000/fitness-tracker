@@ -3,6 +3,9 @@ import { buildComposition, type CompositionPart } from "@/lib/charts/body-compos
 import { fmtDate } from "@/lib/dates/format";
 import { ChartCard, ChartEmpty } from "./chart-card";
 
+/** The card's "?" explanation. */
+const HELP = "Your latest scale reading split into fat, muscle, bone and the rest, as pounds and share of body weight. Body water sits inside those, so it's shown on its own.";
+
 const SIZE = 132;
 const STROKE = 18;
 /** Gap between segments, in degrees, so parts stay apart without relying on color. */
@@ -36,7 +39,7 @@ export function CompositionCard({ data }: { data: DashboardData }) {
   const comp = buildComposition(data);
   if (!comp) {
     return (
-      <ChartCard title="Composition today" subtitle="From the Index scale">
+      <ChartCard help={HELP} title="Composition today" subtitle="From the Index scale">
         <ChartEmpty>no scale data yet</ChartEmpty>
       </ChartCard>
     );
@@ -53,7 +56,7 @@ export function CompositionCard({ data }: { data: DashboardData }) {
   const summary = comp.segments.map((s) => `${s.label} ${s.pct.toFixed(1)}%, ${s.lb.toFixed(1)} pounds`).join("; ");
 
   return (
-    <ChartCard title="Composition today" subtitle={`Index scale, ${fmtDate(comp.date)} · ${comp.weight.toFixed(1)} lb`}>
+    <ChartCard help={HELP} title="Composition today" subtitle={`Index scale, ${fmtDate(comp.date)} · ${comp.weight.toFixed(1)} lb`}>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }} role="img" aria-label={`Body composition: ${summary}`}>
           <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden>

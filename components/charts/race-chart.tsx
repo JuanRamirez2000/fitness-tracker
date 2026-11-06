@@ -9,13 +9,16 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint, type HoverRow } from "./chart-hover";
 import { AxisRow, Marker, Plot } from "./parts";
 
-const WIDTH = 320;
-const HEIGHT = 84;
+/** The card's "?" explanation. */
+const HELP = "Garmin's predicted finish times for a 5K, 10K and half marathon if you raced today, from your VO2 max and recent training. Each line has its own scale, with faster at the top, so a line rising means you're getting quicker.";
+
+const WIDTH = 520;
+const HEIGHT = 58;
 
 /**
- * Garmin's predicted 5K, 10K and half marathon over the range: one small chart each (side by side
- * on a wide screen, stacked on a phone), every one on its own scale with faster at the top, so
- * a half marathon's minutes don't flatten the 5K's seconds. Hovering any of them shows all three.
+ * Garmin's predicted 5K, 10K and half marathon over the range: three line charts stacked in one
+ * card on a shared date axis, each on its own scale with faster at the top, so a half marathon's
+ * minutes don't flatten the 5K's seconds. Hovering any of them shows all three.
  */
 export function RaceChart({ data }: { data: DashboardData }) {
   const races = buildRacePredictions(data);
@@ -23,7 +26,7 @@ export function RaceChart({ data }: { data: DashboardData }) {
   const subtitle = "Garmin's predicted finish times, faster is up";
   if (races.length === 0) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.training.length ? "no data in range" : "no predictions yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -44,12 +47,12 @@ export function RaceChart({ data }: { data: DashboardData }) {
     });
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `predictions start ${fmtDate(from)}` : undefined}
     >
-      <div className="grid gap-x-6 gap-y-5 md:grid-cols-3">
+      <div className="flex flex-col gap-3">
         {races.map((r) => (
           <RacePanel key={r.label} race={r} x={(date) => x(dayStartUtcMs(date))} rows={rows} />
         ))}
@@ -72,14 +75,12 @@ function RacePanel({ race, x, rows }: { race: RacePrediction; x: (date: string) 
     marks: [{ y: y(p.value) / HEIGHT, className: "bg-accent" }],
   }));
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">{race.label}</span>
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <span className="w-[92px] font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">{race.label}</span>
+        <span className="font-mono text-[18px] leading-none text-ink">{fmtRaceTime(race.latest)}</span>
         <span className="font-mono text-[10px] text-muted-2">{fmtPace(racePaceSec(race.latest, race.miles))}/mi</span>
-      </div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[22px] leading-none text-ink">{fmtRaceTime(race.latest)}</span>
-        <span className={`font-mono text-[10.5px] ${faster ? "text-good" : "text-muted-2"}`}>
+        <span className={`ml-auto font-mono text-[10.5px] ${faster ? "text-good" : "text-muted-2"}`}>
           {race.change === null ? "one prediction" : fmtRaceChange(race.change)}
         </span>
       </div>

@@ -5,6 +5,9 @@ import { titleCase } from "@/lib/today/hero";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "How your last four weeks of training load splits across low aerobic (easy), high aerobic (tempo) and anaerobic (hard) work, against the ranges Garmin suggests for a balanced mix. Bars inside their outlined target are on track.";
+
 const STATE_TEXT: Record<FocusState, string> = { above: "text-warn", in: "text-good", below: "text-warn" };
 
 /** Garmin's 4-week load per focus as bars over a track, each with Garmin's target range outlined. */
@@ -13,7 +16,7 @@ export function LoadFocusCard({ data }: { data: DashboardData }) {
   const title = "Load focus";
   if (!focus) {
     return (
-      <ChartCard title={title} subtitle="Last 4 weeks of load, against Garmin's targets">
+      <ChartCard help={HELP} title={title} subtitle="Last 4 weeks of load, against Garmin's targets">
         <ChartEmpty>no load focus yet</ChartEmpty>
       </ChartCard>
     );
@@ -21,7 +24,7 @@ export function LoadFocusCard({ data }: { data: DashboardData }) {
 
   const at = (v: number) => `${(v / focus.max) * 100}%`;
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={`Last 4 weeks of load, against Garmin's targets · ${fmtDate(focus.date)}`}
       legend={[

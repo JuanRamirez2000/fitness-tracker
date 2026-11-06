@@ -11,6 +11,14 @@ import { WEIGHT_MODE } from "@/lib/heatmap/modes/weight";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import { HeatmapCard } from "./heatmap-card";
 
+/** The cards' "?" explanations. */
+const WEIGHT_HELP =
+  "Every day of the program as a square, colored by how your weight moved: the 7-day average by default, or each raw weigh-in. Stars mark shots. Hover a day for its numbers.";
+const ACTIVITY_HELP =
+  "Every day of the program as a square: steps (brighter is closer to 10,000) or miles run. Hover a day for its numbers; the bar underneath shows how far into the year you are.";
+const RECOVERY_HELP =
+  "Every morning of the year as a square, brighter for a higher training readiness, or switch to each night's sleep score. Runs of dark squares show stretches of poor recovery. Hover a day for its readiness, sleep and HRV.";
+
 const WEIGHT_SUB_MODES = [
   { value: "avg7" as WeightMode, label: "7-day avg" },
   { value: "raw" as WeightMode, label: "Raw" },
@@ -30,6 +38,7 @@ export function WeightHeatmap({ data }: { data: DashboardData }) {
       data={data}
       mode={WEIGHT_MODE}
       title="Weight changes by day"
+      help={WEIGHT_HELP}
       caption={`Day ${stats.elapsed} · ${stats.weighIns} weigh-ins · ${stats.shots} shots`}
       legendTitle="Weight"
       controls={
@@ -53,6 +62,7 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
       data={data}
       mode={STEPS_MODE}
       title="Activity"
+      help={ACTIVITY_HELP}
       caption={`${stats.stepDaysOverGoal} of ${stats.stepDays} days over 10k steps`}
       legendTitle="Steps"
       controls={activityToggle}
@@ -62,6 +72,7 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
       data={data}
       mode={RUNNING_MODE}
       title="Activity"
+      help={ACTIVITY_HELP}
       caption={`${stats.runs} run${stats.runs === 1 ? "" : "s"} · ${stats.runMiles.toFixed(1)} mi since day 1`}
       legendTitle="Miles"
       controls={activityToggle}
@@ -86,6 +97,7 @@ export function RecoveryHeatmap({ data }: { data: DashboardData }) {
       data={data}
       mode={recoveryMode === "readiness" ? READINESS_MODE : SLEEP_SCORE_MODE}
       title="Recovery calendar"
+      help={RECOVERY_HELP}
       caption={
         recoveryMode === "readiness"
           ? `${ready} of ${mornings.length} mornings at 75 or more`

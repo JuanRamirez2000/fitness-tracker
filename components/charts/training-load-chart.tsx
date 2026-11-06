@@ -8,6 +8,9 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Acute load is your last week of training strain; chronic load is the last four weeks, roughly your fitness. The shaded band is Garmin's optimal range for chronic load. Acute climbing well above chronic (a ratio over 1.5) raises injury risk; well below it means you're backing off.";
+
 const WIDTH = 520;
 const HEIGHT = 140;
 const TONE_TEXT: Record<StatusTone, string> = { good: "text-good", neutral: "text-muted-1", bad: "text-bad" };
@@ -19,7 +22,7 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
   const subtitle = "Acute (7-day) against chronic (4-week) load";
   if (!chart) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.training.length ? "no data in range" : "no training load yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -53,7 +56,7 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
   const acwrNote = `healthy ${ACWR_RANGE[0]}–${ACWR_RANGE[1]}${latest.acwrState && latest.acwrState !== "optimal" ? ` · ${latest.acwrState}` : ""}`;
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `load data starts ${fmtDate(from)}` : undefined}

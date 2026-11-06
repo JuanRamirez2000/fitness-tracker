@@ -8,6 +8,9 @@ import { ChartHover, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "VO2 max is Garmin's estimate of your aerobic capacity from your runs; higher is fitter. Fitness age compares that and your habits with typical people your age; below your real age is good. The list shows what would lower it most.";
+
 const WIDTH = 520;
 const PANEL_HEIGHT = 64;
 
@@ -97,7 +100,7 @@ export function FitnessChart({ data }: { data: DashboardData }) {
   const subtitle = "Garmin's running VO2 max, and the age your fitness matches";
   if (!fit) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.training.length ? "no data in range" : "no fitness data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -122,7 +125,7 @@ export function FitnessChart({ data }: { data: DashboardData }) {
   };
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `data starts ${fmtDate(from)}` : undefined}

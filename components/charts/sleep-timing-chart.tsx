@@ -9,6 +9,9 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Each bar runs from when you fell asleep to when you woke up, with your typical times dashed. Bars that line up night to night mean a steady schedule, which helps sleep quality. Underneath, the 7-night sleep debt adds up how far short of your sleep need the last week fell; a line rising above zero means you're running short.";
+
 const WIDTH = 520;
 const HEIGHT = 150;
 const DEBT_HEIGHT = 64;
@@ -26,7 +29,7 @@ export function SleepTimingChart({ data }: { data: DashboardData }) {
   const subtitle = "When you slept each night, and the debt it built up";
   if (!t) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.sleep.length ? "no data in range" : "no sleep data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -69,7 +72,7 @@ export function SleepTimingChart({ data }: { data: DashboardData }) {
   }));
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `sleep data starts ${fmtDate(from)}` : undefined}

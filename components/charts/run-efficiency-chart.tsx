@@ -8,6 +8,9 @@ import { fmtPointTitle } from "@/lib/dates/format";
 import { ChartCard } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 
+/** The card's "?" explanation. */
+const HELP = "Each easy run's pace adjusted to what it would be at 130 bpm, so runs at different heart rates compare fairly; the line is the running median. A line that climbs means the same heart rate is buying a faster pace: your aerobic fitness improving. Click a dot to open the run.";
+
 const WIDTH = 400;
 const PLOT_HEIGHT = 130;
 const MARGIN_LEFT = 30;
@@ -22,7 +25,7 @@ export function RunEfficiencyChart({ data }: { data: DashboardData }) {
 
   if (!chart) {
     return (
-      <ChartCard title={title} caption={<span>pace @ {EFFICIENCY_REF_HR} bpm</span>}>
+      <ChartCard help={HELP} title={title} caption={<span>pace @ {EFFICIENCY_REF_HR} bpm</span>}>
         <p className="py-8 text-center text-[12px] text-muted-2">No easy runs with heart rate in this range.</p>
       </ChartCard>
     );
@@ -49,7 +52,7 @@ export function RunEfficiencyChart({ data }: { data: DashboardData }) {
   }));
 
   return (
-    <ChartCard title={title} caption={<span>pace @ {EFFICIENCY_REF_HR} bpm · faster is up</span>}>
+    <ChartCard help={HELP} title={title} caption={<span>pace @ {EFFICIENCY_REF_HR} bpm · faster is up</span>}>
       <ChartHover points={points} label="easy runs">
         <svg width="100%" viewBox={`0 0 ${WIDTH} ${PLOT_HEIGHT}`} preserveAspectRatio="none" className="block overflow-visible">
           <g transform={`translate(${MARGIN_LEFT},0)`}>

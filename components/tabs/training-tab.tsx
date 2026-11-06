@@ -22,13 +22,13 @@ export function TrainingTab({ data }: { data: DashboardData }) {
         <SectionHeading n="01">Am I getting fitter and faster?</SectionHeading>
         <CardGrid>
           <Cell span={6}>
-            <RunEfficiencyChart data={data} />
+            <RaceChart data={data} />
           </Cell>
           <Cell span={6}>
             <FitnessChart data={data} />
           </Cell>
-          <Cell span={12}>
-            <RaceChart data={data} />
+          <Cell span={6}>
+            <RunEfficiencyChart data={data} />
           </Cell>
           <Cell span={12}>
             <RunsTable data={data} />

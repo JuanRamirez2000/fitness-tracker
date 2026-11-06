@@ -8,6 +8,9 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint, type HoverRow } from "./chart-hover";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Where your 7-day average is heading. Your recent pace is a straight line fitted to the last 4 weeks, carried forward to your goal (dotted); the dashed line is the plan from your start weight. If the dotted line reaches the goal before the dashed one, you're ahead of plan.";
+
 const WIDTH = 520;
 const HEIGHT = 150;
 const MAX_DAYS_AHEAD = 3 * 365;
@@ -25,7 +28,7 @@ export function GoalProjectionChart({ data }: { data: DashboardData }) {
   const subtitle = "Where the 7-day average is heading, at your recent pace and at the plan's";
   if (!p) {
     return (
-      <ChartCard title={title} subtitle={subtitle}>
+      <ChartCard help={HELP} title={title} subtitle={subtitle}>
         <ChartEmpty>{data.profile.goal_weight_lb === null ? "set a goal weight in settings" : "no weigh-ins yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -86,7 +89,7 @@ export function GoalProjectionChart({ data }: { data: DashboardData }) {
   const summary = `Goal ${p.goal} lb, ${p.leftToGoal.toFixed(1)} lb to go. ${p.eta ? `At the recent pace, reached in ${fmtMonthYear(p.eta)}.` : "Not on course to reach it at the recent pace."}${p.plan ? ` The plan reaches it in ${fmtMonthYear(p.plan.goalDate)}.` : ""}`;
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle={subtitle}
       legend={[

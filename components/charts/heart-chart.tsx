@@ -8,6 +8,9 @@ import { ChartHover, type HoverPoint, type HoverRow } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Resting heart rate each morning, and overnight HRV (heart rate variability) against the normal range Garmin has learned for you. A falling resting HR and HRV inside its band are signs of good recovery and fitness; HRV dropping below the band (squares) often means stress, illness or not enough recovery.";
+
 const WIDTH = 520;
 const PANEL_HEIGHT = 90;
 
@@ -27,7 +30,7 @@ export function HeartChart({ data }: { data: DashboardData }) {
   const title = "Resting HR and HRV";
   if (!chart) {
     return (
-      <ChartCard title={title} subtitle="Lower resting HR and HRV inside its normal range are good signs">
+      <ChartCard help={HELP} title={title} subtitle="Lower resting HR and HRV inside its normal range are good signs">
         <ChartEmpty>{data.recovery.length ? "no data in range" : "no heart data yet"}</ChartEmpty>
       </ChartCard>
     );
@@ -84,7 +87,7 @@ export function HeartChart({ data }: { data: DashboardData }) {
   const hrvPoints = yHrv ? pointsFor((d) => (hrvBy.has(d) ? yHrv(hrvBy.get(d)!.value) : null), "bg-domain-rec") : [];
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title={title}
       subtitle="Lower resting HR and HRV inside its normal range are good signs"
       note={from !== data.dateRange.from ? `watch data starts ${fmtDate(from)}` : undefined}

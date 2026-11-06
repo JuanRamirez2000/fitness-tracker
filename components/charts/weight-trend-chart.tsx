@@ -11,6 +11,9 @@ import { ChartCard, type ChartLegendItem } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { Swatch } from "./parts";
 
+/** The card's "?" explanation. */
+const HELP = "Dots are each weigh-in; the line is the 7-day average, which smooths out day-to-day water swings and is the number to watch. The dashed line is where your planned pace would put you; stars mark shots and ticks mark run days.";
+
 const WIDTH = 900;
 const HEIGHT = 200;
 const MARGIN = { top: 8, right: 8, bottom: 34, left: 34 };
@@ -32,7 +35,7 @@ export function WeightTrendChart({ data }: { data: DashboardData }) {
 
   if (!chart) {
     return (
-      <ChartCard title="Weight trend" caption={<span>{data.dateRange.from} – {data.dateRange.to}</span>}>
+      <ChartCard help={HELP} title="Weight trend" caption={<span>{data.dateRange.from} – {data.dateRange.to}</span>}>
         <p className="py-10 text-center text-[12px] text-muted-2">No weigh-ins in this range yet.</p>
       </ChartCard>
     );
@@ -50,7 +53,7 @@ export function WeightTrendChart({ data }: { data: DashboardData }) {
   ];
 
   return (
-    <ChartCard
+    <ChartCard help={HELP}
       title="Weight trend"
       legend={legend}
       note={

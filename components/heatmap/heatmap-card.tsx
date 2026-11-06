@@ -5,6 +5,7 @@ import type { DashboardData, HeatmapMode, ModeContext } from "@/lib/dashboard/ty
 import { paletteFor } from "@/lib/theme/palette";
 import { cardBgFor } from "@/lib/theme/surfaces";
 import { useTheme } from "@/lib/theme/theme-context";
+import { HelpTip } from "@/components/ui/help-tip";
 import { HeatmapGrid } from "./heatmap-grid";
 import { HeatmapLegend } from "./heatmap-legend";
 
@@ -16,6 +17,7 @@ export function HeatmapCard({
   caption,
   legendTitle,
   controls,
+  help,
   ctxOverrides,
   showShots = false,
 }: {
@@ -25,6 +27,8 @@ export function HeatmapCard({
   caption: string;
   legendTitle: string;
   controls?: ReactNode;
+  /** What the heatmap shows, behind the "?" in its top-right corner. */
+  help?: ReactNode;
   ctxOverrides?: Partial<ModeContext>;
   showShots?: boolean;
 }) {
@@ -39,7 +43,10 @@ export function HeatmapCard({
           <span className="font-serif text-[16px] md:text-[17px]">{title}</span>
           <span className="text-[12px] text-muted-2">{caption}</span>
         </div>
-        {controls}
+        <div className="flex items-center gap-3">
+          {controls}
+          {help && <HelpTip title={title}>{help}</HelpTip>}
+        </div>
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 md:-mx-5 md:px-5">
