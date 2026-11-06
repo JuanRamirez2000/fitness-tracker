@@ -105,13 +105,15 @@ export function buildFitness(data: Pick<DashboardData, "training" | "dateRange" 
 // ---------- Race predictions ----------
 
 export const RACES = [
-  { key: "race_5k_s", label: "5K" },
-  { key: "race_10k_s", label: "10K" },
-  { key: "race_half_s", label: "Half marathon" },
+  { key: "race_5k_s", label: "5K", miles: 3.10686 },
+  { key: "race_10k_s", label: "10K", miles: 6.21371 },
+  { key: "race_half_s", label: "Half marathon", miles: 13.10938 },
 ] as const;
 
 export interface RacePrediction {
   label: string;
+  /** The race's distance, for its pace per mile. */
+  miles: number;
   points: DatedValue[];
   latest: number;
   /** Seconds, latest minus the range's first: negative is faster. */
@@ -120,12 +122,17 @@ export interface RacePrediction {
 
 export function buildRacePredictions(data: Pick<DashboardData, "training" | "dateRange" | "today">): RacePrediction[] {
   const rows = data.training.filter((r) => r.local_date <= data.today && isInRange(r.local_date, data.dateRange));
-  return RACES.flatMap(({ key, label }) => {
+  return RACES.flatMap(({ key, label, miles }) => {
     const points = series(rows, (r) => r[key]);
     if (points.length === 0) return [];
     const latest = points[points.length - 1].value;
-    return [{ label, points, latest, change: points.length >= 2 ? latest - points[0].value : null }];
+    return [{ label, miles, points, latest, change: points.length >= 2 ? latest - points[0].value : null }];
   });
+}
+
+/** A predicted finish time as a pace, in seconds per mile: a 29:13 5K is 9:24 a mile. */
+export function racePaceSec(seconds: number, miles: number): number {
+  return seconds / miles;
 }
 
 /** 1753 -> "29:13", 3837 -> "1:03:57". */

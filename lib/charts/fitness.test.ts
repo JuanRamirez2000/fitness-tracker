@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DateRange } from "@/lib/dashboard/types";
 import { testTraining } from "@/lib/kpis/testing";
-import { buildFitness, buildRacePredictions, fmtRaceChange, fmtRaceTime, rankFactors } from "./fitness";
+import { buildFitness, buildRacePredictions, fmtRaceChange, fmtRaceTime, racePaceSec, rankFactors } from "./fitness";
 
 const MONTH: DateRange = { key: "month", from: "2026-10-04", to: "2026-11-03" };
 
@@ -66,6 +66,22 @@ describe("race predictions", () => {
       ["10K", 3837, -153],
       ["Half marathon", 8935, -165],
     ]);
+  });
+
+  it("keeps every day's prediction in range, oldest first, for the chart", () => {
+    const training = [
+      testTraining({ local_date: "2026-10-04", race_5k_s: 1824 }),
+      testTraining({ local_date: "2026-10-20", race_5k_s: 1800 }),
+      testTraining({ local_date: "2026-11-03", race_5k_s: 1753 }),
+      testTraining({ local_date: "2026-11-09", race_5k_s: 1700 }), // after today: not yet
+    ];
+    const [fiveK] = buildRacePredictions({ training, dateRange: MONTH, today: "2026-11-03" });
+    expect(fiveK.points.map((p) => p.date)).toEqual(["2026-10-04", "2026-10-20", "2026-11-03"]);
+    expect(fiveK.miles).toBeCloseTo(3.107, 3);
+  });
+
+  it("turns a predicted time into a pace per mile", () => {
+    expect(Math.round(racePaceSec(1753, 3.10686))).toBe(564); // 9:24
   });
 
   it("formats times and changes like a race clock", () => {
