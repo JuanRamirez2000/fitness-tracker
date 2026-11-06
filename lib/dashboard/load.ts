@@ -80,8 +80,10 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
   // At least the last RECOVERY_HISTORY_DAYS too, whatever the range: the top cards compare this
   // morning against a week or a month (the charts filter to the range themselves).
   const historyFrom = addDays(today, -RECOVERY_HISTORY_DAYS);
+  // And the heatmap's year, for the recovery calendar.
+  const earliest = [dateRange.from, historyFrom, window.from].sort()[0];
   const recoverySpan = {
-    from: dateRange.from < historyFrom ? dateRange.from : historyFrom,
+    from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
   const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary] = await Promise.all([

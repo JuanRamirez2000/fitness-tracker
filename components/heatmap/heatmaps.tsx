@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Segmented } from "@/components/ui/segmented";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { heatmapStats } from "@/lib/heatmap/caption";
+import { READINESS_MODE, SLEEP_SCORE_MODE } from "@/lib/heatmap/modes/recovery";
 import { RUNNING_MODE } from "@/lib/heatmap/modes/running";
 import { STEPS_MODE } from "@/lib/heatmap/modes/steps";
 import { WEIGHT_MODE } from "@/lib/heatmap/modes/weight";
@@ -64,6 +65,34 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
       caption={`${stats.runs} run${stats.runs === 1 ? "" : "s"} · ${stats.runMiles.toFixed(1)} mi since day 1`}
       legendTitle="Miles"
       controls={activityToggle}
+    />
+  );
+}
+
+const RECOVERY_MODES = [
+  { value: "readiness" as const, label: "Readiness" },
+  { value: "sleep" as const, label: "Sleep score" },
+];
+
+/** The recovery calendar (Daily feel): each morning's readiness or sleep score over the year. */
+export function RecoveryHeatmap({ data }: { data: DashboardData }) {
+  const [recoveryMode, setRecoveryMode] = useState<"readiness" | "sleep">("readiness");
+  const mornings = data.recovery.filter((r) => r.local_date <= data.today && (r.readiness_morning_score ?? r.readiness_score) !== null);
+  const ready = mornings.filter((r) => (r.readiness_morning_score ?? r.readiness_score)! >= 75).length;
+  const nights = data.sleep.filter((n) => n.local_date <= data.today && n.score !== null);
+  const good = nights.filter((n) => n.score! >= 80).length;
+  return (
+    <HeatmapCard
+      data={data}
+      mode={recoveryMode === "readiness" ? READINESS_MODE : SLEEP_SCORE_MODE}
+      title="Recovery calendar"
+      caption={
+        recoveryMode === "readiness"
+          ? `${ready} of ${mornings.length} mornings at 75 or more`
+          : `${good} of ${nights.length} nights scoring 80 or more`
+      }
+      legendTitle={recoveryMode === "readiness" ? "Readiness" : "Sleep score"}
+      controls={<Segmented aria-label="Recovery calendar" options={RECOVERY_MODES} value={recoveryMode} onChange={setRecoveryMode} />}
     />
   );
 }

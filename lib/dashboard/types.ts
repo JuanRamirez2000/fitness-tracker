@@ -102,7 +102,7 @@ export interface ModeContext {
   weightSubMode: WeightMode;
 }
 
-export const HEATMAP_MODE_IDS = ["weight", "steps", "running"] as const;
+export const HEATMAP_MODE_IDS = ["weight", "steps", "running", "readiness", "sleep-score"] as const;
 export type HeatmapModeId = (typeof HEATMAP_MODE_IDS)[number];
 
 export interface HeatmapMode {

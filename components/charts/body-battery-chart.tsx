@@ -6,7 +6,8 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
 
-const WIDTH = 1000;
+// Drawn for a half-width card (it shares a row with the heart chart).
+const WIDTH = 520;
 const HEIGHT = 130;
 const Y_LABEL_W = 26;
 

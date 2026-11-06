@@ -10,12 +10,13 @@ export interface TooltipRow {
 }
 
 /**
- * The heatmap's tooltip card (frame 2A): a fixed slot at the card's top-right, date header
+ * The heatmap's tooltip card (frame 2A): a fixed slot at the grid's top-right (over the future weeks,
+ * and inside the grid's scroll box, which would clip it lower down), date header
  * plus a stack of key/value lines. Every mode's Tooltip renders into this shell.
  */
 export function TooltipShell({ date, rows }: { date: string; rows: TooltipRow[] }) {
   return (
-    <div className="absolute right-6 top-[78px] z-10 w-[214px] rounded-[9px] border border-border-strong bg-raised px-[11px] py-[9px] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+    <div className="absolute right-2 top-0 z-10 w-[214px] rounded-[9px] border border-border-strong bg-raised px-[11px] py-[9px] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
       <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-3">
         {date}
       </div>
@@ -40,7 +41,7 @@ export function TooltipShell({ date, rows }: { date: string; rows: TooltipRow[] 
 /** A single free-form line, for a mode with no per-row swatch (e.g. "No weigh-in"). */
 export function TooltipEmpty({ date, text }: { date: string; text: ReactNode }) {
   return (
-    <div className="absolute right-6 top-[78px] z-10 w-[214px] rounded-[9px] border border-border-strong bg-raised px-[11px] py-[9px] text-[11.5px] text-muted-2 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+    <div className="absolute right-2 top-0 z-10 w-[214px] rounded-[9px] border border-border-strong bg-raised px-[11px] py-[9px] text-[11.5px] text-muted-2 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
       <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-3">
         {date}
       </div>
