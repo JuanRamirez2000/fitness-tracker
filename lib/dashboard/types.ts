@@ -79,6 +79,10 @@ export interface DashboardData {
   dateRange: DateRange;
 }
 
+/** What's known after the page's first query, before the tab's rows: enough for the header
+ * (lib/dashboard/load.ts, resolveShell). */
+export type DashboardShell = Pick<DashboardData, "tab" | "profile" | "today" | "programStart" | "firstWeighIn" | "dateRange">;
+
 export type HeatmapCellState = "data" | "none" | "future" | "pre_program" | "warming_up";
 
 export interface HeatmapCell {

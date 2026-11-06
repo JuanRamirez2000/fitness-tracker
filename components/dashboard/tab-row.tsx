@@ -5,18 +5,21 @@ import { usePathname } from "next/navigation";
 import { TAB_KEYS, TAB_LABELS, type TabKey } from "@/lib/dashboard/types";
 import { storeTab } from "@/lib/range/storage";
 import { tabToSearchParams, type UrlRange } from "@/lib/range/url";
+import { PendingTabReporter, useNavStatus } from "./nav-status";
 
 /**
  * The tab row under the header. Plain links (`?tab=`), so each tab is a server render of only
  * its own data, works without JS, and can be opened in a new tab. Scrolls sideways on a phone
- * rather than wrapping; each tab is at least 44px tall.
+ * rather than wrapping; each tab is at least 44px tall. A clicked tab underlines at once, before
+ * its server render is back (nav-status.tsx).
  */
 export function TabRow({ current, range }: { current: TabKey; range: UrlRange | null }) {
   const pathname = usePathname();
+  const shown = useNavStatus().pendingTab ?? current;
   return (
     <nav aria-label="Dashboard sections" className="-mb-px flex gap-[clamp(18px,4vw,36px)] overflow-x-auto">
       {TAB_KEYS.map((tab) => {
-        const on = tab === current;
+        const on = tab === shown;
         return (
           <Link
             key={tab}
@@ -28,6 +31,7 @@ export function TabRow({ current, range }: { current: TabKey; range: UrlRange | 
             }`}
           >
             {TAB_LABELS[tab]}
+            <PendingTabReporter tab={tab} />
           </Link>
         );
       })}
