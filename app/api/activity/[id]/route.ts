@@ -12,10 +12,9 @@ export const maxDuration = 30;
  * detail from Garmin.
  */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/activity/[id]">) {
-  const { id } = await ctx.params;
-  const profile = await fetchOwnerProfile();
+  const [{ id }, profile, role] = await Promise.all([ctx.params, fetchOwnerProfile(), getRole()]);
   if (!profile) return NextResponse.json({ error: "No profile yet." }, { status: 404 });
-  const owner = (await getRole()) === "owner";
+  const owner = role === "owner";
   const view = await loadActivityView(profile, id, { fetchMissing: owner });
   if (!view) return NextResponse.json({ error: "No such activity." }, { status: 404 });
   // The modal then asks POST /api/activity/<id>/summary for one, so the charts don't wait on Gemini.
