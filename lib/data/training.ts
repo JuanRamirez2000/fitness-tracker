@@ -22,6 +22,8 @@ export const dailyTrainingRowSchema = z.object({
   race_5k_s: z.number().int().nullable(),
   race_10k_s: z.number().int().nullable(),
   race_half_s: z.number().int().nullable(),
+  /** Migration 013; null on rows imported before it. */
+  race_marathon_s: z.number().int().nullable().default(null),
   fitness_age: z.number().nullable(),
   fitness_age_achievable: z.number().nullable(),
   chronological_age: z.number().int().nullable(),

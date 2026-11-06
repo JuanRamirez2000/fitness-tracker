@@ -7,7 +7,7 @@ Datasets:
              recovery time) plus the morning score -> daily_recovery's readiness columns.
   training   training status: acute and chronic load, the optimal chronic band, ACWR,
              status, load focus with its targets, and VO2 max -> daily_training.
-  race       race predictions: 5K, 10K and half marathon seconds per day -> daily_training.
+  race       race predictions: 5K, 10K, half and full marathon seconds per day -> daily_training.
   vo2        VO2 max on each day Garmin updated it (max metrics, cheap for long
              backfills) -> daily_training.vo2max.
 
@@ -166,6 +166,7 @@ def race_rows(payload: list[dict[str, Any]] | dict[str, Any] | None) -> list[dic
             "race_5k_s": e.get("time5K"),
             "race_10k_s": e.get("time10K"),
             "race_half_s": e.get("timeHalfMarathon"),
+            "race_marathon_s": e.get("timeMarathon"),
         })
     return rows
 
@@ -195,6 +196,7 @@ def chunks(start: date, end: date, days: int):
 TRAINING_COLUMNS = (
     "acute_load", "chronic_load", "chronic_low", "chronic_high", "acwr", "status",
     "focus", "focus_feedback", "vo2max", "race_5k_s", "race_10k_s", "race_half_s",
+    "race_marathon_s",
 )
 
 

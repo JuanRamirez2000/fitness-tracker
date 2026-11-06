@@ -107,4 +107,6 @@ export const Swatch = {
   line: (className: string) => <span className={`inline-block h-[2px] w-3 rounded ${className}`} />,
   dashed: (className: string) => <span className={`inline-block w-3 border-t-[1.5px] border-dashed ${className}`} />,
   band: (className: string) => <span className={`inline-block h-2 w-3 rounded-[2px] ${className}`} />,
+  triangle: (className: string) => <span className={`inline-block h-[8px] w-[9px] ${className}`} style={{ clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }} />,
+  diamond: (className: string) => <span className={`inline-block h-[7px] w-[7px] rotate-45 rounded-[1px] ${className}`} />,
 };

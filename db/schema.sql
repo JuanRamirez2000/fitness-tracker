@@ -200,6 +200,7 @@ create table daily_training (
   race_5k_s int,
   race_10k_s int,
   race_half_s int,
+  race_marathon_s int,                   -- migration 013
   fitness_age numeric(4,1),
   fitness_age_achievable numeric(4,1),
   chronological_age smallint,

@@ -208,7 +208,7 @@ export async function fetchBodyComposition(userId: string): Promise<BodyComposit
 export async function fetchTraining(userId: string, to: string): Promise<DailyTraining[]> {
   const rows = await db()`
     select local_date, acute_load, chronic_load, chronic_low, chronic_high, acwr, status, focus, focus_feedback,
-           vo2max, race_5k_s, race_10k_s, race_half_s, fitness_age, fitness_age_achievable, chronological_age,
+           vo2max, race_5k_s, race_10k_s, race_half_s, race_marathon_s, fitness_age, fitness_age_achievable, chronological_age,
            fitness_age_factors
     from daily_training
     where user_id = ${userId} and local_date <= ${to}

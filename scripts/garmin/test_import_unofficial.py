@@ -60,7 +60,7 @@ class TrainingRowTest(unittest.TestCase):
 class RaceAndVo2Test(unittest.TestCase):
     def test_race_rows_per_day(self):
         rows = race_rows(json.loads((FIXTURES / "race-predictions-daily.json").read_text()))
-        self.assertEqual(rows[0], {"local_date": "2026-10-28", "race_5k_s": 1775, "race_10k_s": 3884, "race_half_s": 9057})
+        self.assertEqual(rows[0], {"local_date": "2026-10-28", "race_5k_s": 1775, "race_10k_s": 3884, "race_half_s": 9057, "race_marathon_s": 20718})
         self.assertEqual(len(rows), 7)
         self.assertEqual(race_rows(None), [])
 

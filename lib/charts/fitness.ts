@@ -108,6 +108,7 @@ export const RACES = [
   { key: "race_5k_s", label: "5K", miles: 3.10686 },
   { key: "race_10k_s", label: "10K", miles: 6.21371 },
   { key: "race_half_s", label: "Half marathon", miles: 13.10938 },
+  { key: "race_marathon_s", label: "Marathon", miles: 26.21875 },
 ] as const;
 
 export interface RacePrediction {

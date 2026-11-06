@@ -119,6 +119,7 @@ export function testTraining(over: Partial<DailyTraining> & { local_date: string
     race_5k_s: null,
     race_10k_s: null,
     race_half_s: null,
+    race_marathon_s: null,
     fitness_age: null,
     fitness_age_achievable: null,
     chronological_age: null,
