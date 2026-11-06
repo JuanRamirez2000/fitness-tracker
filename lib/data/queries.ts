@@ -16,7 +16,7 @@ import {
 import { dailyTrainingRowSchema, type DailyTraining } from "./training";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
 import { bodyCompositionDaySchema, weighInRowSchema, type BodyCompositionDay, type WeighIn, type WeighInInput } from "./weigh-ins";
-import { weightTrendRowSchema, type WeightTrendRow } from "./weight-trend";
+import { dailyWeightRowSchema, weightTrendRowSchema, type DailyWeight, type WeightTrendRow } from "./weight-trend";
 
 // Every database query lives here, apart from the pure schemas next to them, so a client
 // component can import a schema without pulling the Postgres driver into the browser bundle.
@@ -29,6 +29,30 @@ export async function fetchOwnerProfile(): Promise<Profile | null> {
            goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds
     from profiles order by created_at limit 1`;
   return row ? profileSchema.parse(row) : null;
+}
+
+/**
+ * The dashboard's first query: the owner's profile and their first recorded day (weight_trend's
+ * first row, as firstDailyWeight reads it), together. That's enough to resolve the date range
+ * and render the header in one round trip, before the active tab's rows.
+ */
+export async function fetchOwnerProfileAndFirstWeight(): Promise<{ profile: Profile; firstWeighIn: DailyWeight | null } | null> {
+  const [row] = await db()`
+    select p.id, p.display_name, p.timezone, p.program_start_date, p.goal_weight_lb, p.goal_pace_lb_per_week,
+           p.start_weight_lb, p.shot_weekday, p.hr_zone_bounds,
+           fw.local_date as first_local_date, fw.weight_lb as first_weight_lb
+    from profiles p
+    left join lateral (
+      select local_date, weight_lb from weight_trend where user_id = p.id order by local_date limit 1
+    ) fw on true
+    order by p.created_at limit 1`;
+  if (!row) return null;
+  const profile = profileSchema.parse(row);
+  const firstWeighIn =
+    row.first_local_date === null
+      ? null
+      : dailyWeightRowSchema.parse({ user_id: profile.id, local_date: row.first_local_date, weight_lb: row.first_weight_lb });
+  return { profile, firstWeighIn };
 }
 
 export async function updateProfile(id: string, values: ProfileSettings): Promise<void> {

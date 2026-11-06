@@ -12,13 +12,13 @@ import {
   fetchWeighIns,
   fetchWeightTrend,
 } from "@/lib/data/queries";
-import { firstDailyWeight, type DailyWeight } from "@/lib/data/weight-trend";
+import type { DailyWeight } from "@/lib/data/weight-trend";
 import { isInRange } from "@/lib/heatmap/cell-state";
 import { addDays, type DayWindow, type LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
-import type { DashboardData, RangeKey, TabKey } from "./types";
+import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
 const RECOVERY_HISTORY_DAYS = 35;
@@ -39,7 +39,7 @@ export interface LoadDashboardDataOptions {
 }
 
 /** Which of the optional loads each tab renders. weightTrend and injections are always
- * loaded: the program start (and so every range) is derived from them. */
+ * loaded: every tab's heatmap reads them (its caption and shot stars). */
 export function tabNeeds(tab: TabKey): {
   activities: boolean;
   steps: boolean;
@@ -58,18 +58,26 @@ export function tabNeeds(tab: TabKey): {
   };
 }
 
-/** Loads what the active tab renders. Callers have already checked the session. */
-export async function loadDashboardData(profile: Profile, options: LoadDashboardDataOptions): Promise<DashboardData> {
-  const today = todayIn(profile.timezone);
-  const needs = tabNeeds(options.tab);
-  const [weightTrend, injections, activities] = await Promise.all([
-    fetchWeightTrend(profile.id),
-    fetchInjections(profile.id),
-    needs.activities ? fetchActivities(profile.id) : [],
-  ]);
-  const firstWeighIn = firstDailyWeight(weightTrend);
+/**
+ * The part of the page known after the first query (profile and first weigh-in): the tab, the
+ * dates, and the range. The header renders from this while the tab's rows load.
+ */
+export function resolveShell(
+  profile: Profile,
+  firstWeighIn: DailyWeight | null,
+  options: LoadDashboardDataOptions,
+  today: LocalDate = todayIn(profile.timezone),
+): DashboardShell {
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
   const dateRange = resolveRange(options.rangeKey, today, programStart, options.custom);
+  return { tab: options.tab, profile, today, programStart, firstWeighIn, dateRange };
+}
+
+/** Loads what the active tab renders, every query in one parallel batch (the range is already
+ * known from the shell). Callers have already checked the session. */
+export async function loadDashboardData(shell: DashboardShell): Promise<DashboardData> {
+  const { profile, today, programStart, dateRange } = shell;
+  const needs = tabNeeds(shell.tab);
   const window = heatmapWindow(programStart, today);
   // One steps query covering both the heatmap window and the selected range, split below.
   const stepsSpan = {
@@ -87,23 +95,23 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
-  const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts] = await Promise.all([
-    needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
-    needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
-    needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
-    needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
-    needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
-    needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
-    fetchDailySummary(profile.id, today, options.tab),
-    needs.training ? fetchRunEfforts(profile.id) : [],
-  ]);
+  const [weightTrend, injections, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts] =
+    await Promise.all([
+      fetchWeightTrend(profile.id),
+      fetchInjections(profile.id),
+      needs.activities ? fetchActivities(profile.id) : [],
+      needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
+      needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
+      needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
+      needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
+      needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
+      needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
+      fetchDailySummary(profile.id, today, shell.tab),
+      needs.training ? fetchRunEfforts(profile.id) : [],
+    ]);
 
   return {
-    tab: options.tab,
-    profile,
-    today,
-    programStart,
-    firstWeighIn,
+    ...shell,
     weightTrend,
     injections,
     activities,
@@ -116,6 +124,5 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     training,
     summary,
     runEfforts,
-    dateRange,
   };
 }

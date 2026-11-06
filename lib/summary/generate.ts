@@ -3,7 +3,7 @@
  * (Google's free API tier) -> daily_summaries. Daily feel (lib/summary/prompt.ts), Weight
  * (weight.ts) and Training (training.ts) each have their own facts and instructions. Run once
  * each morning by the summary cron (app/api/summary/cron/route.ts) after that morning's import,
- * again after each press of the owner's Refresh button (app/api/garmin/refresh/route.ts), or by
+ * again after each press of the owner's Refresh button (app/api/summary/refresh/route.ts), or by
  * hand (`npm run summary:generate`). Never per page view.
  *
  * Free tier terms: no card, a daily request quota far above the one call made here, and Google
@@ -182,16 +182,16 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
   const today = todayIn(profile.timezone);
   const rows = await loadRows(profile, today);
   const model = options.model ?? SUMMARY_MODEL;
-  const results: SummaryResult[] = [];
 
-  for (const tab of tabs) {
+  // The tabs run side by side: a press of Refresh waits for the slowest Gemini call, not the
+  // sum of three. Results keep the order of `tabs`.
+  async function writeTab(tab: TabKey): Promise<SummaryResult> {
     const spec = TABS[tab];
     const facts = spec.facts(rows, profile, today);
     log(`[${tab}] facts for ${today}: ${JSON.stringify(facts)}`);
     if (!spec.enough(facts)) {
       log(`[${tab}] ${spec.missing}; nothing written.`);
-      results.push({ tab, date: today, text: null, model: null, skipped: spec.missing });
-      continue;
+      return { tab, date: today, text: null, model: null, skipped: spec.missing };
     }
 
     let call: Awaited<ReturnType<typeof callGemini>>;
@@ -203,8 +203,7 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
     }
     if ("skipped" in call) {
       log(`[${tab}] ${call.skipped}; nothing written.`);
-      results.push({ tab, date: today, text: null, model, skipped: call.skipped });
-      continue;
+      return { tab, date: today, text: null, model, skipped: call.skipped };
     }
     log(`[${tab}] ${call.modelVersion}: ${call.text}`);
     if (!dryRun) {
@@ -214,7 +213,8 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
         on conflict (user_id, local_date, tab)
         do update set text = excluded.text, model = excluded.model, generated_at = excluded.generated_at`;
     }
-    results.push({ tab, date: today, text: call.text, model: call.modelVersion });
+    return { tab, date: today, text: call.text, model: call.modelVersion };
   }
-  return results;
+
+  return Promise.all(tabs.map(writeTab));
 }

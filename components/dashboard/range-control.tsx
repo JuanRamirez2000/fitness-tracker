@@ -9,6 +9,7 @@ import type { LocalDate } from "@/lib/dates/calendar";
 import { storeRange } from "@/lib/range/storage";
 import { rangeToSearchParams } from "@/lib/range/url";
 import { CustomRangeDialog } from "./custom-range-dialog";
+import { useNavStatus } from "./nav-status";
 
 const LABELS: Record<RangeKey, string> = {
   week: "Week",
@@ -25,9 +26,12 @@ export function RangeControl({ current, tab, today }: { current: DateRange; tab:
   const router = useRouter();
   const pathname = usePathname();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { pendingRange, startRange } = useNavStatus();
+  // The clicked range lights up at once; the tab dims until its new rows are in (nav-status.tsx).
+  const shown = pendingRange ?? current.key;
 
   function navigate(range: { key: RangeKey; custom?: { from: string; to: string } }) {
-    router.push(`${pathname}?${rangeToSearchParams(range, tab)}`);
+    startRange(range.key, () => router.push(`${pathname}?${rangeToSearchParams(range, tab)}`));
   }
 
   function selectPreset(key: Exclude<RangeKey, "custom">) {
@@ -44,11 +48,11 @@ export function RangeControl({ current, tab, today }: { current: DateRange; tab:
     <>
       <div className="hidden items-center gap-2.5 md:flex">
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-3">range</span>
-        <Segmented aria-label="Time range" options={OPTIONS} value={current.key} onChange={handleChange} />
+        <Segmented aria-label="Time range" options={OPTIONS} value={shown} onChange={handleChange} />
       </div>
 
       <div className="md:hidden">
-        <ChipRow aria-label="Time range" options={OPTIONS} value={current.key} onChange={handleChange} />
+        <ChipRow aria-label="Time range" options={OPTIONS} value={shown} onChange={handleChange} />
       </div>
 
       <CustomRangeDialog

@@ -100,7 +100,8 @@ app/
   page.tsx                 The dashboard: cards, heatmap, charts, table
   actions.ts               Server actions: add/edit/delete weigh-ins, settings
   login/                   Owner password to unlock editing
-  api/garmin/refresh/      Imports today from Garmin, then the AI summaries (the Refresh button)
+  api/garmin/refresh/      Imports today from Garmin (the Refresh button, step one)
+  api/summary/refresh/     Rewrites today's AI summaries (the Refresh button, step two)
   api/garmin/cron/         Nightly Garmin import (Vercel Cron)
 components/                UI (dashboard/, heatmap/, charts/, ui/)
 lib/

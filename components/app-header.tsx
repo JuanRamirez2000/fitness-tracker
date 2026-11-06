@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { APP_NAME } from "@/lib/app";
 import { signOut } from "@/lib/auth/actions";
-import type { DashboardData } from "@/lib/dashboard/types";
+import type { DashboardShell } from "@/lib/dashboard/types";
 import type { UrlRange } from "@/lib/range/url";
 import { GarminRefreshButton } from "./dashboard/garmin-refresh-button";
 import { RangeControl } from "./dashboard/range-control";
@@ -18,7 +18,8 @@ export function AppHeader({
   canEdit,
   urlRange,
 }: {
-  data: DashboardData;
+  /** The page's first query: renders before the tab's rows are in. */
+  data: DashboardShell;
   canEdit: boolean;
   /** The URL's own range, or null when the page fell back to the default. */
   urlRange: UrlRange | null;
