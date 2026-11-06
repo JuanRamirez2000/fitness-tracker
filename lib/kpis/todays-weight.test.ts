@@ -35,7 +35,7 @@ describe("todaysWeight", () => {
     );
     rows[rows.length - 1] = trendRow({ local_date: TODAY, weight_lb: 240 });
     const value = todaysWeight.compute(testDashboardData({ weightTrend: rows }))!;
-    expect(value.series).toHaveLength(30);
-    expect(value.series!.at(-1)).toBe(240);
+    expect(value.points).toHaveLength(30);
+    expect(value.points!.at(-1)).toMatchObject({ value: 240, text: "240.0 lb" });
   });
 });

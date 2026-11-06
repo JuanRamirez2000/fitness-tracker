@@ -23,7 +23,8 @@ describe("weeklyMiles", () => {
     expect(v.value).toBeCloseTo(8);
     expect(v.delta).toBeCloseTo(5);
     expect(v.sub).toBe("Last 7 days · 2 runs · longest 5.0 mi");
-    expect(v.series).toHaveLength(8);
+    expect(v.points).toHaveLength(8);
+    expect(v.points!.at(-1)).toMatchObject({ date: TODAY, text: "8.0 mi" });
     expect(weeklyMiles.format(v)).toMatchObject({ primary: "8.0", delta: "+5.0 mi" });
   });
 });

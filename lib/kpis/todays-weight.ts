@@ -22,7 +22,7 @@ export const todaysWeight: KpiDefinition = {
       deltaUnit: "lb",
       tone: delta === undefined ? "neutral" : delta <= 0 ? "good" : "bad",
       sub: `Logged ${fmtDate(today.local_date)}`,
-      series: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => row.weight_lb),
+      points: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => ({ date: row.local_date, value: row.weight_lb, text: `${row.weight_lb.toFixed(1)} lb` })),
     };
   },
   format(v) {

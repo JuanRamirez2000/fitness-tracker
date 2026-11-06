@@ -13,11 +13,14 @@ import {
 } from "@/lib/data/queries";
 import { firstDailyWeight, type DailyWeight } from "@/lib/data/weight-trend";
 import { isInRange } from "@/lib/heatmap/cell-state";
-import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
+import { addDays, type DayWindow, type LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
 import type { DashboardData, RangeKey, TabKey } from "./types";
+
+/** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
+const RECOVERY_HISTORY_DAYS = 35;
 
 /** profiles.program_start_date, or the first weigh-in, or today for a brand-new account. */
 export function resolveProgramStart(
@@ -46,7 +49,7 @@ export function tabNeeds(tab: TabKey): {
 } {
   return {
     activities: tab === "weight" || tab === "training", // run ticks on the weight trend; every running view
-    steps: tab === "training",
+    steps: tab === "today" || tab === "training", // the Steps card (Daily feel); the steps heatmap (Training)
     weighIns: tab === "weight",
     recovery: tab === "today", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
@@ -74,7 +77,13 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
   };
   // Recovery, sleep and training cover the range and always today too: the hero and the
   // "latest" stats are about today whatever range is selected.
-  const recoverySpan = { from: dateRange.from, to: dateRange.to > today ? dateRange.to : today };
+  // At least the last RECOVERY_HISTORY_DAYS too, whatever the range: the top cards compare this
+  // morning against a week or a month (the charts filter to the range themselves).
+  const historyFrom = addDays(today, -RECOVERY_HISTORY_DAYS);
+  const recoverySpan = {
+    from: dateRange.from < historyFrom ? dateRange.from : historyFrom,
+    to: dateRange.to > today ? dateRange.to : today,
+  };
   const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary] = await Promise.all([
     needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
     needs.steps ? fetchSteps(profile.id, stepsSpan) : [],

@@ -44,7 +44,7 @@ export const vo2max: KpiDefinition = {
       delta: before ? latest.value - before.value : undefined,
       tone: before && latest.value > before.value ? "good" : "neutral",
       sub: `As of ${fmtDate(latest.date)}${before ? " · vs 3 months ago" : ""}`,
-      series: estimates.filter((e) => e.date >= sparkFrom).map((e) => e.value),
+      points: estimates.filter((e) => e.date >= sparkFrom).map((e) => ({ date: e.date, value: e.value, text: e.value.toFixed(Number.isInteger(e.value) ? 0 : 1) })),
     };
   },
   format(v) {

@@ -40,7 +40,7 @@ export const weeklyRate: KpiDefinition = {
       unit: "lb/wk",
       tone: rate < 0 ? "good" : "neutral",
       sub: "From the 7-day average",
-      series: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => row.avg7_lb),
+      points: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => ({ date: row.local_date, value: row.avg7_lb, text: `${row.avg7_lb.toFixed(1)} lb avg` })),
     };
   },
   format(v) {

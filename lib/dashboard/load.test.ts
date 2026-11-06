@@ -30,7 +30,7 @@ describe("tabNeeds", () => {
     expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: false, bodyComposition: false, training: true });
   });
 
-  it("loads only recovery and sleep for the daily feel tab", () => {
-    expect(tabNeeds("today")).toEqual({ activities: false, steps: false, weighIns: false, recovery: true, bodyComposition: false, training: false });
+  it("loads recovery, sleep and steps (the Steps card) for the daily feel tab", () => {
+    expect(tabNeeds("today")).toEqual({ activities: false, steps: true, weighIns: false, recovery: true, bodyComposition: false, training: false });
   });
 });

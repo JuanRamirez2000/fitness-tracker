@@ -25,7 +25,7 @@ export const sevenDayAverage: KpiDefinition = {
       deltaUnit: "lb",
       tone: delta === undefined ? "neutral" : delta <= 0 ? "good" : "bad",
       sub: warmingUp ? `Still warming up (${today.n7} of ${MIN_AVG7_SAMPLES} days)` : "Smoothed line on the trend chart",
-      series: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => row.avg7_lb),
+      points: data.weightTrend.slice(-SPARKLINE_POINTS).map((row) => ({ date: row.local_date, value: row.avg7_lb, text: `${row.avg7_lb.toFixed(1)} lb avg` })),
     };
   },
   format(v) {

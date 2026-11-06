@@ -134,15 +134,34 @@ export interface KpiValue {
   tone: KpiTone;
   /** Caption under the value, e.g. "Logged Sep 20 · tap to edit". */
   sub: string;
-  /** Recent values, oldest first, for the sparkline. */
-  series?: number[];
+  /** Recent dated values, oldest first, for the sparkline and its hover. */
+  points?: KpiPoint[];
+  /** Draw lower values higher (a pace: faster is up). */
+  invert?: boolean;
   /** 0..1, for a progress bar. */
   progress?: number;
+}
+
+/** One sparkline point: its day, the value it's drawn at, and the text its hover shows. */
+export interface KpiPoint {
+  date: LocalDate;
+  value: number;
+  /** "272.4 lb", "11:34 /mi". */
+  text: string;
+  /** The hover's header, when the point isn't a single day ("Week to Nov 3"). */
+  title?: string;
+  /** A reference band behind the line that day (HRV's normal range, the healthy load ratio). */
+  low?: number;
+  high?: number;
 }
 
 export interface KpiDefinition {
   id: string;
   label: string;
+  /** 2: a wide card, with room for a longer sparkline and its band. The tab rows are 6 units. */
+  span?: 1 | 2;
+  /** What the sparkline's band is, for its hover ("normal range"). */
+  bandLabel?: string;
   visual?: "sparkline" | "progress" | "none";
   /** PURE, unit-tested. null = the empty state ("Set a goal", no shot ever logged, etc). */
   compute(data: DashboardData): KpiValue | null;

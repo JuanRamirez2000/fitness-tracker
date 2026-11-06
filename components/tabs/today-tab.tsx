@@ -1,3 +1,5 @@
+import { TAB_KPIS } from "@/dashboard.config";
+import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { BodyBatteryChart } from "@/components/charts/body-battery-chart";
 import { HeartChart } from "@/components/charts/heart-chart";
 import { SleepChart } from "@/components/charts/sleep-chart";
@@ -21,6 +23,7 @@ export function TodayTab({ data }: { data: DashboardData }) {
         </SectionHeading>
         <DailySummary data={data} />
         <TodayHero data={data} />
+        <KpiCards data={data} ids={TAB_KPIS.today} />
       </Section>
       <Section>
         <SectionLabel>Recovery and sleep detail</SectionLabel>
