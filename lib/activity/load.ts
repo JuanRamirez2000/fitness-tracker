@@ -1,7 +1,7 @@
 import "server-only";
 import { addDays } from "@/lib/dates/calendar";
 import type { Profile } from "@/lib/data/profiles";
-import { fetchActivities, fetchActivity, fetchActivityDetail, fetchActivitySummary, fetchRecovery, fetchSleepNights, fetchTraining } from "@/lib/data/queries";
+import { fetchActivities, fetchActivityDetail, fetchActivitySummary, fetchRecovery, fetchSleepNights, fetchTraining } from "@/lib/data/queries";
 import { importActivityDetails } from "@/lib/garmin/import-details";
 import { buildActivityView, type ActivityView } from "./view";
 
@@ -11,11 +11,20 @@ import { buildActivityView, type ActivityView } from "./view";
  * first, so opening an old run fills it in; a viewer gets what's stored.
  */
 export async function loadActivityView(profile: Profile, id: string, { fetchMissing }: { fetchMissing: boolean }): Promise<ActivityView | null> {
-  const activity = await fetchActivity(profile.id, id);
+  // The id goes into uuid columns below; a malformed one is simply "no such activity".
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  // Everything that doesn't need the activity's day, in one round trip: the activity itself is
+  // one of `activities` (which the view needs anyway, for its comparisons).
+  const [activities, storedDetail, summary] = await Promise.all([
+    fetchActivities(profile.id),
+    fetchActivityDetail(profile.id, id),
+    fetchActivitySummary(profile.id, id),
+  ]);
+  const activity = activities.find((a) => a.id === id);
   if (!activity) return null;
   const day = activity.local_date;
 
-  let detail = await fetchActivityDetail(profile.id, id);
+  let detail = storedDetail;
   if (!detail && fetchMissing) {
     try {
       await importActivityDetails({ target: { activityIds: [id] } });
@@ -26,12 +35,11 @@ export async function loadActivityView(profile: Profile, id: string, { fetchMiss
     }
   }
 
-  const [activities, recovery, sleep, training, summary] = await Promise.all([
-    fetchActivities(profile.id),
+  // Then the day's context, in a second.
+  const [recovery, sleep, training] = await Promise.all([
     fetchRecovery(profile.id, { from: day, to: day }),
     fetchSleepNights(profile.id, { from: day, to: day }),
     fetchTraining(profile.id, addDays(day, -1)),
-    fetchActivitySummary(profile.id, id),
   ]);
   return buildActivityView({
     activity,

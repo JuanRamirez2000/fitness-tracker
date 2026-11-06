@@ -144,13 +144,6 @@ export async function fetchRunEfforts(userId: string): Promise<RunEfforts[]> {
   }));
 }
 
-/** One activity by its row id, or null (also for a malformed id). */
-export async function fetchActivity(userId: string, id: string): Promise<Activity | null> {
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const [row] = await db()`select * from activities where user_id = ${userId} and id = ${id}`;
-  return row ? activityRowSchema.parse(row) : null;
-}
-
 /** An activity's samples and splits (migration 010), or null if never fetched. */
 export async function fetchActivityDetail(userId: string, activityId: string): Promise<ActivityDetail | null> {
   const [row] = await db()`select * from activity_details where user_id = ${userId} and activity_id = ${activityId}`;
