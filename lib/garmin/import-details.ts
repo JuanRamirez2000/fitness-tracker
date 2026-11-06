@@ -79,6 +79,7 @@ export async function importActivityDetails(options: DetailImportOptions): Promi
           series: json(row.series),
           mile_splits: json(row.mile_splits),
           interval_splits: json(row.interval_splits),
+          efforts: json(row.efforts),
           activity_id: activity.id,
           user_id: activity.user_id,
         },

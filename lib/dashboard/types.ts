@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import type { Activity } from "@/lib/data/activities";
+import type { RunEfforts } from "@/lib/data/activity-details";
 import type { DailyRecovery, DailySummary, SleepNight } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
@@ -51,6 +52,8 @@ export interface DashboardData {
   /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
    * window to place a late or early star correctly at its edge. */
   injections: Injection[];
+  /** Every run's best efforts, oldest first (Training tab only; empty elsewhere). */
+  runEfforts: RunEfforts[];
   /** Every Garmin activity, oldest first, unbounded like weightTrend: the running KPIs compare
    * the latest weeks against earlier ones, whatever range is selected. */
   activities: Activity[];

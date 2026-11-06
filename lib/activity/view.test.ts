@@ -27,6 +27,7 @@ function detail(over: Partial<ActivityDetail> = {}): ActivityDetail {
       { type: "RWD_RUN", count: 8, distance_m: 3600, duration_s: 1440, avg_speed_mps: 2.5, avg_hr: 155, max_hr: 172, avg_cadence_spm: 160, elevation_gain_m: 7 },
       { type: "INTERVAL_ACTIVE", count: 1, distance_m: 4500, duration_s: 2040, avg_speed_mps: 2.2, avg_hr: 151, max_hr: 172, avg_cadence_spm: 150, elevation_gain_m: 8 },
     ],
+    efforts: null,
     fetched_at: "2026-11-04T00:00:00Z",
     ...over,
   };

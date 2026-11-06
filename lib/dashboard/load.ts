@@ -5,6 +5,7 @@ import {
   fetchDailySummary,
   fetchInjections,
   fetchRecovery,
+  fetchRunEfforts,
   fetchSleepNights,
   fetchSteps,
   fetchTraining,
@@ -86,7 +87,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
-  const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary] = await Promise.all([
+  const [weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts] = await Promise.all([
     needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
     needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
     needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
@@ -94,6 +95,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
     needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
     fetchDailySummary(profile.id, today, options.tab),
+    needs.training ? fetchRunEfforts(profile.id) : [],
   ]);
 
   return {
@@ -113,6 +115,7 @@ export async function loadDashboardData(profile: Profile, options: LoadDashboard
     bodyComposition,
     training,
     summary,
+    runEfforts,
     dateRange,
   };
 }

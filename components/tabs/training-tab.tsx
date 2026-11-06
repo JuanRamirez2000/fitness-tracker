@@ -1,3 +1,4 @@
+import { BestEffortsCard } from "@/components/charts/best-efforts-card";
 import { TAB_KPIS } from "@/dashboard.config";
 import { RunEfficiencyChart } from "@/components/charts/run-efficiency-chart";
 import { FitnessChart } from "@/components/charts/fitness-chart";
@@ -29,6 +30,9 @@ export function TrainingTab({ data }: { data: DashboardData }) {
           </Cell>
           <Cell span={6}>
             <RunEfficiencyChart data={data} />
+          </Cell>
+          <Cell span={6}>
+            <BestEffortsCard data={data} />
           </Cell>
           <Cell span={12}>
             <RunsTable data={data} />

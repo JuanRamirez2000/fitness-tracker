@@ -35,7 +35,7 @@ describe("activityFacts", () => {
     }));
     const detail = {
       activity_id: run.id, user_id: run.user_id, location_name: null, workout_feel: null, workout_rpe: null, min_hr: null,
-      stamina_start: null, stamina_end: null, series: null, mile_splits: splits, interval_splits: null, fetched_at: "2026-11-04T00:00:00Z",
+      stamina_start: null, stamina_end: null, series: null, mile_splits: splits, interval_splits: null, efforts: null, fetched_at: "2026-11-04T00:00:00Z",
     };
     const facts = activityFacts(buildActivityView({ activity: run, detail, activities: [run], recovery: null, sleep: null, trainingBefore: null, profile: PROFILE }));
     expect(facts).not.toHaveProperty("mile_splits");

@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
-import { activityDetailRowSchema, type ActivityDetail } from "./activity-details";
+import { activityDetailRowSchema, activityEffortsSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
 import { injectionRowSchema, type Injection } from "./injections";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import {
@@ -103,6 +103,21 @@ export async function fetchSteps(userId: string, range: DayWindow): Promise<Dail
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const rows = await db()`select * from activities where user_id = ${userId} order by started_at`;
   return rows.map((row) => activityRowSchema.parse(row));
+}
+
+/** Every run's best efforts (migration 012), oldest first: only runs whose detail has them. */
+export async function fetchRunEfforts(userId: string): Promise<RunEfforts[]> {
+  const rows = await db()`
+    select a.id as activity_id, a.local_date, a.name, d.efforts
+    from activities a join activity_details d on d.activity_id = a.id
+    where a.user_id = ${userId} and a.activity_type like '%running' and d.efforts is not null
+    order by a.started_at`;
+  return rows.map((r) => ({
+    activity_id: String(r.activity_id),
+    local_date: String(r.local_date),
+    name: r.name === null ? null : String(r.name),
+    efforts: activityEffortsSchema.parse(r.efforts),
+  }));
 }
 
 /** One activity by its row id, or null (also for a malformed id). */

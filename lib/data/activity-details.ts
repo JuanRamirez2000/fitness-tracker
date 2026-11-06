@@ -73,6 +73,22 @@ export const intervalSplitSchema = z.object({
 });
 export type IntervalSplit = z.infer<typeof intervalSplitSchema>;
 
+/** One run's best efforts (migration 012): fastest times over set distances, and its longest continuous running. */
+export const activityEffortsSchema = z.object({
+  /** Seconds, or null when the run was shorter than the distance. */
+  fastest: z.object({ mile: z.number().nullable(), two_mile: z.number().nullable(), five_k: z.number().nullable() }),
+  longest_running: z.object({ seconds: z.number(), meters: z.number().nullable() }).nullable(),
+});
+export type ActivityEfforts = z.infer<typeof activityEffortsSchema>;
+
+/** A run's efforts with what's needed to name and open it (the Training tab's best efforts card). */
+export interface RunEfforts {
+  activity_id: string;
+  local_date: string;
+  name: string | null;
+  efforts: ActivityEfforts;
+}
+
 /** One activity_details row (migration 010). */
 export const activityDetailRowSchema = z.object({
   activity_id: uuidSchema,
@@ -86,6 +102,7 @@ export const activityDetailRowSchema = z.object({
   series: activitySeriesSchema.nullable(),
   mile_splits: z.array(mileSplitSchema).nullable(),
   interval_splits: z.array(intervalSplitSchema).nullable(),
+  efforts: activityEffortsSchema.nullable().default(null),
   fetched_at: timestampSchema,
 });
 export type ActivityDetail = z.infer<typeof activityDetailRowSchema>;

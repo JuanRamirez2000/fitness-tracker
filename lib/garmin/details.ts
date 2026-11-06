@@ -4,7 +4,8 @@
  * the full-resolution samples, and the feel, RPE, location and split summaries from
  * /activity-service/activity/{id}. Pure, unit-tested (details.test.ts).
  */
-import type { ActivitySeries, IntervalSplit, MileSplit, SeriesKey } from "../data/activity-details";
+import type { ActivityEfforts, ActivitySeries, IntervalSplit, MileSplit, SeriesKey } from "../data/activity-details";
+import { bestEfforts } from "./efforts";
 
 export const METERS_PER_MILE = 1609.344;
 /** Enough points for a chart a card wide, small enough to send with the modal (~30 KB). */
@@ -57,12 +58,14 @@ export interface ActivityDetailRow {
   series: ActivitySeries | null;
   mile_splits: MileSplit[] | null;
   interval_splits: IntervalSplit[] | null;
+  /** On-foot activities only: best times over set distances and the longest continuous running. */
+  efforts: ActivityEfforts | null;
 }
 
 /** The activity_details columns the import writes besides activity_id and user_id. */
 export const ACTIVITY_DETAIL_COLUMNS = [
   "location_name", "workout_feel", "workout_rpe", "min_hr", "stamina_start", "stamina_end", "series",
-  "mile_splits", "interval_splits",
+  "mile_splits", "interval_splits", "efforts",
 ] as const satisfies readonly (keyof ActivityDetailRow)[];
 
 /** Garmin's metric key for each series, first match wins, and the decimals kept. */
@@ -261,5 +264,7 @@ export function buildActivityDetailRow(
     series: samples ? thinSeries(samples) : null,
     mile_splits: samples && withMileSplits ? mileSplits(samples) : null,
     interval_splits: record ? intervalSplits(record) : null,
+    // From the full-resolution samples, before thinning.
+    efforts: samples && withMileSplits ? bestEfforts(samples.t, samples.cols.d, samples.cols.cadence) : null,
   };
 }

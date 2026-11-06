@@ -76,6 +76,7 @@ describe("buildActivityDetailRow", () => {
       series: null,
       mile_splits: null,
       interval_splits: null,
+      efforts: null,
     });
   });
 });

@@ -127,6 +127,7 @@ create table activity_details (
   series jsonb,                          -- ActivitySeries
   mile_splits jsonb,                     -- MileSplit[]
   interval_splits jsonb,                 -- IntervalSplit[]
+  efforts jsonb,                         -- ActivityEfforts: best times and longest running (migration 012)
   fetched_at timestamptz not null default now()
 );
 create index activity_details_user_idx on activity_details (user_id);
