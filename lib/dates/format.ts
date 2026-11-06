@@ -22,3 +22,9 @@ const SHORT_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function fmtPointTitle(date: LocalDate, weekly = false): string {
   return weekly ? `Week of ${fmtDate(date)}` : `${SHORT_WEEKDAYS[weekdayOf(date)]}, ${fmtDate(date)}`;
 }
+
+/** "2026-09-18" -> "Sep 2026", for dates months or years away. */
+export function fmtMonthYear(date: LocalDate): string {
+  const [year, month] = date.split("-");
+  return `${MONTHS[Number(month) - 1]} ${year}`;
+}

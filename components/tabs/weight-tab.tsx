@@ -1,3 +1,5 @@
+import { GoalProjectionChart } from "@/components/charts/goal-projection-chart";
+import { WeeklyLossChart } from "@/components/charts/weekly-loss-chart";
 import { TAB_KPIS } from "@/dashboard.config";
 import { BodyMassChart } from "@/components/charts/body-mass-chart";
 import { CompositionCard } from "@/components/charts/composition-card";
@@ -20,6 +22,12 @@ export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boo
         <CardGrid>
           <Cell span={12}>
             <WeightTrendChart data={data} />
+          </Cell>
+          <Cell span={6}>
+            <GoalProjectionChart data={data} />
+          </Cell>
+          <Cell span={6}>
+            <WeeklyLossChart data={data} />
           </Cell>
           <Cell span={7}>
             <BodyMassChart data={data} />
