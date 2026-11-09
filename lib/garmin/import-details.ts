@@ -9,6 +9,7 @@
 import type { JSONValue } from "postgres";
 import type { LocalDate } from "../dates/calendar";
 import { onFoot } from "../data/activities";
+import { isRideType, RIDE_TYPES, RUN_TYPES } from "../sport";
 import { db } from "../db";
 import { GarminClient, GarminError } from "./client";
 import { ACTIVITY_DETAIL_COLUMNS, buildActivityDetailRow } from "./details";
@@ -19,6 +20,8 @@ export interface DetailImportOptions {
   target: { activityIds: string[] } | { start: LocalDate; end: LocalDate };
   /** Refetch activities that already have detail. */
   refresh?: boolean;
+  /** Only this sport's activities (a backfill after a new column, say ride splits). */
+  sport?: "ride" | "run";
   /** Pause between activities, to stay under Garmin's rate limit on a backfill. */
   delayMs?: number;
   log?: (line: string) => void;
@@ -38,6 +41,9 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function importActivityDetails(options: DetailImportOptions): Promise<DetailImportResult> {
   const { refresh = false, delayMs = 0, log = () => {} } = options;
+  // A pattern-matched ride type (isRideType's fallback) isn't in RIDE_TYPES; the backfill misses
+  // only those, and the nightly import still fetches their detail like any other activity.
+  const types: string[] | null = options.sport === "ride" ? [...RIDE_TYPES] : options.sport === "run" ? [...RUN_TYPES] : null;
   const sql = db();
   const { target } = options;
   const todo = await sql<{ id: string; user_id: string; external_id: string; activity_type: string; local_date: string }[]>`
@@ -47,6 +53,7 @@ export async function importActivityDetails(options: DetailImportOptions): Promi
     where a.source = 'garmin'
       and ${"activityIds" in target ? sql`a.id = any(${target.activityIds}::uuid[])` : sql`a.local_date between ${target.start} and ${target.end}`}
       and (${refresh} or d.activity_id is null)
+      and (${types === null} or a.activity_type = any(${types ?? []}::text[]))
     order by a.started_at desc`;
   if (!todo.length) return { fetched: 0, remaining: 0 };
   log(`Fetching detail for ${todo.length} activit${todo.length === 1 ? "y" : "ies"}...`);
@@ -70,7 +77,10 @@ export async function importActivityDetails(options: DetailImportOptions): Promi
         continue;
       }
     }
-    const row = buildActivityDetailRow(details, record, { withMileSplits: onFoot(activity.activity_type) });
+    const ride = isRideType(activity.activity_type)
+      ? { indoor: activity.activity_type === "indoor_cycling" || activity.activity_type === "virtual_ride" }
+      : null;
+    const row = buildActivityDetailRow(details, record, { withMileSplits: onFoot(activity.activity_type), ride });
     const json = (v: unknown) => (v === null ? null : sql.json(v as JSONValue));
     await sql`
       insert into activity_details ${sql(
@@ -80,6 +90,7 @@ export async function importActivityDetails(options: DetailImportOptions): Promi
           mile_splits: json(row.mile_splits),
           interval_splits: json(row.interval_splits),
           efforts: json(row.efforts),
+          ride_splits: json(row.ride_splits),
           activity_id: activity.id,
           user_id: activity.user_id,
         },

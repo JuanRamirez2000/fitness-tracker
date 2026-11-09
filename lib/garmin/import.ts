@@ -52,6 +52,9 @@ export interface ImportOptions {
   client?: GarminClient;
   /** Pause between activities' detail requests (a backfill sets this). */
   detailDelayMs?: number;
+  /** Refetch detail for activities that already have it, optionally for one sport only. */
+  refreshDetails?: boolean;
+  detailSport?: "ride" | "run";
 }
 
 export interface ImportResult {
@@ -133,7 +136,9 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
           ([hrv, summaries]) => buildRecoveryRows(hrv, summaries),
         )
       : [],
-    want("hr-zones") ? garmin.hrZones().then(buildZoneBounds) : null,
+    want("hr-zones")
+      ? garmin.hrZones().then((z) => ({ running: buildZoneBounds(z), cycling: buildZoneBounds(z, "CYCLING") }))
+      : null,
     want("fitness-age")
       ? garmin.fitnessAges(wellness.start, wellness.end).then((days) => days.flatMap(({ date, raw }) => buildFitnessAgeRow(raw, date) ?? []))
       : [],
@@ -141,7 +146,8 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
   log(
     `Fetched ${weighIns.length} weigh-in(s), ${steps.length} step-day(s), ${activities.length} activit${activities.length === 1 ? "y" : "ies"}, ` +
       `${sleep.length} night(s), ${recovery.length} recovery day(s), ${fitnessAges.length} fitness-age day(s)` +
-      (zoneBounds ? `, HR zones ${zoneBounds.map(([lo, hi]) => `${lo}-${hi}`).join(" / ")}` : ""),
+      (zoneBounds?.running ? `, HR zones ${zoneBounds.running.map(([lo, hi]) => `${lo}-${hi}`).join(" / ")}` : "") +
+      (zoneBounds?.cycling ? `, cycling ${zoneBounds.cycling.map(([lo, hi]) => `${lo}-${hi}`).join(" / ")}` : ""),
   );
 
   if (dryRun) {
@@ -183,6 +189,8 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
             activities.map((r) => ({
               ...r,
               hr_zone_s: r.hr_zone_s ? tx.json(r.hr_zone_s) : null,
+              power_zone_s: r.power_zone_s ? tx.json(r.power_zone_s) : null,
+              power_curve: r.power_curve ? tx.json(r.power_curve) : null,
               user_id: userId,
               source: "garmin",
             })),
@@ -205,8 +213,11 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
           on conflict (user_id, local_date)
           do update set ${tx.unsafe(FITNESS_AGE_UPDATES)}, updated_at = now()`;
       }
-      if (zoneBounds) {
-        await tx`update profiles set hr_zone_bounds = ${tx.json(zoneBounds)} where id = ${userId}`;
+      if (zoneBounds?.running) {
+        await tx`update profiles set hr_zone_bounds = ${tx.json(zoneBounds.running)} where id = ${userId}`;
+      }
+      if (zoneBounds?.cycling) {
+        await tx`update profiles set hr_zone_bounds_cycling = ${tx.json(zoneBounds.cycling)} where id = ${userId}`;
       }
       if (sleep.length) {
         await tx`
@@ -235,7 +246,14 @@ export async function importGarmin(options: ImportOptions): Promise<ImportResult
   let details: DetailImportResult | null = null;
   if (want("details") && !dryRun) {
     try {
-      details = await importActivityDetails({ target: { start, end }, delayMs: options.detailDelayMs, log, client: garmin });
+      details = await importActivityDetails({
+        target: { start, end },
+        refresh: options.refreshDetails,
+        sport: options.detailSport,
+        delayMs: options.detailDelayMs,
+        log,
+        client: garmin,
+      });
       if (details.fetched || details.remaining) {
         log(`Activity detail: ${details.fetched} fetched${details.remaining ? `, ${details.remaining} left (${details.stoppedBy})` : ""}.`);
       }

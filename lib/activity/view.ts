@@ -1,4 +1,4 @@
-import { isRun, onFoot, type Activity } from "@/lib/data/activities";
+import { isRide, isRun, onFoot, type Activity } from "@/lib/data/activities";
 import type { ActivityDetail, ActivitySeries } from "@/lib/data/activity-details";
 import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
@@ -6,15 +6,18 @@ import type { Profile } from "@/lib/data/profiles";
 import { addDays, type LocalDate } from "@/lib/dates/calendar";
 import { clockTimeIn } from "@/lib/dates/timezone";
 import { trainingStatus } from "@/lib/charts/training";
-import { trainingEffectWord } from "@/lib/table/runs";
-import { METERS_PER_MILE, fmtDuration, fmtPace, isEasyRun, median, paceSecPerMile, runMiles, runsIn, runsOf } from "@/lib/running/runs";
+import { trainingEffectWord } from "@/lib/table/activities";
+import { METERS_PER_MILE, fmtDuration, fmtPace, isEasyRun, median, paceSecPerMile, runMiles, runsIn } from "@/lib/running/runs";
+import { sportOf } from "@/lib/sport";
 
 const FEET_PER_METER = 3.28084;
-/** Runs this long before the activity are its comparison pool. */
+/** Activities of the same sport this long before are its comparison pool. */
 const SIMILAR_LOOKBACK_DAYS = 120;
-/** A comparable run is within this share of the activity's distance. */
+/** A comparable run is within this share of the activity's distance; a comparable ride, of its moving time. */
 const SIMILAR_DISTANCE_SHARE = 0.35;
 const MIN_SIMILAR_RUNS = 3;
+/** Garmin's indoor ride types, whose speed and distance are only the trainer's estimate. */
+const INDOOR_RIDES = new Set(["indoor_cycling", "virtual_ride"]);
 
 /** The rows an activity's modal is built from (lib/activity/load.ts). */
 export interface ActivityViewInput {
@@ -28,7 +31,7 @@ export interface ActivityViewInput {
   sleep: SleepNight | null;
   /** Garmin's load and status going in: the day before's row. */
   trainingBefore: DailyTraining | null;
-  profile: Pick<Profile, "timezone" | "hr_zone_bounds">;
+  profile: Pick<Profile, "timezone" | "hr_zone_bounds"> & Partial<Pick<Profile, "hr_zone_bounds_cycling">>;
   /** The stored AI summary, if one was written. */
   summary?: { text: string; generated_at: string } | null;
 }
@@ -58,13 +61,28 @@ export interface SplitRow {
   elevLossFt: number;
 }
 
+/** A ride's split (every 5 miles outdoors, 5 minutes indoors), display-ready. */
+export interface RideSplitRow {
+  split: number;
+  /** "0–5 mi", "20–25 min". */
+  label: string;
+  mph: number | null;
+  duration: string;
+  hr: number | null;
+  power: number | null;
+  cadence: number | null;
+  elevGainFt: number;
+}
+
 export interface IntervalRow {
   label: string;
   count: number;
   miles: number | null;
   duration: string | null;
-  pace: string | null;
+  /** "12:05/mi" for a run, "17.2 mph" for anything else. */
+  speed: string | null;
   hr: number | null;
+  power: number | null;
 }
 
 export interface ZoneRow {
@@ -76,21 +94,30 @@ export interface ZoneRow {
 }
 
 export interface ActivityContext {
-  /** Against runs of about this distance (and the same easy/workout kind) in the last 120 days. */
+  /**
+   * Against runs of about this distance, or rides of about this long (indoors against indoors),
+   * of the same easy/workout kind when there are enough, in the last 120 days.
+   */
   similar: {
+    sport: "run" | "ride";
     count: number;
-    /** 1 = the fastest of them, this one included. */
+    /** 1 = the fastest of them (the most powerful, for a ride with power), this one included. */
     paceRank: number;
-    /** Seconds per mile against their median; negative is faster. */
+    /** Runs: seconds per mile against their median; negative is faster. 0 for rides. */
     paceDelta_s: number;
+    /** Rides: mph against their median (null indoors, where speed is the trainer's guess). */
+    speedDelta_mph: number | null;
+    /** Rides with power: average watts against their median. */
+    powerDelta_w: number | null;
     /** Average HR against their median, bpm. */
     hrDelta: number | null;
-    /** Speed per heartbeat against their median, percent; positive is more efficient. */
+    /** Speed per heartbeat (runs) or watts per heartbeat (rides with power) against their median, percent; positive is more efficient. */
     efficiencyPct: number | null;
     kind: "easy" | "workout" | null;
   } | null;
   load: { value: number; avg28: number | null } | null;
-  week: { miles: number; runs: number; milesPrior: number };
+  /** The 7 days to this activity, in its own sport: rides for a ride, runs for anything else. */
+  week: { sport: "run" | "ride"; miles: number; count: number; hours: number; milesPrior: number };
   morning: {
     readiness: number | null;
     readinessLevel: string | null;
@@ -110,6 +137,9 @@ export interface ActivityView {
   name: string;
   typeLabel: string;
   isRun: boolean;
+  isRide: boolean;
+  /** An indoor ride: its speed and distance are the trainer's estimate, so time is the x axis. */
+  indoor: boolean;
   onFoot: boolean;
   date: LocalDate;
   startClock: string;
@@ -121,6 +151,7 @@ export interface ActivityView {
   groups: StatGroup[];
   series: ActivitySeries | null;
   splits: SplitRow[];
+  rideSplits: RideSplitRow[];
   intervals: IntervalRow[];
   zones: ZoneRow[] | null;
   context: ActivityContext;
@@ -139,8 +170,14 @@ const TYPE_LABELS: Record<string, string> = {
   hiking: "Hike",
   cycling: "Ride",
   road_biking: "Road ride",
+  mountain_biking: "Mountain bike",
+  gravel_cycling: "Gravel ride",
   virtual_ride: "Virtual ride",
   indoor_cycling: "Indoor ride",
+  track_cycling: "Track ride",
+  cyclocross: "Cyclocross",
+  e_bike_fitness: "E-bike ride",
+  e_bike_mountain: "E-mountain bike",
   lap_swimming: "Pool swim",
   open_water_swimming: "Open-water swim",
   strength_training: "Strength",
@@ -197,11 +234,17 @@ const present = (stats: (ViewStat | null | false)[]): ViewStat[] => stats.filter
 function headline(a: Activity, run: boolean): ViewStat[] {
   const moving = a.moving_duration_s ?? a.duration_s;
   const miles = (a.distance_m ?? 0) / METERS_PER_MILE;
+  const ride = isRide(a);
   return present([
-    miles > 0.05 && { label: "Distance", value: miles.toFixed(2), unit: "mi" },
+    miles > 0.05 && { label: "Distance", value: miles.toFixed(ride ? 1 : 2), unit: "mi" },
     { label: "Time", value: fmtDuration(moving) },
     run && a.avg_speed_mps ? { label: "Pace", value: fmtPace(paceSecPerMile(a.avg_speed_mps)), unit: "/mi" } : null,
     !run && a.avg_speed_mps && miles > 0.05 ? { label: "Speed", value: String(mph(a.avg_speed_mps)), unit: "mph" } : null,
+    ride && (a.norm_power_w ?? a.avg_power_w) !== null && {
+      label: a.norm_power_w !== null ? "Norm. power" : "Power",
+      value: String(a.norm_power_w ?? a.avg_power_w),
+      unit: "W",
+    },
     a.avg_hr !== null && { label: "Avg HR", value: String(a.avg_hr), unit: "bpm" },
     a.training_load !== null && { label: "Load", value: String(Math.round(a.training_load)) },
   ]);
@@ -277,13 +320,22 @@ function groups(a: Activity, d: ActivityDetail | null, run: boolean): StatGroup[
         a.steps !== null && { label: "Steps", value: a.steps.toLocaleString("en-US") },
       ]),
     });
-  } else if (a.avg_power_w !== null || a.avg_cadence_spm !== null) {
+  } else if (a.avg_power_w !== null || a.avg_cadence_rpm !== null) {
     out.push({
-      title: "Output",
+      title: "Power and cadence",
       stats: present([
-        a.avg_power_w !== null && { label: "Power", value: String(a.avg_power_w), unit: "W" },
+        a.avg_power_w !== null && { label: "Avg power", value: String(a.avg_power_w), unit: "W" },
         a.norm_power_w !== null && { label: "Normalized", value: String(a.norm_power_w), unit: "W" },
-        a.avg_cadence_spm !== null && { label: "Cadence", value: String(Math.round(a.avg_cadence_spm)), unit: "rpm" },
+        a.max_power_w !== null && { label: "Max power", value: String(a.max_power_w), unit: "W" },
+        a.max_20min_power_w !== null && { label: "Best 20 min", value: String(a.max_20min_power_w), unit: "W" },
+        a.intensity_factor !== null && { label: "Intensity factor", value: a.intensity_factor.toFixed(2), note: "against Garmin’s FTP" },
+        a.training_stress_score !== null && { label: "TSS", value: String(Math.round(a.training_stress_score)) },
+        a.avg_cadence_rpm !== null && {
+          label: "Cadence",
+          value: String(Math.round(a.avg_cadence_rpm)),
+          unit: "rpm",
+          note: a.max_cadence_rpm !== null ? `max ${a.max_cadence_rpm}` : undefined,
+        },
       ]),
     });
   }
@@ -321,7 +373,29 @@ function splits(d: ActivityDetail | null): SplitRow[] {
     });
 }
 
-function intervals(d: ActivityDetail | null): IntervalRow[] {
+function rideSplits(d: ActivityDetail | null): RideSplitRow[] {
+  return (d?.ride_splits ?? [])
+    .filter((s) => s.duration_s > 0)
+    .map((s, i, all) => {
+      const time = s.by === "time";
+      const size = 5; // miles or minutes
+      const start = i * size;
+      // The last split may be partial: label it by where it really ended.
+      const end = i === all.length - 1 ? (time ? start + Math.round(s.duration_s / 60) : round1(start + s.distance_m / METERS_PER_MILE)) : start + size;
+      return {
+        split: s.split,
+        label: `${start}–${end} ${time ? "min" : "mi"}`,
+        mph: s.distance_m > 0 ? mph(s.distance_m / s.duration_s) : null,
+        duration: fmtDuration(s.duration_s),
+        hr: s.avg_hr,
+        power: s.avg_power_w,
+        cadence: s.avg_cadence_rpm,
+        elevGainFt: ft(s.elevation_gain_m),
+      };
+    });
+}
+
+function intervals(d: ActivityDetail | null, run: boolean): IntervalRow[] {
   const rows = d?.interval_splits ?? [];
   // Garmin repeats the whole activity as one INTERVAL_ACTIVE split when there was no structured
   // workout; it adds nothing to the table.
@@ -336,8 +410,14 @@ function intervals(d: ActivityDetail | null): IntervalRow[] {
       count: r.count,
       miles: r.distance_m !== null ? r.distance_m / METERS_PER_MILE : null,
       duration: r.duration_s !== null ? fmtDuration(r.duration_s) : null,
-      pace: r.avg_speed_mps && r.avg_speed_mps > 0.5 ? fmtPace(paceSecPerMile(r.avg_speed_mps)) : null,
+      speed:
+        r.avg_speed_mps && r.avg_speed_mps > 0.5
+          ? run
+            ? `${fmtPace(paceSecPerMile(r.avg_speed_mps))}/mi`
+            : `${mph(r.avg_speed_mps)} mph`
+          : null,
       hr: r.avg_hr,
+      power: r.avg_power_w,
     }));
 }
 
@@ -354,10 +434,18 @@ function zones(a: Activity, bounds: [number, number][] | null): ZoneRow[] | null
   }));
 }
 
-function similar(a: Activity, all: Activity[]): ActivityContext["similar"] {
-  if (!isRun(a) || !a.avg_speed_mps || !a.distance_m) return null;
-  const kind = a.training_effect_label === null ? null : isEasyRun(a) ? "easy" : "workout";
-  const pool = runsIn(runsOf(all), { from: addDays(a.local_date, -SIMILAR_LOOKBACK_DAYS), to: a.local_date }).filter(
+const kindOf = (a: Activity) => (a.training_effect_label === null ? null : isEasyRun(a) ? ("easy" as const) : ("workout" as const));
+
+/** The pool to compare against: same kind (easy or workout) when there are enough, else all of them; null when too few. */
+function comparable(pool: Activity[], kind: "easy" | "workout" | null): { items: Activity[]; kind: "easy" | "workout" | null } | null {
+  const sameKind = kind ? pool.filter((r) => kindOf(r) === kind) : [];
+  if (sameKind.length >= MIN_SIMILAR_RUNS) return { items: sameKind, kind };
+  return pool.length >= MIN_SIMILAR_RUNS ? { items: pool, kind: null } : null;
+}
+
+function similarRun(a: Activity, all: Activity[]): ActivityContext["similar"] {
+  if (!a.avg_speed_mps || !a.distance_m) return null;
+  const pool = runsIn(all.filter(isRun), { from: addDays(a.local_date, -SIMILAR_LOOKBACK_DAYS), to: a.local_date }).filter(
     (r) =>
       r.id !== a.id &&
       r.started_at < a.started_at &&
@@ -365,36 +453,89 @@ function similar(a: Activity, all: Activity[]): ActivityContext["similar"] {
       r.distance_m &&
       Math.abs(r.distance_m - a.distance_m!) <= a.distance_m! * SIMILAR_DISTANCE_SHARE,
   );
-  const sameKind = kind ? pool.filter((r) => (r.training_effect_label === null ? null : isEasyRun(r) ? "easy" : "workout") === kind) : [];
-  const runs = sameKind.length >= MIN_SIMILAR_RUNS ? sameKind : pool;
-  if (runs.length < MIN_SIMILAR_RUNS) return null;
+  const picked = comparable(pool, kindOf(a));
+  if (!picked) return null;
+  const runs = picked.items;
 
   const pace = (r: Activity) => paceSecPerMile(r.avg_speed_mps!);
   const myPace = pace(a);
   const medPace = median(runs.map(pace))!;
-  const hrs = runs.flatMap((r) => (r.avg_hr ? [r.avg_hr] : []));
-  const medHr = median(hrs);
+  const medHr = median(runs.flatMap((r) => (r.avg_hr ? [r.avg_hr] : [])));
   const eff = (r: Activity) => (r.avg_hr ? r.avg_speed_mps! / r.avg_hr : null);
-  const effs = runs.flatMap((r) => (eff(r) !== null ? [eff(r)!] : []));
-  const medEff = median(effs);
+  const medEff = median(runs.flatMap((r) => (eff(r) !== null ? [eff(r)!] : [])));
   const myEff = eff(a);
   return {
+    sport: "run",
     count: runs.length,
     paceRank: runs.filter((r) => pace(r) < myPace).length + 1,
     paceDelta_s: Math.round(myPace - medPace),
+    speedDelta_mph: null,
+    powerDelta_w: null,
     hrDelta: a.avg_hr && medHr !== null ? Math.round(a.avg_hr - medHr) : null,
     efficiencyPct: myEff !== null && medEff ? round1(((myEff - medEff) / medEff) * 100) : null,
-    kind: runs === sameKind ? kind : null,
+    kind: picked.kind,
   };
+}
+
+/**
+ * A ride against rides of about the same moving time, indoors against indoors: an indoor
+ * ride's speed is the trainer's guess, so it's ranked by power, and an outdoor one by power
+ * when both have it, else speed. Efficiency is watts per heartbeat, which terrain and wind
+ * don't skew the way speed per heartbeat would.
+ */
+function similarRide(a: Activity, all: Activity[]): ActivityContext["similar"] {
+  const indoor = INDOOR_RIDES.has(a.activity_type);
+  const moving = (r: Activity) => r.moving_duration_s ?? r.duration_s;
+  const pool = runsIn(all.filter(isRide), { from: addDays(a.local_date, -SIMILAR_LOOKBACK_DAYS), to: a.local_date }).filter(
+    (r) =>
+      r.id !== a.id &&
+      r.started_at < a.started_at &&
+      INDOOR_RIDES.has(r.activity_type) === indoor &&
+      Math.abs(moving(r) - moving(a)) <= moving(a) * SIMILAR_DISTANCE_SHARE,
+  );
+  const usePower = a.avg_power_w !== null;
+  const measured = pool.filter((r) => (usePower ? r.avg_power_w !== null : !indoor && r.avg_speed_mps));
+  if (!usePower && (indoor || !a.avg_speed_mps)) return null;
+  const picked = comparable(measured, kindOf(a));
+  if (!picked) return null;
+  const rides = picked.items;
+
+  const score = (r: Activity) => (usePower ? r.avg_power_w! : r.avg_speed_mps!);
+  const medPower = usePower ? median(rides.map((r) => r.avg_power_w!)) : null;
+  const speeds = rides.flatMap((r) => (r.avg_speed_mps ? [r.avg_speed_mps] : []));
+  const medSpeed = !indoor && a.avg_speed_mps ? median(speeds) : null;
+  const medHr = median(rides.flatMap((r) => (r.avg_hr ? [r.avg_hr] : [])));
+  const eff = (r: Activity) => (r.avg_hr && r.avg_power_w !== null ? r.avg_power_w / r.avg_hr : null);
+  const medEff = median(rides.flatMap((r) => (eff(r) !== null ? [eff(r)!] : [])));
+  const myEff = eff(a);
+  return {
+    sport: "ride",
+    count: rides.length,
+    paceRank: rides.filter((r) => score(r) > score(a)).length + 1,
+    paceDelta_s: 0,
+    speedDelta_mph: medSpeed !== null ? round1(mph(a.avg_speed_mps!) - mph(medSpeed)) : null,
+    powerDelta_w: medPower !== null ? Math.round(a.avg_power_w! - medPower) : null,
+    hrDelta: a.avg_hr && medHr !== null ? Math.round(a.avg_hr - medHr) : null,
+    efficiencyPct: myEff !== null && medEff ? round1(((myEff - medEff) / medEff) * 100) : null,
+    kind: picked.kind,
+  };
+}
+
+function similar(a: Activity, all: Activity[]): ActivityContext["similar"] {
+  if (isRun(a)) return similarRun(a, all);
+  if (isRide(a)) return similarRide(a, all);
+  return null;
 }
 
 function context(input: ActivityViewInput): ActivityContext {
   const { activity: a, activities, recovery: r, sleep: s, trainingBefore: t } = input;
   const day = a.local_date;
   const prior = activities.filter((x) => x.id !== a.id && x.local_date < day && x.local_date >= addDays(day, -28) && x.training_load !== null);
-  const runs = runsOf(activities);
-  const week = runsIn(runs, { from: addDays(day, -6), to: day });
-  const priorWeek = runsIn(runs, { from: addDays(day, -13), to: addDays(day, -7) });
+  // The week in this activity's own sport: rides for a ride, runs for a run or anything else.
+  const weekSport = sportOf(a.activity_type) === "ride" ? "ride" : "run";
+  const same = activities.filter((x) => sportOf(x.activity_type) === weekSport);
+  const week = runsIn(same, { from: addDays(day, -6), to: day });
+  const priorWeek = runsIn(same, { from: addDays(day, -13), to: addDays(day, -7) });
 
   const readiness = r?.readiness_morning_score ?? r?.readiness_score ?? null;
   const morning =
@@ -422,8 +563,10 @@ function context(input: ActivityViewInput): ActivityContext {
           }
         : null,
     week: {
+      sport: weekSport,
       miles: round1(week.reduce((sum, x) => sum + runMiles(x), 0)),
-      runs: week.length,
+      count: week.length,
+      hours: round1(week.reduce((sum, x) => sum + (x.moving_duration_s ?? x.duration_s), 0) / 3600),
       milesPrior: round1(priorWeek.reduce((sum, x) => sum + runMiles(x), 0)),
     },
     morning,
@@ -438,23 +581,28 @@ function context(input: ActivityViewInput): ActivityContext {
 export function buildActivityView(input: ActivityViewInput): ActivityView {
   const { activity: a, detail: d } = input;
   const run = isRun(a);
+  const ride = isRide(a);
+  const bounds = ride ? input.profile.hr_zone_bounds_cycling ?? input.profile.hr_zone_bounds : input.profile.hr_zone_bounds;
   return {
     id: a.id,
     name: a.name ?? typeLabel(a.activity_type),
     typeLabel: typeLabel(a.activity_type),
     isRun: run,
+    isRide: ride,
+    indoor: INDOOR_RIDES.has(a.activity_type),
     onFoot: onFoot(a.activity_type),
     date: a.local_date,
     startClock: clockTimeIn(a.started_at, input.profile.timezone),
     location: d?.location_name ?? null,
-    kind: run && a.training_effect_label !== null ? (isEasyRun(a) ? "easy" : "workout") : null,
+    kind: run || ride ? kindOf(a) : null,
     benefit: a.training_effect_label ? titleCase(a.training_effect_label) : null,
     headline: headline(a, run),
     groups: groups(a, d, run),
     series: d?.series ?? null,
     splits: splits(d),
-    intervals: intervals(d),
-    zones: zones(a, input.profile.hr_zone_bounds),
+    rideSplits: rideSplits(d),
+    intervals: intervals(d, run),
+    zones: zones(a, bounds),
     context: context(input),
     detailState: !d ? "missing" : d.series ? "ok" : "none",
     summary: input.summary ?? null,

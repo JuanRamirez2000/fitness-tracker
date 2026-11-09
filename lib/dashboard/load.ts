@@ -18,6 +18,7 @@ import { addDays, type DayWindow, type LocalDate } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
+import { DEFAULT_SPORT, type SportFilter } from "@/lib/sport";
 import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
@@ -36,6 +37,7 @@ export interface LoadDashboardDataOptions {
   rangeKey: RangeKey;
   custom?: DayWindow;
   tab: TabKey;
+  sport?: SportFilter;
 }
 
 /** Which of the optional loads each tab renders. weightTrend and injections are always
@@ -70,7 +72,7 @@ export function resolveShell(
 ): DashboardShell {
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
   const dateRange = resolveRange(options.rangeKey, today, programStart, options.custom);
-  return { tab: options.tab, profile, today, programStart, firstWeighIn, dateRange };
+  return { tab: options.tab, sport: options.sport ?? DEFAULT_SPORT, profile, today, programStart, firstWeighIn, dateRange };
 }
 
 /** Loads what the active tab renders, every query in one parallel batch (the range is already

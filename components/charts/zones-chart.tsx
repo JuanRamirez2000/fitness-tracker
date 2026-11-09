@@ -2,12 +2,13 @@ import { scaleBand, scaleLinear } from "@visx/scale";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { EASY_SHARE_AIM, buildZoneChart } from "@/lib/charts/training";
 import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { countOf, SPORT_NOUN } from "@/lib/sport";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
-const HELP = "Minutes running in each heart-rate zone, per day or week, with the miles run above each bar. Zones 1-2 are easy; most coaches suggest about 80% of running there to build endurance without wearing you down. Zone bounds come from your Garmin settings.";
+const HELP = "Minutes in each heart-rate zone, per day or week, for the sport picked above, with the miles covered above each bar. Zones 1-2 are easy; most coaches suggest about 80% of training there to build endurance without wearing you down. Garmin keeps separate zones for cycling, and each ride counts against those.";
 
 const WIDTH = 520;
 const HEIGHT = 140;
@@ -26,10 +27,11 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 export function ZonesChart({ data }: { data: DashboardData }) {
   const chart = buildZoneChart(data);
   const title = "Time in HR zones";
+  const what = { ride: "Rides", run: "Runs", all: "Rides and runs" }[data.sport];
   if (!chart) {
     return (
-      <ChartCard help={HELP} title={title} subtitle="Runs, by heart rate zone">
-        <ChartEmpty>no runs in range</ChartEmpty>
+      <ChartCard help={HELP} title={title} subtitle={`${what}, by heart rate zone`}>
+        <ChartEmpty>no {SPORT_NOUN[data.sport].many} in range</ChartEmpty>
       </ChartCard>
     );
   }
@@ -63,7 +65,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
   return (
     <ChartCard help={HELP}
       title={title}
-      subtitle={`Runs, minutes ${unit}, Z1 at the bottom, miles over each bar${chart.bounds ? " · bpm from your Garmin zones" : ""}`}
+      subtitle={`${what}, minutes ${unit}, Z1 at the bottom, miles over each bar${chart.bounds ? " · bpm from your Garmin zones" : ""}`}
       legend={legend}
     >
       <StatRow>
@@ -73,7 +75,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
           note={`${chart.easyShareLast7 !== null ? `last 7 days ${pct(chart.easyShareLast7)} · ` : ""}aim ${pct(EASY_SHARE_AIM)}`}
         />
         <Stat label="Time" value={Math.round(chart.totalMinutes)} unit="min" />
-        <Stat label="Distance" value={chart.totalMiles.toFixed(1)} unit="mi" note={`${chart.runCount} run${chart.runCount === 1 ? "" : "s"}`} />
+        <Stat label="Distance" value={chart.totalMiles.toFixed(1)} unit="mi" note={countOf(chart.count, data.sport)} />
       </StatRow>
       <ChartHover points={points} label={chart.weekly ? "weeks" : "days"} band={x.bandwidth() / WIDTH}>
         <Plot

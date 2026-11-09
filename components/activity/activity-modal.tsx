@@ -9,7 +9,7 @@ import { fmtDate, weekdayName } from "@/lib/dates/format";
 import { clockTimeIn, localDateIn } from "@/lib/dates/timezone";
 import { ACTIVITY_PARAM, closeActivity, forgetPushed } from "./open";
 import { RouteMap } from "./route-map";
-import { ContextFacts, IntervalsTable, Section, SplitsTable, StatGroups, ZonesBreakdown } from "./sections";
+import { ContextFacts, IntervalsTable, RideSplitsTable, Section, SplitsTable, StatGroups, ZonesBreakdown } from "./sections";
 import { SeriesChart } from "./series-chart";
 
 /**
@@ -91,6 +91,16 @@ export function ActivityModal({ timezone }: { timezone: string }) {
   );
 }
 
+/** What the stacked chart shows: pace for a run, speed otherwise, and power when there is any. */
+function seriesTitle(view: ActivityView): string {
+  const s = view.series!;
+  const parts = [view.isRun ? "Pace" : view.indoor ? null : "Speed", s.power ? "power" : null, "heart rate", s.cadence && view.isRide ? "cadence" : null, s.elev && !view.indoor ? "elevation" : null].filter(
+    (p): p is string => p !== null,
+  );
+  const text = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function Header({ view, onClose }: { view?: ActivityView; onClose: () => void }) {
   return (
     <header className="flex items-start justify-between gap-4 border-b border-divider px-5 pb-4 pt-5 md:px-7">
@@ -166,8 +176,8 @@ function ActivityBody({
 
         {view.series && (
           <div className={`grid gap-4 ${hasRoute ? "lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]" : ""}`}>
-            <Section title={view.isRun ? "Pace, heart rate and elevation" : "Speed, heart rate and elevation"}>
-              <SeriesChart series={view.series} isRun={view.isRun} hover={hover} onHover={onHover} />
+            <Section title={seriesTitle(view)}>
+              <SeriesChart series={view.series} isRun={view.isRun} timeAxis={view.indoor} hover={hover} onHover={onHover} />
             </Section>
             {hasRoute && (
               <Section title="Route" aside={view.zones ? "colored by HR zone" : undefined}>
@@ -191,11 +201,16 @@ function ActivityBody({
           </div>
         )}
 
-        {(view.splits.length > 0 || view.zones || view.intervals.length > 0) && (
+        {(view.splits.length > 0 || view.rideSplits.length > 0 || view.zones || view.intervals.length > 0) && (
           <div className="grid items-start gap-4 md:grid-cols-2">
             {view.splits.length > 0 && (
               <Section title="Mile splits" aside={view.splits.some((s) => s.gapPace_s !== null) ? "GAP = grade-adjusted pace" : undefined}>
                 <SplitsTable splits={view.splits} />
+              </Section>
+            )}
+            {view.rideSplits.length > 0 && (
+              <Section title="Splits" aside={view.indoor ? "every 5 minutes (indoors)" : "every 5 miles"}>
+                <RideSplitsTable splits={view.rideSplits} />
               </Section>
             )}
             <div className="flex flex-col gap-4">
@@ -205,8 +220,8 @@ function ActivityBody({
                 </Section>
               )}
               {view.intervals.length > 0 && (
-                <Section title="Run/walk and intervals" aside="Garmin’s split totals">
-                  <IntervalsTable intervals={view.intervals} />
+                <Section title={view.isRun ? "Run/walk and intervals" : "Intervals"} aside="Garmin’s split totals">
+                  <IntervalsTable intervals={view.intervals} isRun={view.isRun} />
                 </Section>
               )}
             </div>
@@ -214,7 +229,7 @@ function ActivityBody({
         )}
 
         <Section title="Compared with your training">
-          <ContextFacts context={view.context} isRun={view.isRun} />
+          <ContextFacts context={view.context} isRun={view.isRun} isRide={view.isRide} />
         </Section>
 
         <Section title="All the numbers">
@@ -268,7 +283,7 @@ function ActivitySummary({
       {view.summary ? (
         <p className="font-serif text-[clamp(16px,2vw,19px)] leading-[1.5] text-pretty">{view.summary.text}</p>
       ) : (
-        <p className="text-[13px] text-muted-2">{failed ?? "Writing a summary from this run and the rest of your training…"}</p>
+        <p className="text-[13px] text-muted-2">{failed ?? `Writing a summary from this ${view.isRide ? "ride" : view.isRun ? "run" : "activity"} and the rest of your training…`}</p>
       )}
     </div>
   );

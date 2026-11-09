@@ -5,7 +5,8 @@ import { Segmented } from "@/components/ui/segmented";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { heatmapStats } from "@/lib/heatmap/caption";
 import { READINESS_MODE, SLEEP_SCORE_MODE } from "@/lib/heatmap/modes/recovery";
-import { RUNNING_MODE } from "@/lib/heatmap/modes/running";
+import { TRAINING_MODE } from "@/lib/heatmap/modes/training";
+import { countOf, SPORT_NOUN } from "@/lib/sport";
 import { STEPS_MODE } from "@/lib/heatmap/modes/steps";
 import { WEIGHT_MODE } from "@/lib/heatmap/modes/weight";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
@@ -15,7 +16,7 @@ import { HeatmapCard } from "./heatmap-card";
 const WEIGHT_HELP =
   "Every day of the program as a square, colored by how your weight moved: the 7-day average by default, or each raw weigh-in. Stars mark shots. Hover a day for its numbers.";
 const ACTIVITY_HELP =
-  "Every day of the program as a square: steps (brighter is closer to 10,000) or miles run. Hover a day for its numbers; the bar underneath shows how far into the year you are.";
+  "Every day of the program as a square: steps (brighter is closer to 10,000), or your training under the sport picked above (miles ridden or run, or minutes for both). Hover a day for its numbers; the bar underneath shows how far into the year you are.";
 const RECOVERY_HELP =
   "Every morning of the year as a square, brighter for a higher training readiness, or switch to each night's sleep score. Runs of dark squares show stretches of poor recovery. Hover a day for its readiness, sleep and HRV.";
 
@@ -24,10 +25,6 @@ const WEIGHT_SUB_MODES = [
   { value: "raw" as WeightMode, label: "Raw" },
 ];
 
-const ACTIVITY_MODES = [
-  { value: "steps" as const, label: "Steps" },
-  { value: "running" as const, label: "Running" },
-];
 
 /** The daily weight change heatmap (Weight tab), with its 7-day avg / raw coloring toggle. */
 export function WeightHeatmap({ data }: { data: DashboardData }) {
@@ -50,13 +47,26 @@ export function WeightHeatmap({ data }: { data: DashboardData }) {
   );
 }
 
-/** The activity heatmap (Training tab): steps or running, toggled locally. */
+/** The activity heatmap (Training tab): steps or the sport filter's training, toggled locally. */
 export function ActivityHeatmap({ data }: { data: DashboardData }) {
-  const [activityMode, setActivityMode] = useState<"steps" | "running">("steps");
+  const [activityMode, setActivityMode] = useState<"steps" | "training">("training");
   const stats = heatmapStats(data);
+  const trainingLabel = { ride: "Rides", run: "Runs", all: "Training" }[data.sport];
   const activityToggle = (
-    <Segmented aria-label="Activity heatmap" options={ACTIVITY_MODES} value={activityMode} onChange={setActivityMode} />
+    <Segmented
+      aria-label="Activity heatmap"
+      options={[
+        { value: "training" as const, label: trainingLabel },
+        { value: "steps" as const, label: "Steps" },
+      ]}
+      value={activityMode}
+      onChange={setActivityMode}
+    />
   );
+  const caption =
+    data.sport === "all"
+      ? `${countOf(stats.workouts, "all")} · ${stats.hours.toFixed(1)} h since day 1`
+      : `${countOf(stats.workouts, data.sport)} · ${stats.miles.toFixed(1)} mi since day 1`;
   return activityMode === "steps" ? (
     <HeatmapCard
       data={data}
@@ -70,11 +80,11 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
   ) : (
     <HeatmapCard
       data={data}
-      mode={RUNNING_MODE}
+      mode={TRAINING_MODE}
       title="Activity"
       help={ACTIVITY_HELP}
-      caption={`${stats.runs} run${stats.runs === 1 ? "" : "s"} · ${stats.runMiles.toFixed(1)} mi since day 1`}
-      legendTitle="Miles"
+      caption={stats.workouts ? caption : `No ${SPORT_NOUN[data.sport].many} since day 1`}
+      legendTitle={data.sport === "all" ? "Minutes" : "Miles"}
       controls={activityToggle}
     />
   );

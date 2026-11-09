@@ -60,7 +60,7 @@ describe("trainingFacts", () => {
   it("covers the last week, load, focus, VO2 and race trend", () => {
     const facts = trainingFacts({
       today: TODAY,
-      profile: { hr_zone_bounds: null },
+      profile: { hr_zone_bounds: null, hr_zone_bounds_cycling: null },
       activities: [
         testRun({ local_date: "2026-10-25" }), // the week before: 3 mi
         testRun({ local_date: "2026-11-01", hr_zone_s: [600, 1200, 0, 0, 0] }),
@@ -113,7 +113,7 @@ describe("trainingFacts", () => {
   it("leaves out the easy share when some of the week's runs have no zone data", () => {
     const facts = trainingFacts({
       today: TODAY,
-      profile: { hr_zone_bounds: null },
+      profile: { hr_zone_bounds: null, hr_zone_bounds_cycling: null },
       activities: [testRun({ local_date: "2026-11-01", hr_zone_s: null }), testRun({ local_date: "2026-11-03", hr_zone_s: [9, 158, 1017, 544, 0] })],
       training: [],
     });
@@ -121,7 +121,7 @@ describe("trainingFacts", () => {
   });
 
   it("is empty without recent running or load", () => {
-    const facts = trainingFacts({ today: TODAY, profile: { hr_zone_bounds: null }, activities: [], training: [] });
+    const facts = trainingFacts({ today: TODAY, profile: { hr_zone_bounds: null, hr_zone_bounds_cycling: null }, activities: [], training: [] });
     expect(facts).toEqual({ date: TODAY });
     expect(hasEnoughForTrainingSummary(facts)).toBe(false);
   });

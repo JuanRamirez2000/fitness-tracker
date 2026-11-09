@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import chunks, race_rows, readiness_row, training_row, vo2_rows, window
+from import_unofficial import chunks, ftp_rows, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -68,6 +68,30 @@ class RaceAndVo2Test(unittest.TestCase):
         rows = vo2_rows(json.loads((FIXTURES / "max-metrics.json").read_text()))
         self.assertEqual([r["local_date"] for r in rows], ["2026-10-29", "2026-11-01", "2026-11-03"])
         self.assertEqual(rows[-1]["vo2max"], 42.2)
+
+    def test_vo2_rows_add_cycling_on_its_own_days(self):
+        payload = [
+            {"generic": {"calendarDate": "2026-11-03", "vo2MaxPreciseValue": 42.2}, "cycling": {"calendarDate": "2026-11-03", "vo2MaxPreciseValue": 45.1}},
+            {"generic": None, "cycling": {"calendarDate": "2026-11-05", "vo2MaxPreciseValue": 45.6}},
+        ]
+        self.assertEqual(
+            vo2_rows(payload),
+            [{"local_date": "2026-11-03", "vo2max": 42.2, "vo2max_cycling": 45.1}, {"local_date": "2026-11-05", "vo2max_cycling": 45.6}],
+        )
+
+    def test_training_row_reads_cycling_vo2_dated_that_day(self):
+        payload = {"mostRecentVO2Max": {"generic": None, "cycling": {"calendarDate": "2026-11-05", "vo2MaxPreciseValue": 45.6}}}
+        self.assertEqual(training_row(payload, "2026-11-05"), {"local_date": "2026-11-05", "vo2max_cycling": 45.6})
+        self.assertIsNone(training_row(payload, "2026-11-04"))
+
+    def test_ftp_rows_accept_the_latest_record_and_the_range_series(self):
+        latest = {"calendarDate": "2026-11-01", "functionalThresholdPower": 182.4, "sport": "CYCLING"}
+        self.assertEqual(ftp_rows(latest, "2026-11-08"), [{"local_date": "2026-11-01", "ftp_w": 182}])
+        series = [{"from": "2026-10-01", "until": "2026-10-31", "value": 175.0}, {"from": "2026-11-01", "value": 182}]
+        self.assertEqual(ftp_rows(series, "2026-11-08"), [{"local_date": "2026-10-01", "ftp_w": 175}, {"local_date": "2026-11-01", "ftp_w": 182}])
+        self.assertEqual(ftp_rows({"functionalThresholdPower": 190}, "2026-11-08"), [{"local_date": "2026-11-08", "ftp_w": 190}])
+        self.assertEqual(ftp_rows({"functionalThresholdPower": None}, "2026-11-08"), [])
+        self.assertEqual(ftp_rows(None, "2026-11-08"), [])
 
     def test_chunks_cover_the_window_without_gaps(self):
         parts = list(chunks(date(2026, 1, 1), date(2026, 4, 15), 90))

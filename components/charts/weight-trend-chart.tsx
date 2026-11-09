@@ -12,7 +12,7 @@ import { ChartHover, type HoverPoint } from "./chart-hover";
 import { Swatch } from "./parts";
 
 /** The card's "?" explanation. */
-const HELP = "Dots are each weigh-in; the line is the 7-day average, which smooths out day-to-day water swings and is the number to watch. The dashed line is where your planned pace would put you; stars mark shots and ticks mark run days.";
+const HELP = "Dots are each weigh-in; the line is the 7-day average, which smooths out day-to-day water swings and is the number to watch. The dashed line is where your planned pace would put you; stars mark shots and ticks mark days you rode or ran.";
 
 const WIDTH = 900;
 const HEIGHT = 200;
@@ -47,7 +47,7 @@ export function WeightTrendChart({ data }: { data: DashboardData }) {
     { label: "7-day avg", swatch: Swatch.line("bg-accent") },
     ...(chart.paceLine ? [{ label: "plan pace", swatch: Swatch.dashed("border-muted-2") }] : []),
     ...(goalInDomain(chart) ? [{ label: `goal ${chart.goal}`, swatch: Swatch.dashed("border-good") }] : []),
-    ...(chart.runDays.length > 0 ? [{ label: "run day", swatch: glyph("▎", "text-good") }] : []),
+    ...(chart.workoutDays.length > 0 ? [{ label: "ride or run", swatch: glyph("▎", "text-good") }] : []),
     { label: "Zepbound shot", swatch: glyph("★", "text-accent") },
     ...(chart.programStartMs !== null ? [{ label: "program start", swatch: Swatch.dashed("border-border-strong") }] : []),
   ];
@@ -84,9 +84,9 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
   const clipId = `plot-${useId().replace(/:/g, "")}`;
 
   // Hover: each weigh-in day's reading, its 7-day average, where the plan put you that day, and
-  // whether it was a shot or run day.
+  // whether it was a shot day or a ride or run day.
   const starBy = new Map(chart.stars.map((s) => [s.dateMs, s.state]));
-  const runDays = new Set(chart.runDays);
+  const workoutDays = new Map(chart.workoutDays.map((d) => [d.dateMs, d.label]));
   const pace = chart.paceLine;
   const planAt = (ms: number) =>
     pace && ms >= pace.start.dateMs && ms <= pace.end.dateMs
@@ -106,7 +106,7 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
           : []),
         ...(chart.goal !== null ? [{ label: "Goal", value: `${chart.goal} lb`, swatch: { shape: "dashed" as const, className: "border-good" }, muted: true }] : []),
         ...(star ? [{ label: "Shot", value: star === "taken" ? "taken" : star }] : []),
-        ...(runDays.has(p.dateMs) ? [{ label: "Run", value: "yes" }] : []),
+        ...(workoutDays.has(p.dateMs) ? [{ label: "Trained", value: workoutDays.get(p.dateMs)! }] : []),
       ],
       marks: [
         { y: (MARGIN.top + y(p.weight)) / HEIGHT, className: "bg-muted-2" },
@@ -195,7 +195,7 @@ function WeightTrendPlot({ chart }: { chart: WeightTrendChartData }) {
           vectorEffect="non-scaling-stroke"
         />
 
-        {chart.runDays.map((ms) => (
+        {chart.workoutDays.map(({ dateMs: ms }) => (
           <line
             key={ms}
             x1={x(ms)}

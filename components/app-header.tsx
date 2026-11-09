@@ -33,7 +33,7 @@ export function AppHeader({
         </span>
 
         <div className="order-last w-full min-w-0 lg:order-none lg:ml-auto lg:w-auto">
-          <RangeControl current={data.dateRange} tab={data.tab} today={data.today} />
+          <RangeControl current={data.dateRange} tab={data.tab} sport={data.sport} today={data.today} />
         </div>
 
         <div className="ml-auto flex items-center gap-2.5 lg:ml-3">

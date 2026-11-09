@@ -11,6 +11,7 @@ import type { DailyWeight, WeightTrendRow } from "@/lib/data/weight-trend";
 import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import type { Palette } from "@/lib/theme/palette";
+import type { SportFilter } from "@/lib/sport";
 
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
@@ -38,6 +39,8 @@ export interface DateRange extends DayWindow {
  */
 export interface DashboardData {
   tab: TabKey;
+  /** The Training tab's sport filter (`?sport=`, lib/sport.ts); the other tabs ignore it. */
+  sport: SportFilter;
   profile: Profile;
   today: LocalDate;
   programStart: LocalDate;
@@ -81,7 +84,7 @@ export interface DashboardData {
 
 /** What's known after the page's first query, before the tab's rows: enough for the header
  * (lib/dashboard/load.ts, resolveShell). */
-export type DashboardShell = Pick<DashboardData, "tab" | "profile" | "today" | "programStart" | "firstWeighIn" | "dateRange">;
+export type DashboardShell = Pick<DashboardData, "tab" | "sport" | "profile" | "today" | "programStart" | "firstWeighIn" | "dateRange">;
 
 export type HeatmapCellState = "data" | "none" | "future" | "pre_program" | "warming_up";
 
@@ -107,9 +110,11 @@ export interface ModeContext {
   palette: Palette;
   /** Which series colors the cells (default "avg7"). */
   weightSubMode: WeightMode;
+  /** The Training tab's sport filter, for the training mode's scale and legend. */
+  sport: SportFilter;
 }
 
-export const HEATMAP_MODE_IDS = ["weight", "steps", "running", "readiness", "sleep-score"] as const;
+export const HEATMAP_MODE_IDS = ["weight", "steps", "training", "readiness", "sleep-score"] as const;
 export type HeatmapModeId = (typeof HEATMAP_MODE_IDS)[number];
 
 export interface HeatmapMode {

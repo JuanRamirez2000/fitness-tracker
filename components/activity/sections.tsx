@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ActivityContext, IntervalRow, SplitRow, StatGroup, ZoneRow } from "@/lib/activity/view";
+import type { ActivityContext, IntervalRow, RideSplitRow, SplitRow, StatGroup, ZoneRow } from "@/lib/activity/view";
 import { fmtPace } from "@/lib/running/runs";
 
 const ZONE_BG = ["bg-z1", "bg-z2", "bg-z3", "bg-z4", "bg-z5"];
@@ -73,6 +73,52 @@ export function SplitsTable({ splits }: { splits: SplitRow[] }) {
   );
 }
 
+/** A ride's 5-mile (or, indoors, 5-minute) splits, with a bar per split scaled to its power, or speed without a power meter. */
+export function RideSplitsTable({ splits }: { splits: RideSplitRow[] }) {
+  const hasPower = splits.some((s) => s.power !== null);
+  const hasSpeed = splits.some((s) => s.mph !== null);
+  const hasClimb = splits.some((s) => s.elevGainFt > 0);
+  const hasCadence = splits.some((s) => s.cadence !== null);
+  const measure = (s: RideSplitRow) => (hasPower ? s.power : s.mph) ?? 0;
+  const top = Math.max(...splits.map(measure));
+  const low = Math.min(...splits.map(measure));
+  return (
+    <table className="w-full border-collapse text-left">
+      <thead>
+        <tr className="border-b border-divider">
+          <th className={th}>Split</th>
+          <th className={`${th} text-right`}>Time</th>
+          {hasSpeed && <th className={`${th} text-right`}>Mph</th>}
+          {hasPower && <th className={`${th} text-right`}>Watts</th>}
+          <th className={`${th} hidden sm:table-cell`} aria-label={hasPower ? "Power bar" : "Speed bar"} />
+          <th className={`${th} text-right`}>HR</th>
+          {hasCadence && <th className={`${th} text-right`}>Rpm</th>}
+          {hasClimb && <th className={`${th} text-right`}>Climb ft</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {splits.map((s) => {
+          const share = top === low ? 1 : 0.25 + (0.75 * (measure(s) - low)) / (top - low);
+          return (
+            <tr key={s.split} className="border-b border-divider/50 last:border-0">
+              <td className={`${td} whitespace-nowrap text-muted-1`}>{s.label}</td>
+              <td className={`${td} text-right text-muted-2`}>{s.duration}</td>
+              {hasSpeed && <td className={`${td} text-right text-ink`}>{s.mph !== null ? s.mph.toFixed(1) : "—"}</td>}
+              {hasPower && <td className={`${td} text-right text-ink`}>{s.power ?? "—"}</td>}
+              <td className={`${td} hidden w-[28%] sm:table-cell`}>
+                <span className="block h-1.5 rounded-full bg-muted-3/60" style={{ width: `${share * 100}%` }} />
+              </td>
+              <td className={`${td} text-right text-muted-2`}>{s.hr ?? "—"}</td>
+              {hasCadence && <td className={`${td} text-right text-muted-2`}>{s.cadence ?? "—"}</td>}
+              {hasClimb && <td className={`${td} text-right text-muted-2`}>+{s.elevGainFt}</td>}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 /** A stacked bar of time in each zone, then one row per zone with its bpm range. */
 export function ZonesBreakdown({ zones }: { zones: ZoneRow[] }) {
   return (
@@ -99,7 +145,8 @@ export function ZonesBreakdown({ zones }: { zones: ZoneRow[] }) {
   );
 }
 
-export function IntervalsTable({ intervals }: { intervals: IntervalRow[] }) {
+export function IntervalsTable({ intervals, isRun }: { intervals: IntervalRow[]; isRun: boolean }) {
+  const hasPower = intervals.some((r) => r.power !== null);
   return (
     <table className="w-full border-collapse text-left">
       <thead>
@@ -108,7 +155,8 @@ export function IntervalsTable({ intervals }: { intervals: IntervalRow[] }) {
           <th className={`${th} text-right`}>×</th>
           <th className={`${th} text-right`}>Mi</th>
           <th className={`${th} text-right`}>Time</th>
-          <th className={`${th} text-right`}>Pace</th>
+          <th className={`${th} text-right`}>{isRun ? "Pace" : "Speed"}</th>
+          {hasPower && <th className={`${th} text-right`}>Watts</th>}
           <th className={`${th} text-right`}>HR</th>
         </tr>
       </thead>
@@ -119,7 +167,8 @@ export function IntervalsTable({ intervals }: { intervals: IntervalRow[] }) {
             <td className={`${td} text-right text-muted-2`}>{r.count}</td>
             <td className={`${td} text-right text-muted-2`}>{r.miles !== null ? r.miles.toFixed(2) : "—"}</td>
             <td className={`${td} text-right text-muted-2`}>{r.duration ?? "—"}</td>
-            <td className={`${td} text-right text-ink`}>{r.pace ?? "—"}</td>
+            <td className={`${td} whitespace-nowrap text-right text-ink`}>{r.speed ?? "—"}</td>
+            {hasPower && <td className={`${td} text-right text-muted-2`}>{r.power ?? "—"}</td>}
             <td className={`${td} text-right text-muted-2`}>{r.hr ?? "—"}</td>
           </tr>
         ))}
@@ -139,9 +188,45 @@ function Fact({ label, value, note, tone }: { label: string; value: ReactNode; n
 }
 
 /** How this activity sits against the rest of the training, and the body going into it. */
-export function ContextFacts({ context: c, isRun }: { context: ActivityContext; isRun: boolean }) {
+export function ContextFacts({ context: c, isRun, isRide }: { context: ActivityContext; isRun: boolean; isRide: boolean }) {
   const facts: ReactNode[] = [];
-  if (c.similar) {
+  if (c.similar?.sport === "ride") {
+    const s = c.similar;
+    const kind = s.kind ? `${s.kind === "easy" ? "easy" : "hard"} rides` : "rides";
+    const pool = `${s.count + 1} ${kind} this long in the last 4 months`;
+    if (s.powerDelta_w !== null) {
+      facts.push(
+        <Fact
+          key="power"
+          label="Power vs similar rides"
+          value={s.powerDelta_w === 0 ? "Same as usual" : `${Math.abs(s.powerDelta_w)} W ${s.powerDelta_w > 0 ? "more" : "less"}`}
+          note={`${s.paceRank === 1 ? "Strongest" : `#${s.paceRank}`} of ${pool}`}
+          tone={s.powerDelta_w >= 5 ? "good" : undefined}
+        />,
+      );
+    }
+    if (s.speedDelta_mph !== null) {
+      facts.push(
+        <Fact
+          key="speed"
+          label="Speed vs similar rides"
+          value={s.speedDelta_mph === 0 ? "Same as usual" : `${Math.abs(s.speedDelta_mph).toFixed(1)} mph ${s.speedDelta_mph > 0 ? "faster" : "slower"}`}
+          note={s.powerDelta_w === null ? `${s.paceRank === 1 ? "Fastest" : `#${s.paceRank}`} of ${pool}` : "terrain and wind move this more than fitness"}
+        />,
+      );
+    }
+    if (s.efficiencyPct !== null) {
+      facts.push(
+        <Fact
+          key="eff"
+          label="Watts per heartbeat"
+          value={`${s.efficiencyPct > 0 ? "+" : s.efficiencyPct < 0 ? "−" : "±"}${Math.abs(s.efficiencyPct).toFixed(1)}%`}
+          note={s.hrDelta !== null ? `Average HR ${s.hrDelta === 0 ? "the same as" : `${Math.abs(s.hrDelta)} bpm ${s.hrDelta > 0 ? "higher" : "lower"} than`} usual` : undefined}
+          tone={s.efficiencyPct >= 2 ? "good" : s.efficiencyPct <= -4 ? "bad" : undefined}
+        />,
+      );
+    }
+  } else if (c.similar) {
     const s = c.similar;
     const kind = s.kind ? `${s.kind === "easy" ? "easy" : "workout"} runs` : "runs";
     facts.push(
@@ -184,13 +269,16 @@ export function ContextFacts({ context: c, isRun }: { context: ActivityContext; 
       />,
     );
   }
-  if (isRun) {
+  if (isRun || isRide) {
+    const noun = c.week.sport === "ride" ? "ride" : "run";
     facts.push(
       <Fact
         key="week"
         label="That week"
-        value={`${c.week.miles} mi`}
-        note={`${c.week.runs} run${c.week.runs === 1 ? "" : "s"} in the 7 days to this one · ${c.week.milesPrior} mi the week before`}
+        value={c.week.sport === "ride" ? `${c.week.hours} h` : `${c.week.miles} mi`}
+        note={`${c.week.count} ${noun}${c.week.count === 1 ? "" : "s"} in the 7 days to this one${
+          c.week.sport === "ride" ? ` · ${c.week.miles} mi` : ` · ${c.week.milesPrior} mi the week before`
+        }`}
       />,
     );
   }

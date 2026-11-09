@@ -6,7 +6,7 @@ import { DEFAULT_PALETTE } from "@/lib/theme/palette";
 import type { ModeContext } from "@/lib/dashboard/types";
 import { STEPS_MODE, stepsFill } from "./steps";
 
-const ctx: ModeContext = { range: { key: "week", from: "2026-09-17", to: "2026-09-20" }, palette: DEFAULT_PALETTE, weightSubMode: "avg7" };
+const ctx: ModeContext = { range: { key: "week", from: "2026-09-17", to: "2026-09-20" }, palette: DEFAULT_PALETTE, weightSubMode: "avg7", sport: "run" };
 
 function stepRow(local_date: string, steps: number): DailySteps {
   return { user_id: "u", local_date, steps, source: "garmin", updated_at: "" };

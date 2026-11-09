@@ -24,6 +24,9 @@ export const dailyTrainingRowSchema = z.object({
   race_half_s: z.number().int().nullable(),
   /** Migration 013; null on rows imported before it. */
   race_marathon_s: z.number().int().nullable().default(null),
+  /** Migration 014: cycling VO2 max and the cycling FTP set in Garmin (unofficial import). */
+  vo2max_cycling: z.number().nullable().default(null),
+  ftp_w: z.number().int().nullable().default(null),
   fitness_age: z.number().nullable(),
   fitness_age_achievable: z.number().nullable(),
   chronological_age: z.number().int().nullable(),

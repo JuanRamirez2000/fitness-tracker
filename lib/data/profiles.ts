@@ -15,6 +15,8 @@ export const profileSchema = z.object({
   /** [[low, high] x 5] bpm from Garmin's own zone settings (lib/garmin/), or null before the
    * first import. */
   hr_zone_bounds: z.array(z.tuple([z.number(), z.number()])).length(5).nullable().default(null),
+  /** The same from Garmin's CYCLING zones (migration 014), or null when none are set. */
+  hr_zone_bounds_cycling: z.array(z.tuple([z.number(), z.number()])).length(5).nullable().default(null),
 });
 
 export type Profile = z.infer<typeof profileSchema>;

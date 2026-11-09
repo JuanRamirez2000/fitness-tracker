@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { METERS_PER_MILE, buildActivityDetailRow, mileSplits, readSamples, thinSeries, type RawActivityDetails, type RawActivityRecord } from "./details";
+import { METERS_PER_MILE, buildActivityDetailRow, mileSplits, readSamples, rideSplits, thinSeries, type RawActivityDetails, type RawActivityRecord } from "./details";
 
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(join(__dirname, "fixtures", name), "utf8")) as T;
 
@@ -77,7 +77,48 @@ describe("buildActivityDetailRow", () => {
       mile_splits: null,
       interval_splits: null,
       efforts: null,
+      ride_splits: null,
     });
+  });
+});
+
+describe("ride detail", () => {
+  // The real 21-minute indoor ride: power, bike cadence, HR and the trainer's distance, no GPS.
+  const ride = buildActivityDetailRow(fixture("ride-activity-details.json"), fixture("ride-activity.json"), {
+    withMileSplits: false,
+    ride: { indoor: true },
+  });
+
+  it("keeps the ride's power and bike cadence in the series, and no running efforts or mile splits", () => {
+    expect(ride.series!.power!.some((p) => p !== null && p > 100)).toBe(true);
+    expect(ride.series!.cadence!.some((c) => c !== null && c > 60 && c < 110)).toBe(true);
+    expect(ride.mile_splits).toBeNull();
+    expect(ride.efforts).toBeNull();
+  });
+
+  it("cuts an indoor ride every 5 minutes", () => {
+    const splits = ride.ride_splits!;
+    expect(splits.every((s) => s.by === "time")).toBe(true);
+    expect(splits.length).toBe(4); // 21 minutes: four 5-minute splits, the last minute folded out
+    expect(splits[0].duration_s).toBeCloseTo(300, 0);
+    expect(splits[0].avg_power_w).toBeGreaterThan(80);
+    expect(splits[0].avg_cadence_rpm).toBeGreaterThan(60);
+    expect(splits[0].avg_hr).toBeGreaterThan(90);
+  });
+
+  it("cuts an outdoor ride every 5 miles, keeping a last partial over a quarter of one", () => {
+    const samples = readSamples(
+      details({
+        sumDuration: [0, 600, 1200, 1800],
+        sumDistance: [0, 4000, 8100, 11000],
+        directPower: [150, 160, 170, 180],
+        directBikeCadence: [80, 85, 90, 95],
+      }),
+    )!;
+    const splits = rideSplits(samples, { indoor: false })!;
+    expect(splits.map((s) => s.by)).toEqual(["distance", "distance"]);
+    expect(splits[0].distance_m).toBeCloseTo(5 * METERS_PER_MILE, 0);
+    expect(splits[1].distance_m).toBeCloseTo(11000 - 5 * METERS_PER_MILE, 0);
   });
 });
 

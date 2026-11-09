@@ -17,6 +17,7 @@ create table profiles (
   goal_pace_lb_per_week numeric(3,1),    -- optional; draws a pace line when set
   start_weight_lb numeric(5,1),          -- optional override; default = first weigh-in
   hr_zone_bounds jsonb,                  -- [[low, high] x 5] bpm, from Garmin's zone settings
+  hr_zone_bounds_cycling jsonb,          -- the same from Garmin's CYCLING zones (migration 014)
   shot_weekday smallint not null default 4
     check (shot_weekday between 0 and 6),  -- 0 = Sunday ... 4 = Thursday
   created_at timestamptz not null default now()
@@ -66,7 +67,7 @@ create table daily_steps (
   primary key (user_id, local_date)
 );
 
--- One row per Garmin activity (every type is kept; the app charts the runs). The
+-- One row per Garmin activity (every type is kept; the app charts rides and runs, lib/sport.ts). The
 -- (user_id, source, external_id) key keeps re-imports idempotent, like weigh_ins.
 create table activities (
   id uuid primary key default gen_random_uuid(),
@@ -107,6 +108,13 @@ create table activities (
   max_temp_c numeric(4,1),
   body_battery_change smallint,          -- negative: Body Battery spent
   steps int,
+  avg_cadence_rpm numeric(5,1),          -- rides (migration 014)
+  max_cadence_rpm smallint,
+  max_20min_power_w smallint,
+  training_stress_score numeric(6,1),    -- Garmin's TSS and IF, against the FTP set in Garmin
+  intensity_factor numeric(4,3),
+  power_zone_s jsonb,                    -- [z1..z7] seconds in each power zone
+  power_curve jsonb,                     -- {"<seconds>": watts}: best average power per duration
   updated_at timestamptz not null default now(),
   unique (user_id, source, external_id)
 );
@@ -128,6 +136,7 @@ create table activity_details (
   mile_splits jsonb,                     -- MileSplit[]
   interval_splits jsonb,                 -- IntervalSplit[]
   efforts jsonb,                         -- ActivityEfforts: best times and longest running (migration 012)
+  ride_splits jsonb,                     -- RideSplit[]: rides' 5-mile splits (migration 014)
   fetched_at timestamptz not null default now()
 );
 create index activity_details_user_idx on activity_details (user_id);
@@ -201,6 +210,8 @@ create table daily_training (
   race_10k_s int,
   race_half_s int,
   race_marathon_s int,                   -- migration 013
+  vo2max_cycling numeric(4,1),           -- cycling VO2 max (migration 014)
+  ftp_w smallint,                        -- cycling FTP set in Garmin (migration 014)
   fitness_age numeric(4,1),
   fitness_age_achievable numeric(4,1),
   chronological_age smallint,

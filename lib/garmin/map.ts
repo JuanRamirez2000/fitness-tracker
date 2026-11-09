@@ -24,7 +24,7 @@ export interface RawStepsDay {
 export interface RawActivity {
   activityId?: number | null;
   activityName?: string | null;
-  activityType?: { typeKey?: string | null } | null;
+  activityType?: { typeKey?: string | null; parentTypeId?: number | null } | null;
   startTimeLocal?: string | null; // "YYYY-MM-DD HH:MM:SS"
   startTimeGMT?: string | null; // "YYYY-MM-DD HH:MM:SS"
   duration?: number | null;
@@ -61,6 +61,14 @@ export interface RawActivity {
   maxTemperature?: number | null;
   differenceBodyBattery?: number | null;
   steps?: number | null;
+  // Rides.
+  averageBikingCadenceInRevPerMinute?: number | null;
+  maxBikingCadenceInRevPerMinute?: number | null;
+  max20MinPower?: number | null;
+  trainingStressScore?: number | null;
+  intensityFactor?: number | null;
+  /** powerTimeInZone_1..7 (seconds) and maxAvgPower_<seconds> (watts), read by key pattern. */
+  [key: `powerTimeInZone_${number}` | `maxAvgPower_${number}`]: number | null | undefined;
 }
 
 /** One sport's zones from /biometric-service/heartRateZones/v2. */
@@ -132,6 +140,15 @@ export interface ActivityRow {
   max_temp_c: number | null;
   body_battery_change: number | null;
   steps: number | null;
+  avg_cadence_rpm: number | null;
+  max_cadence_rpm: number | null;
+  max_20min_power_w: number | null;
+  training_stress_score: number | null;
+  intensity_factor: number | null;
+  /** [z1..z7] seconds in each power zone, or null without power. */
+  power_zone_s: number[] | null;
+  /** {"<seconds>": watts}: best average power per duration, or null without power. */
+  power_curve: Record<string, number> | null;
 }
 
 /** Every activities column the importer writes, besides user_id, source and external_id. */
@@ -141,7 +158,8 @@ export const ACTIVITY_COLUMNS = [
   "avg_stride_cm", "avg_ground_contact_ms", "calories", "aerobic_training_effect", "training_effect_label",
   "training_load", "vo2max", "fastest_mile_s", "hr_zone_s", "elevation_loss_m", "max_speed_mps",
   "anaerobic_training_effect", "avg_power_w", "max_power_w", "norm_power_w", "avg_vertical_oscillation_cm",
-  "avg_vertical_ratio", "min_temp_c", "max_temp_c", "body_battery_change", "steps",
+  "avg_vertical_ratio", "min_temp_c", "max_temp_c", "body_battery_change", "steps", "avg_cadence_rpm",
+  "max_cadence_rpm", "max_20min_power_w", "training_stress_score", "intensity_factor", "power_zone_s", "power_curve",
 ] as const satisfies readonly (keyof ActivityRow)[];
 
 const roundOrNull = (value: number | null | undefined) => (value ? Math.round(value) : null);
@@ -221,6 +239,13 @@ export function buildActivityRows(activities: RawActivity[]): ActivityRow[] {
       // Zero is a real answer here (no change), unlike the zero-means-missing fields above.
       body_battery_change: a.differenceBodyBattery != null ? Math.round(a.differenceBodyBattery) : null,
       steps: roundOrNull(a.steps),
+      avg_cadence_rpm: orNull(a.averageBikingCadenceInRevPerMinute),
+      max_cadence_rpm: roundOrNull(a.maxBikingCadenceInRevPerMinute),
+      max_20min_power_w: roundOrNull(a.max20MinPower),
+      training_stress_score: a.trainingStressScore ? round1(a.trainingStressScore) : null,
+      intensity_factor: a.intensityFactor ? Math.round(a.intensityFactor * 1000) / 1000 : null,
+      power_zone_s: powerZoneSeconds(a),
+      power_curve: powerCurve(a),
     });
   }
   return rows;
@@ -384,12 +409,29 @@ function hrZoneSeconds(a: RawActivity): number[] | null {
   return zones.some((s) => s > 0) ? zones : null;
 }
 
+/** [z1..z7] seconds in each power zone, rounded; null when no time was recorded in any. */
+function powerZoneSeconds(a: RawActivity): number[] | null {
+  const zones = [1, 2, 3, 4, 5, 6, 7].map((n) => Math.round(a[`powerTimeInZone_${n}`] ?? 0));
+  return zones.some((s) => s > 0) ? zones : null;
+}
+
+/** Garmin's maxAvgPower_<seconds> fields as {"<seconds>": watts}; null without power. */
+export function powerCurve(a: RawActivity): Record<string, number> | null {
+  const curve: Record<string, number> = {};
+  for (const [key, value] of Object.entries(a)) {
+    const m = /^maxAvgPower_(\d+)$/.exec(key);
+    if (m && typeof value === "number" && value > 0) curve[m[1]] = Math.round(value);
+  }
+  return Object.keys(curve).length ? curve : null;
+}
+
 /**
- * The athlete's five zones as [low, high] bpm, from the "DEFAULT" sport (what running uses):
- * zone N runs from its floor to one below the next floor, zone 5 up to max HR.
+ * The athlete's five zones as [low, high] bpm for one of Garmin's zone sports: zone N runs from
+ * its floor to one below the next floor, zone 5 up to max HR. "DEFAULT" (what running uses) falls
+ * back to the first sport listed; any other sport is null when Garmin has no zones for it.
  */
-export function buildZoneBounds(sports: RawHrZones[]): [number, number][] | null {
-  const z = sports.find((s) => s.sport === "DEFAULT") ?? sports[0];
+export function buildZoneBounds(sports: RawHrZones[], sport: "DEFAULT" | "CYCLING" = "DEFAULT"): [number, number][] | null {
+  const z = sports.find((s) => s.sport === sport) ?? (sport === "DEFAULT" ? sports[0] : undefined);
   if (!z) return null;
   const floors = [z.zone1Floor, z.zone2Floor, z.zone3Floor, z.zone4Floor, z.zone5Floor];
   if (floors.some((f) => f == null) || z.maxHeartRateUsed == null) return null;

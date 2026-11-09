@@ -1,20 +1,24 @@
 import { bodyFat } from "@/lib/kpis/body-fat";
 import { easyPace } from "@/lib/kpis/easy-pace";
+import { ftp } from "@/lib/kpis/ftp";
 import { hrv } from "@/lib/kpis/hrv";
 import { loadRatio } from "@/lib/kpis/load-ratio";
 import { loggingStreak } from "@/lib/kpis/logging-streak";
 import { progressToGoal } from "@/lib/kpis/progress-to-goal";
 import { race5k } from "@/lib/kpis/race-5k";
 import { restingHr } from "@/lib/kpis/resting-hr";
+import { rideHours, rideMiles, trainingHours } from "@/lib/kpis/ride-volume";
 import { sevenDayAverage } from "@/lib/kpis/seven-day-average";
 import { sleepDebt } from "@/lib/kpis/sleep-debt";
 import { sleepScore } from "@/lib/kpis/sleep-score";
 import { stepsToday } from "@/lib/kpis/steps-today";
 import { todaysWeight } from "@/lib/kpis/todays-weight";
 import { vo2max } from "@/lib/kpis/vo2max";
+import { vo2maxCycling } from "@/lib/kpis/vo2max-cycling";
 import { weeklyMiles } from "@/lib/kpis/weekly-miles";
 import { weeklyRate } from "@/lib/kpis/weekly-rate";
 import type { KpiDefinition, TabKey } from "@/lib/dashboard/types";
+import type { SportFilter } from "@/lib/sport";
 
 // The cards across the top of the dashboard, in order. Adding one = one new file exporting a
 // KpiDefinition plus one line here.
@@ -38,12 +42,23 @@ export const KPIS: KpiDefinition[] = [
   vo2max,
   loadRatio,
   race5k,
+  rideMiles,
+  rideHours,
+  trainingHours,
+  ftp,
+  vo2maxCycling,
 ];
 
 // Which KPI cards each tab shows, by id. Each tab fills one row of six units (a wide card,
 // span 2, takes two), so keep a tab's spans adding up to 6.
-export const TAB_KPIS: Record<TabKey, readonly string[]> = {
+export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = {
   today: ["sleep-score", "sleep-debt", "hrv", "resting-hr", "steps-today"],
   weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "body-fat", "logging-streak"],
-  training: ["weekly-miles", "easy-pace", "vo2max", "load-ratio", "race-5k"],
+};
+
+// The Training tab's cards under each sport filter (lib/sport.ts), the same six units a row.
+export const TRAINING_KPIS: Record<SportFilter, readonly string[]> = {
+  ride: ["ride-miles", "ride-hours", "ftp", "load-ratio", "vo2max-cycling"],
+  run: ["weekly-miles", "easy-pace", "vo2max", "load-ratio", "race-5k"],
+  all: ["training-hours", "ride-miles", "weekly-miles", "load-ratio", "ftp"],
 };

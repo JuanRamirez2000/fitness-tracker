@@ -1,6 +1,7 @@
 import type { DashboardData } from "@/lib/dashboard/types";
 import { dayStartUtcMs, diffDays } from "@/lib/dates/calendar";
-import { runsIn, runsOf } from "@/lib/running/runs";
+import { runsIn } from "@/lib/running/runs";
+import { sportOf } from "@/lib/sport";
 import { matchShots, type ShotStarState } from "@/lib/shots/match";
 
 /** A range has to span this many days before the goal line's own vertical position is worth
@@ -39,8 +40,8 @@ export interface WeightTrendChartData {
   /** null when program start falls outside the visible range, so nothing is drawn off-chart. */
   programStartMs: number | null;
   stars: WeightTrendStar[];
-  /** Each day in range with at least one run, as day-start ms, for the run tick marks. */
-  runDays: number[];
+  /** Each day in range with a ride or a run, as day-start ms, for the tick marks, with what it was ("Ride", "Run", "Ride + run"). */
+  workoutDays: { dateMs: number; label: string }[];
   /** The program's start weight (profile override, else the first weigh-in), for the
    * "program start · 288" label. */
   startWeight: number | null;
@@ -89,7 +90,16 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
     .filter((s) => s.date >= from && s.date <= to)
     .map((s) => ({ dateMs: dayStartUtcMs(s.date), state: s.state }));
 
-  const runDays = [...new Set(runsIn(runsOf(data.activities), data.dateRange).map((r) => r.local_date))].map(dayStartUtcMs);
+  const sportsByDay = new Map<string, Set<string>>();
+  for (const a of runsIn(data.activities, data.dateRange)) {
+    const sport = sportOf(a.activity_type);
+    if (sport === "other") continue;
+    sportsByDay.set(a.local_date, (sportsByDay.get(a.local_date) ?? new Set()).add(sport));
+  }
+  const workoutDays = [...sportsByDay].map(([date, sports]) => ({
+    dateMs: dayStartUtcMs(date),
+    label: sports.size === 2 ? "Ride + run" : sports.has("ride") ? "Ride" : "Run",
+  }));
 
   return {
     points,
@@ -98,7 +108,7 @@ export function buildWeightTrend(data: DashboardData): WeightTrendChartData | nu
     paceLine,
     programStartMs: inRange ? programStartMs : null,
     stars,
-    runDays,
+    workoutDays,
     startWeight: data.profile.start_weight_lb ?? data.firstWeighIn?.weight_lb ?? null,
     goalBelowAvg: goal !== null && (goal < yMin || goal > yMax) ? points[points.length - 1].avg7 - goal : null,
     fromLabel: from,

@@ -4,12 +4,14 @@ import type { DailyTraining } from "@/lib/data/training";
 import { addDays, type LocalDate } from "@/lib/dates/calendar";
 import { buildLoadFocus, buildZoneChart, trainingStatus } from "@/lib/charts/training";
 import { fmtRaceTime } from "@/lib/charts/fitness";
+import { currentFtp } from "@/lib/kpis/ftp";
 import { runMiles, runsIn, runsOf } from "@/lib/running/runs";
+import { isRide } from "@/lib/sport";
 
 /** The rows the Training tab's summary is written from. */
 export interface TrainingSummaryInput {
   today: LocalDate;
-  profile: Pick<Profile, "hr_zone_bounds">;
+  profile: Pick<Profile, "hr_zone_bounds" | "hr_zone_bounds_cycling">;
   /** Activities from at least the last 14 days, oldest first. */
   activities: Activity[];
   /** Daily training snapshots from at least the last 30 days, oldest first. */
@@ -28,12 +30,38 @@ const onOrBefore = <T extends { local_date: LocalDate }>(rows: T[], date: LocalD
 export function trainingFacts(input: TrainingSummaryInput): Record<string, unknown> {
   const { today } = input;
   const facts: Record<string, unknown> = { date: today };
+  const lastWeek = { key: "week" as const, from: addDays(today, -6), to: today };
+
+  // Riding first: it's most of their training now.
+  const rides = input.activities.filter(isRide);
+  const ridesLast7 = runsIn(rides, lastWeek);
+  const ridesPrior7 = runsIn(rides, { from: addDays(today, -13), to: addDays(today, -7) });
+  if (ridesLast7.length || ridesPrior7.length) {
+    const zones = buildZoneChart({ sport: "ride", activities: input.activities, dateRange: lastWeek, today, profile: input.profile });
+    const withPower = ridesLast7.filter((r) => r.avg_power_w !== null);
+    const hours = (as: typeof rides) => round1(as.reduce((sum, r) => sum + (r.moving_duration_s ?? r.duration_s), 0) / 3600);
+    facts.riding_last_7_days = {
+      rides: ridesLast7.length,
+      indoor_rides: ridesLast7.filter((r) => r.activity_type === "indoor_cycling" || r.activity_type === "virtual_ride").length,
+      miles: round1(ridesLast7.reduce((sum, r) => sum + runMiles(r), 0)),
+      hours: hours(ridesLast7),
+      hours_the_week_before: hours(ridesPrior7),
+      climbing_feet: Math.round(ridesLast7.reduce((sum, r) => sum + (r.elevation_gain_m ?? 0), 0) * 3.28084),
+      ...(withPower.length
+        ? { average_power_watts: Math.round(withPower.reduce((sum, r) => sum + r.avg_power_w!, 0) / withPower.length) }
+        : {}),
+      ...(zones && zones.totalMinutes > 0 && ridesLast7.every((r) => r.hr_zone_s !== null)
+        ? { easy_share_of_time_percent: Math.round(zones.easyShare * 100), easy_share_aim_percent: 80 }
+        : {}),
+    };
+  }
 
   const runs = runsOf(input.activities);
   const last7 = runsIn(runs, { from: addDays(today, -6), to: today });
   const prior7 = runsIn(runs, { from: addDays(today, -13), to: addDays(today, -7) });
   if (last7.length || prior7.length) {
     const zones = buildZoneChart({
+      sport: "run",
       activities: input.activities,
       dateRange: { key: "week", from: addDays(today, -6), to: today },
       today,
@@ -98,19 +126,26 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
     );
   }
 
+  const cyclingVo2 = onOrBefore(input.training, today, (r) => r.vo2max_cycling !== null);
+  if (cyclingVo2) facts.cycling_vo2_max = { latest: cyclingVo2.vo2max_cycling, as_of: cyclingVo2.local_date };
+
+  const ftp = currentFtp({ activities: input.activities, training: input.training, today });
+  // A worked-out estimate isn't Garmin's number; say which it is, so the summary doesn't overstate it.
+  if (ftp) facts.cycling_ftp = { watts: ftp.watts, source: ftp.source === "estimate" ? "estimated from the best 20 minutes" : "set in Garmin" };
+
   const age = onOrBefore(input.training, today, (r) => r.fitness_age !== null);
   if (age) facts.fitness_age = { fitness_age: age.fitness_age, real_age: age.chronological_age };
 
   return facts;
 }
 
-export const TRAINING_SYSTEM = `You write the summary at the top of the Training tab of one person's fitness dashboard (they are a runner). The tab answers two questions: am I training at the right effort and load, and am I getting fitter and faster?
+export const TRAINING_SYSTEM = `You write the summary at the top of the Training tab of one person's fitness dashboard (they used to train mostly by running and are now mostly riding a bike, indoors and out, with some running). The tab answers two questions: am I training at the right effort and load, and am I getting fitter and faster?
 
-Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Cover the effort and load of the last week first (volume, how much was easy against the 80% aim, load and its ratio, Garmin's status), then the fitness trend (VO2 max, race predictions, fitness age), picking what's most notable rather than listing everything.
+Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Cover the effort and load of the last week first (riding and running volume, how much was easy against the 80% aim, load and its ratio, Garmin's status), then the fitness trend (cycling FTP and VO2 max, running VO2 max and race predictions, fitness age), picking what's most notable rather than listing everything. Lead with riding when there is any. Garmin's load and status count rides and runs together.
 
-Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would and write race times as a clock ("29:13"). This is a training log, not medical advice.`;
+Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would, write race times as a clock ("29:13") and ride speeds in mph. This is a training log, not medical advice.`;
 
-/** Enough to write about: some running in the last two weeks, or a current load. */
+/** Enough to write about: some riding or running in the last two weeks, or a current load. */
 export function hasEnoughForTrainingSummary(facts: Record<string, unknown>): boolean {
-  return "running_last_7_days" in facts || "training_load" in facts;
+  return "riding_last_7_days" in facts || "running_last_7_days" in facts || "training_load" in facts;
 }

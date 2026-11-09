@@ -12,7 +12,8 @@ import { getRole } from "@/lib/auth/session";
 import { loadDashboardData, resolveShell } from "@/lib/dashboard/load";
 import { DEFAULT_TAB, type DashboardData } from "@/lib/dashboard/types";
 import { fetchOwnerProfileAndFirstWeight } from "@/lib/data/queries";
-import { parseRangeParams, parseTabParam } from "@/lib/range/url";
+import { parseRangeParams, parseTabParam, type UrlRange } from "@/lib/range/url";
+import { parseSportParam } from "@/lib/sport";
 
 // "The last-used range is remembered in localStorage and used when the URL has none.
 // Default: month." The same goes for the tab (default: Daily feel). StoredViewRestorer
@@ -50,6 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     rangeKey: parsedRange?.key ?? DEFAULT_RANGE_KEY,
     custom: parsedRange?.custom,
     tab: parsedTab ?? DEFAULT_TAB,
+    sport: parseSportParam(firstOf(rawParams.sport)),
   });
   // Started here, awaited inside the Suspense below, so the header doesn't wait on it.
   const data = loadDashboardData(shell);
@@ -61,13 +63,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
           range={parsedRange}
           rangeKey={shell.dateRange.key}
           tab={shell.tab}
+          sport={shell.sport}
           tabExplicit={parsedTab !== null}
         />
         <AppHeader data={shell} canEdit={canEdit} urlRange={parsedRange} />
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-12 px-4 pt-8 pb-20 md:px-8 md:pt-9">
           <TabBodyFrame current={shell.tab}>
             <Suspense fallback={<TabSkeleton tab={shell.tab} />}>
-              <TabBody data={data} canEdit={canEdit} />
+              <TabBody data={data} canEdit={canEdit} urlRange={parsedRange} />
             </Suspense>
           </TabBodyFrame>
         </main>
@@ -80,13 +83,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   );
 }
 
-async function TabBody({ data: pending, canEdit }: { data: Promise<DashboardData>; canEdit: boolean }) {
+async function TabBody({ data: pending, canEdit, urlRange }: { data: Promise<DashboardData>; canEdit: boolean; urlRange: UrlRange | null }) {
   const data = await pending;
   return (
     <>
       {data.tab === "today" && <TodayTab data={data} />}
       {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
-      {data.tab === "training" && <TrainingTab data={data} />}
+      {data.tab === "training" && <TrainingTab data={data} urlRange={urlRange} />}
     </>
   );
 }

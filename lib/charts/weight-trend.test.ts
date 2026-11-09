@@ -74,7 +74,7 @@ describe("buildWeightTrend", () => {
     expect(inside.programStartMs).not.toBeNull();
   });
 
-  it("marks each day in range with a run, once per day", () => {
+  it("marks each day in range with a ride or run, once per day, and ignores walks", () => {
     const chart = buildWeightTrend(
       testDashboardData({
         dateRange: { key: "week", from: "2026-09-14", to: "2026-09-20" },
@@ -84,9 +84,13 @@ describe("buildWeightTrend", () => {
           testRun({ local_date: "2026-09-16" }),
           testRun({ local_date: "2026-09-16", id: "00000000-0000-4000-8000-000000000001" }),
           testRun({ local_date: "2026-09-18", activity_type: "cycling" }),
+          testRun({ local_date: "2026-09-19", activity_type: "walking" }),
         ],
       }),
     )!;
-    expect(chart.runDays).toEqual([dayStartUtcMs("2026-09-16")]);
+    expect(chart.workoutDays).toEqual([
+      { dateMs: dayStartUtcMs("2026-09-16"), label: "Run" },
+      { dateMs: dayStartUtcMs("2026-09-18"), label: "Ride" },
+    ]);
   });
 });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { localDateSchema } from "@/lib/dates/calendar";
 import { sourceSchema, timestampSchema, uuidSchema } from "./common";
 
-/** One Garmin activity (lib/garmin/import.ts). Every type is stored; see isRun. */
+/** One Garmin activity (lib/garmin/import.ts). Every type is stored; see lib/sport.ts. */
 export const activityRowSchema = z.object({
   id: uuidSchema,
   user_id: uuidSchema,
@@ -44,14 +44,22 @@ export const activityRowSchema = z.object({
   max_temp_c: z.number().nullable().default(null),
   body_battery_change: z.number().int().nullable().default(null),
   steps: z.number().int().nullable().default(null),
+  // Rides (migration 014).
+  avg_cadence_rpm: z.number().nullable().default(null),
+  max_cadence_rpm: z.number().int().nullable().default(null),
+  max_20min_power_w: z.number().int().nullable().default(null),
+  /** Garmin's TSS and intensity factor, worked out against the FTP set in Garmin Connect. */
+  training_stress_score: z.number().nullable().default(null),
+  intensity_factor: z.number().nullable().default(null),
+  /** [z1..z7] seconds in each power zone. */
+  power_zone_s: z.array(z.number()).nullable().default(null),
+  /** Best average power per duration: {"<seconds>": watts}, from Garmin's maxAvgPower_N. */
+  power_curve: z.record(z.string(), z.number()).nullable().default(null),
 });
 
 export type Activity = z.infer<typeof activityRowSchema>;
 
-/** Garmin's typeKeys for running: outdoor, treadmill, trail, track, and so on. */
-export function isRun(activity: Pick<Activity, "activity_type">): boolean {
-  return activity.activity_type.endsWith("running");
-}
+export { isRide, isRun } from "../sport";
 
 /** On-foot activities (runs, walks, hikes) get a mile-splits table; rides and swims don't. */
 export function onFoot(activityType: string): boolean {

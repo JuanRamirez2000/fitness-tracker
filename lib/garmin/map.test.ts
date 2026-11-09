@@ -92,6 +92,27 @@ describe("buildActivityRows", () => {
   it("skips activities missing an ID or start time", () => {
     expect(buildActivityRows([{ activityId: 1, startTimeLocal: "2026-11-02 18:30:00" }])).toEqual([]);
   });
+
+  it("reads a real indoor ride's cadence, power, TSS, power zones and power curve", () => {
+    const [row] = buildActivityRows(fixture<RawActivity[]>("ride-activity-search.json"));
+    expect(row.activity_type).toBe("indoor_cycling");
+    expect(row.avg_cadence_rpm).toBe(81);
+    expect(row.max_cadence_rpm).toBe(100);
+    // Running cadence stays empty: a ride's rpm never lands in the steps-a-minute column.
+    expect(row.avg_cadence_spm).toBeNull();
+    expect(row).toMatchObject({ avg_power_w: 139, max_power_w: 255, norm_power_w: 147, max_20min_power_w: 138 });
+    expect(row.training_stress_score).toBe(6.7);
+    expect(row.intensity_factor).toBe(0.442);
+    expect(row.power_zone_s).toEqual([1195, 53, 12, 0, 0, 0, 0]);
+    expect(row.power_curve).toEqual({
+      "1": 255, "2": 255, "5": 251, "10": 249, "20": 207, "30": 204, "60": 199, "120": 187, "300": 175, "600": 150, "1200": 138,
+    });
+  });
+
+  it("leaves the ride fields null on a run", () => {
+    const [row] = buildActivityRows(fixture<RawActivity[]>("activity-search.json"));
+    expect(row).toMatchObject({ avg_cadence_rpm: null, max_cadence_rpm: null, training_stress_score: null, intensity_factor: null });
+  });
 });
 
 describe("resolveWindow", () => {
@@ -201,6 +222,14 @@ describe("HR zones", () => {
       [181, 201],
     ]);
     expect(buildZoneBounds([])).toBeNull();
+  });
+
+  it("reads the CYCLING zones separately, and is null when Garmin has none", () => {
+    const zones = fixture<RawHrZones[]>("heart-rate-zones.json");
+    const cycling = buildZoneBounds(zones, "CYCLING");
+    expect(cycling?.[0][0]).toBe(97);
+    expect(cycling?.[4]).toEqual([174, 193]);
+    expect(buildZoneBounds(zones.filter((z) => z.sport !== "CYCLING"), "CYCLING")).toBeNull();
   });
 });
 

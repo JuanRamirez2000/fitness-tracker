@@ -26,7 +26,7 @@ import { dailyWeightRowSchema, weightTrendRowSchema, type DailyWeight, type Weig
 export async function fetchOwnerProfile(): Promise<Profile | null> {
   const [row] = await db()`
     select id, display_name, timezone, program_start_date,
-           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds
+           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds, hr_zone_bounds_cycling
     from profiles order by created_at limit 1`;
   return row ? profileSchema.parse(row) : null;
 }
@@ -39,7 +39,7 @@ export async function fetchOwnerProfile(): Promise<Profile | null> {
 export async function fetchOwnerProfileAndFirstWeight(): Promise<{ profile: Profile; firstWeighIn: DailyWeight | null } | null> {
   const [row] = await db()`
     select p.id, p.display_name, p.timezone, p.program_start_date, p.goal_weight_lb, p.goal_pace_lb_per_week,
-           p.start_weight_lb, p.shot_weekday, p.hr_zone_bounds,
+           p.start_weight_lb, p.shot_weekday, p.hr_zone_bounds, p.hr_zone_bounds_cycling,
            fw.local_date as first_local_date, fw.weight_lb as first_weight_lb
     from profiles p
     left join lateral (
@@ -226,7 +226,7 @@ export async function fetchTraining(userId: string, to: string): Promise<DailyTr
   const rows = await db()`
     select local_date, acute_load, chronic_load, chronic_low, chronic_high, acwr, status, focus, focus_feedback,
            vo2max, race_5k_s, race_10k_s, race_half_s, race_marathon_s, fitness_age, fitness_age_achievable, chronological_age,
-           fitness_age_factors
+           fitness_age_factors, vo2max_cycling, ftp_w
     from daily_training
     where user_id = ${userId} and local_date <= ${to}
     order by local_date`;

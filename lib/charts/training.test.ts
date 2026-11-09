@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DateRange } from "@/lib/dashboard/types";
-import { testDashboardData, testProfile, testRun, testTraining as training } from "@/lib/kpis/testing";
+import { testDashboardData, testProfile, testRide, testRun, testTraining as training } from "@/lib/kpis/testing";
 import { buildLoadFocus, buildTrainingLoad, buildZoneChart, trainingStatus } from "./training";
 
 const WEEK: DateRange = { key: "week", from: "2026-10-28", to: "2026-11-03" };
@@ -29,7 +29,7 @@ describe("buildZoneChart", () => {
     expect(chart.bounds).toEqual(BOUNDS);
     // Miles count every run, the HR-less one on Nov 2 too (testRun is 3 mi).
     expect(chart.totalMiles).toBeCloseTo(9, 6);
-    expect(chart.runCount).toBe(3);
+    expect(chart.count).toBe(3);
     expect(chart.bars.map((b) => b.miles)).toEqual([0, 0, 0, 0, 3, 3, 3]);
   });
 
@@ -48,6 +48,24 @@ describe("buildZoneChart", () => {
 
   it("is null with no runs in range", () => {
     expect(buildZoneChart(testDashboardData({ activities: [], dateRange: WEEK }))).toBeNull();
+  });
+
+  const CYCLING: [number, number][] = [[97, 115], [116, 134], [135, 153], [154, 173], [174, 193]];
+  const mixed = [...activities, testRide({ local_date: "2026-11-02", hr_zone_s: [0, 1800, 1800, 0, 0] })];
+  const profile = testProfile({ hr_zone_bounds: BOUNDS, hr_zone_bounds_cycling: CYCLING });
+
+  it("under Ride, counts only rides and labels them with the cycling zones", () => {
+    const chart = buildZoneChart(testDashboardData({ sport: "ride", activities: mixed, dateRange: WEEK, today: "2026-11-03", profile }))!;
+    expect(chart.count).toBe(1);
+    expect(chart.totalMiles).toBeCloseTo(15, 6);
+    expect(chart.easyShare).toBeCloseTo(0.5, 6);
+    expect(chart.bounds).toEqual(CYCLING);
+  });
+
+  it("under All, adds rides and runs but shows no single set of bpm bounds", () => {
+    const chart = buildZoneChart(testDashboardData({ sport: "all", activities: mixed, dateRange: WEEK, today: "2026-11-03", profile }))!;
+    expect(chart.count).toBe(4);
+    expect(chart.bounds).toBeNull();
   });
 });
 

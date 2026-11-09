@@ -43,31 +43,62 @@ function domainOf(values: (number | null)[], trim = 0): [number, number] | null 
   return [lo - pad, hi + pad];
 }
 
-/** The x axis: miles when the activity has distance, minutes otherwise (strength, treadmill without a footpod). */
-export function seriesAxis(series: ActivitySeries): { xs: (number | null)[]; unit: "mi" | "min" } {
+/** Rolling power over this many seconds: second-to-second power swings too much to read. */
+const POWER_SMOOTH_S = 30;
+
+/** A trailing mean over `seconds` of timer time, so the smoothing is the same however thinned the series is. */
+export function rollingMean(t: number[], values: (number | null)[], seconds: number): (number | null)[] {
+  let from = 0;
+  let sum = 0;
+  let n = 0;
+  return values.map((v, i) => {
+    if (v !== null) {
+      sum += v;
+      n++;
+    }
+    while (t[i] - t[from] > seconds) {
+      const old = values[from++];
+      if (old !== null) {
+        sum -= old;
+        n--;
+      }
+    }
+    return v === null || n === 0 ? null : sum / n;
+  });
+}
+
+/**
+ * The x axis: miles when the activity has distance, minutes otherwise (strength, treadmill
+ * without a footpod), or when `timeAxis` asks for it (an indoor ride's distance is a guess).
+ */
+export function seriesAxis(series: ActivitySeries, timeAxis = false): { xs: (number | null)[]; unit: "mi" | "min" } {
   const d = series.d;
-  const hasDistance = d && (d.at(-1) ?? 0) > 200;
+  const hasDistance = !timeAxis && d && (d.at(-1) ?? 0) > 200;
   return hasDistance
     ? { xs: d!.map((v) => (v === null ? null : v / METERS_PER_MILE)), unit: "mi" }
     : { xs: series.t.map((v) => v / 60), unit: "min" };
 }
 
 /**
- * Pace (or speed), heart rate and elevation stacked on one distance axis with one shared hover:
- * a vertical rule across every panel and a readout of everything the watch recorded at that point.
+ * Pace (or speed), power, heart rate, cadence and elevation stacked on one distance (or time)
+ * axis with one shared hover: a vertical rule across every panel and a readout of everything
+ * the watch recorded at that point. Runs keep cadence to the readout; rides chart it.
  */
 export function SeriesChart({
   series,
   isRun,
+  timeAxis = false,
   hover,
   onHover,
 }: {
   series: ActivitySeries;
   isRun: boolean;
+  /** Plot against minutes even with distance: an indoor ride, where speed is the trainer's guess. */
+  timeAxis?: boolean;
   hover: number | null;
   onHover: (index: number | null) => void;
 }) {
-  const { xs, unit } = seriesAxis(series);
+  const { xs, unit } = seriesAxis(series, timeAxis);
   const defined = xs.filter((v): v is number => v !== null);
   if (defined.length < 2) return null;
   const xMin = defined[0];
@@ -75,7 +106,7 @@ export function SeriesChart({
   const x = scaleLinear<number>({ domain: [xMin, xMax], range: [0, WIDTH] });
 
   const panels: Panel[] = [];
-  if (series.speed) {
+  if (series.speed && !timeAxis) {
     panels.push(
       isRun
         ? {
@@ -101,8 +132,33 @@ export function SeriesChart({
           },
     );
   }
+  if (series.power && !isRun) {
+    panels.push({
+      key: "power",
+      label: `Power (${POWER_SMOOTH_S}s avg)`,
+      unit: "W",
+      values: rollingMean(series.t, series.power, POWER_SMOOTH_S),
+      format: (v) => String(Math.round(v)),
+      trim: 0.01,
+      kind: "line",
+      stroke: "stroke-accent",
+    });
+  }
   if (series.hr) {
     panels.push({ key: "hr", label: "Heart rate", unit: "bpm", values: series.hr, format: (v) => String(Math.round(v)), kind: "line", stroke: "stroke-z4" });
+  }
+  if (series.cadence && !isRun) {
+    panels.push({
+      key: "cadence",
+      label: "Cadence",
+      unit: "rpm",
+      // Coasting reads as 0 rpm: leave it out of the line rather than dragging it to the floor.
+      values: series.cadence.map((v) => (v === null || v < 20 ? null : v)),
+      format: (v) => String(Math.round(v)),
+      trim: 0.02,
+      kind: "line",
+      stroke: "stroke-muted-1",
+    });
   }
   if (series.elev) {
     panels.push({

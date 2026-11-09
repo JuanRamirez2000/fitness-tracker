@@ -4,23 +4,50 @@ import { useState } from "react";
 import { openActivity } from "@/components/activity/open";
 import { fmtDate } from "@/lib/dates/format";
 import type { DashboardData } from "@/lib/dashboard/types";
-import { buildRunRows } from "@/lib/table/runs";
+import { SPORT_NOUN } from "@/lib/sport";
+import { activityColumns, buildActivityRows, COLUMN_LABELS, type ActivityColumn, type ActivityRow } from "@/lib/table/activities";
 
 const PAGE_SIZE = 10;
 const cellPad = "px-3 py-2 md:px-4";
-const HEADERS = ["Date", "Type", "Mi", "Time", "Pace", "HR", "Cad", "Effect"];
-const NUMERIC = new Set(["Mi", "Time", "Pace", "HR", "Cad"]);
+const NUMERIC = new Set<ActivityColumn>(["mi", "time", "speed", "hr", "power", "cad", "elev"]);
+const num = `${cellPad} text-right text-[12.5px] tabular-nums`;
 
-/** Runs in the selected range, newest first. Read-only: every row comes from Garmin; a row opens the run's detail. */
-export function RunsTable({ data }: { data: DashboardData }) {
-  const rows = buildRunRows(data);
+/** The plain cells; date, sport and type are drawn in the row itself. */
+function cell(col: ActivityColumn, row: ActivityRow) {
+  switch (col) {
+    case "mi":
+      return <td key={col} className={`${num} text-ink`}>{row.miles}</td>;
+    case "time":
+      return <td key={col} className={`${num} text-muted-2`}>{row.time}</td>;
+    case "speed":
+      return <td key={col} className={`${num} whitespace-nowrap text-ink`}>{row.speed ?? "—"}</td>;
+    case "hr":
+      return <td key={col} className={`${num} text-muted-2`}>{row.avgHr ?? "—"}</td>;
+    case "power":
+      return <td key={col} className={`${num} text-muted-2`}>{row.power ?? "—"}</td>;
+    case "cad":
+      return <td key={col} className={`${num} text-muted-2`}>{row.cadence ?? "—"}</td>;
+    case "elev":
+      return <td key={col} className={`${num} text-muted-2`}>{row.elevFt ?? "—"}</td>;
+    case "effect":
+      return <td key={col} className={`${cellPad} whitespace-nowrap text-[12px] text-muted-2`}>{row.effect ?? "—"}</td>;
+    default:
+      return null;
+  }
+}
+
+/** Rides, runs or both (the sport filter) in the selected range, newest first. Read-only: every row comes from Garmin; a row opens its detail. */
+export function ActivitiesTable({ data }: { data: DashboardData }) {
+  const rows = buildActivityRows(data);
+  const columns = activityColumns(data.sport);
+  const title = { ride: "Rides", run: "Runs", all: "Activities" }[data.sport];
   const [visible, setVisible] = useState(PAGE_SIZE);
   const shown = rows.slice(0, visible);
 
   return (
     <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card">
       <div className="flex items-baseline justify-between px-4 pt-4 pb-2 md:px-6">
-        <span className="font-serif text-[16px]">Runs</span>
+        <span className="font-serif text-[16px]">{title}</span>
         <span className="font-mono text-[10px] text-muted-3">{rows.length} in range</span>
       </div>
 
@@ -28,9 +55,9 @@ export function RunsTable({ data }: { data: DashboardData }) {
         <table className="w-full min-w-[640px] border-collapse text-left">
           <thead>
             <tr className="border-b border-divider">
-              {HEADERS.map((h) => (
-                <th key={h} className={`${cellPad} font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-2 ${NUMERIC.has(h) ? "text-right" : ""}`}>
-                  {h}
+              {columns.map((c) => (
+                <th key={c} className={`${cellPad} font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-2 ${NUMERIC.has(c) ? "text-right" : ""}`}>
+                  {COLUMN_LABELS[c](data.sport)}
                 </th>
               ))}
             </tr>
@@ -38,8 +65,8 @@ export function RunsTable({ data }: { data: DashboardData }) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={HEADERS.length} className="px-4 py-6 text-center text-[12px] text-muted-2">
-                  No runs in this range.
+                <td colSpan={columns.length} className="px-4 py-6 text-center text-[12px] text-muted-2">
+                  No {SPORT_NOUN[data.sport].many} in this range.
                 </td>
               </tr>
             )}
@@ -64,6 +91,12 @@ export function RunsTable({ data }: { data: DashboardData }) {
                     {fmtDate(row.local_date)}
                   </button>
                 </td>
+                {columns.includes("sport") && (
+                  <td className={`${cellPad} whitespace-nowrap text-[12px] text-muted-1`}>
+                    <span aria-hidden className="mr-1">{row.sport === "ride" ? "◆" : "●"}</span>
+                    {row.sport === "ride" ? "Ride" : "Run"}
+                  </td>
+                )}
                 <td className={`${cellPad} whitespace-nowrap`}>
                   {row.kind ? (
                     <span
@@ -78,12 +111,7 @@ export function RunsTable({ data }: { data: DashboardData }) {
                     <span className="text-muted-3">—</span>
                   )}
                 </td>
-                <td className={`${cellPad} text-right text-[12.5px] tabular-nums text-ink`}>{row.miles}</td>
-                <td className={`${cellPad} text-right text-[12.5px] tabular-nums text-muted-2`}>{row.time}</td>
-                <td className={`${cellPad} text-right text-[12.5px] tabular-nums text-ink`}>{row.pace ? `${row.pace}/mi` : "—"}</td>
-                <td className={`${cellPad} text-right text-[12.5px] tabular-nums text-muted-2`}>{row.avgHr ?? "—"}</td>
-                <td className={`${cellPad} text-right text-[12.5px] tabular-nums text-muted-2`}>{row.cadence ?? "—"}</td>
-                <td className={`${cellPad} whitespace-nowrap text-[12px] text-muted-2`}>{row.effect ?? "—"}</td>
+                {columns.map((c) => cell(c, row))}
               </tr>
             ))}
           </tbody>

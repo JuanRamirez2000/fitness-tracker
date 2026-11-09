@@ -81,15 +81,20 @@ const series = (rows: DailyTraining[], pick: (r: DailyTraining) => number | null
     return value === null ? [] : [{ date: r.local_date, value }];
   });
 
-export function buildFitness(data: Pick<DashboardData, "training" | "dateRange" | "today">): FitnessData | null {
+/** VO2 max and fitness age; `cycling` charts Garmin's cycling VO2 max instead of its running one. */
+export function buildFitness(
+  data: Pick<DashboardData, "training" | "dateRange" | "today">,
+  { cycling = false }: { cycling?: boolean } = {},
+): FitnessData | null {
   const upToToday = data.training.filter((r) => r.local_date <= data.today);
   const inRange = upToToday.filter((r) => isInRange(r.local_date, data.dateRange));
-  const vo2 = series(inRange, (r) => r.vo2max);
+  const pickVo2 = (r: DailyTraining) => (cycling ? r.vo2max_cycling : r.vo2max);
+  const vo2 = series(inRange, pickVo2);
   const fitnessAge = series(inRange, (r) => r.fitness_age);
   if (vo2.length === 0 && fitnessAge.length === 0) return null;
 
   const latestAge = [...upToToday].reverse().find((r) => r.fitness_age !== null);
-  const allVo2 = series(upToToday, (r) => r.vo2max);
+  const allVo2 = series(upToToday, pickVo2);
   return {
     vo2,
     vo2Latest: allVo2.at(-1)?.value ?? null,

@@ -1,5 +1,6 @@
 import { isLocalDate } from "@/lib/dates/calendar";
 import { DEFAULT_TAB, RANGE_KEYS, TAB_KEYS, type RangeKey, type TabKey } from "@/lib/dashboard/types";
+import { DEFAULT_SPORT, type SportFilter } from "@/lib/sport";
 
 export interface UrlRange {
   key: RangeKey;
@@ -39,14 +40,16 @@ export function parseRangeParams(params: RangeSearchParams): UrlRange | null {
 }
 
 /** The query string RangeControl pushes when the user picks a range (no leading "?"). A tab
- * other than the default rides along, so changing the range never changes the tab. */
-export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB): string {
+ * (and, on Training, a sport) other than the default rides along, so changing the range never
+ * changes either. */
+export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, sport: SportFilter = DEFAULT_SPORT): string {
   const params = new URLSearchParams({ range: range.key });
   if (range.key === "custom" && range.custom) {
     params.set("from", range.custom.from);
     params.set("to", range.custom.to);
   }
   if (tab !== DEFAULT_TAB) params.set("tab", tab);
+  if (tab === "training" && sport !== DEFAULT_SPORT) params.set("sport", sport);
   return params.toString();
 }
 
@@ -58,5 +61,13 @@ export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB):
 export function tabToSearchParams(tab: TabKey, range: UrlRange | null): string {
   const params = new URLSearchParams(range ? rangeToSearchParams(range) : "");
   params.set("tab", tab);
+  return params.toString();
+}
+
+/** The query string for the Training tab's sport toggle: the range rides along like a tab link's. */
+export function sportToSearchParams(sport: SportFilter, range: UrlRange | null): string {
+  const params = new URLSearchParams(range ? rangeToSearchParams(range) : "");
+  params.set("tab", "training");
+  if (sport !== DEFAULT_SPORT) params.set("sport", sport);
   return params.toString();
 }

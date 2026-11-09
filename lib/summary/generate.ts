@@ -161,7 +161,7 @@ const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profil
     system: TRAINING_SYSTEM,
     facts: (rows, profile, today) => trainingFacts({ today, profile, activities: rows.activities, training: rows.training }),
     enough: hasEnoughForTrainingSummary,
-    missing: "no recent running or training load",
+    missing: "no recent riding, running or training load",
   },
 };
 
@@ -174,7 +174,7 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
   const sql = db();
   const [row] = await sql`
     select id, display_name, timezone, program_start_date, goal_weight_lb, goal_pace_lb_per_week,
-           start_weight_lb, shot_weekday, hr_zone_bounds
+           start_weight_lb, shot_weekday, hr_zone_bounds, hr_zone_bounds_cycling
     from profiles order by created_at limit 1`;
   if (!row) throw new Error("No profile row in the database yet. Run `npm run db:import` first.");
   const profile = profileSchema.parse(row);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityDetail } from "@/lib/data/activity-details";
 import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
-import { testRun } from "@/lib/kpis/testing";
+import { testRide, testRun } from "@/lib/kpis/testing";
 import { METERS_PER_MILE } from "@/lib/running/runs";
 import { buildActivityView, feelWord, paceOf, typeLabel, type ActivityViewInput } from "./view";
 
@@ -23,11 +23,12 @@ function detail(over: Partial<ActivityDetail> = {}): ActivityDetail {
       { mile: 2, distance_m: 0.5 * METERS_PER_MILE, duration_s: 345, avg_hr: 158, avg_cadence_spm: 162, avg_gap_mps: null, elevation_gain_m: 0, elevation_loss_m: 0 },
     ],
     interval_splits: [
-      { type: "RWD_WALK", count: 8, distance_m: 900, duration_s: 600, avg_speed_mps: 1.5, avg_hr: 140, max_hr: 150, avg_cadence_spm: 110, elevation_gain_m: 1 },
-      { type: "RWD_RUN", count: 8, distance_m: 3600, duration_s: 1440, avg_speed_mps: 2.5, avg_hr: 155, max_hr: 172, avg_cadence_spm: 160, elevation_gain_m: 7 },
-      { type: "INTERVAL_ACTIVE", count: 1, distance_m: 4500, duration_s: 2040, avg_speed_mps: 2.2, avg_hr: 151, max_hr: 172, avg_cadence_spm: 150, elevation_gain_m: 8 },
+      { type: "RWD_WALK", count: 8, distance_m: 900, duration_s: 600, avg_speed_mps: 1.5, avg_hr: 140, max_hr: 150, avg_cadence_spm: 110, avg_cadence_rpm: null, avg_power_w: null, elevation_gain_m: 1 },
+      { type: "RWD_RUN", count: 8, distance_m: 3600, duration_s: 1440, avg_speed_mps: 2.5, avg_hr: 155, max_hr: 172, avg_cadence_spm: 160, avg_cadence_rpm: null, avg_power_w: null, elevation_gain_m: 7 },
+      { type: "INTERVAL_ACTIVE", count: 1, distance_m: 4500, duration_s: 2040, avg_speed_mps: 2.2, avg_hr: 151, max_hr: 172, avg_cadence_spm: 150, avg_cadence_rpm: null, avg_power_w: null, elevation_gain_m: 8 },
     ],
     efforts: null,
+    ride_splits: null,
     fetched_at: "2026-11-04T00:00:00Z",
     ...over,
   };
@@ -132,12 +133,124 @@ describe("buildActivityView", () => {
   it("counts the week's running up to and including the day", () => {
     const before = testRun({ local_date: "2026-10-30", distance_m: 3 * METERS_PER_MILE });
     const priorWeek = testRun({ local_date: "2026-10-25", distance_m: 4 * METERS_PER_MILE });
-    expect(buildActivityView(input({ activities: [priorWeek, before, run] })).context.week).toEqual({ miles: 5.5, runs: 2, milesPrior: 4 });
+    expect(buildActivityView(input({ activities: [priorWeek, before, run] })).context.week).toEqual({
+      sport: "run",
+      miles: 5.5,
+      count: 2,
+      hours: 1.2,
+      milesPrior: 4,
+    });
   });
 
   it("says when detail was never fetched, or Garmin had none", () => {
     expect(buildActivityView(input({ detail: null })).detailState).toBe("missing");
     expect(buildActivityView(input({ detail: detail({ series: null, mile_splits: null }) })).detailState).toBe("none");
+  });
+});
+
+describe("buildActivityView for a ride", () => {
+  const CYCLING: [number, number][] = [[97, 115], [116, 134], [135, 153], [154, 173], [174, 193]];
+  const ride = testRide({
+    local_date: "2026-11-08",
+    started_at: "2026-11-09T03:39:44Z",
+    activity_type: "indoor_cycling",
+    name: "Indoor Cycling",
+    distance_m: 9477.6,
+    duration_s: 1260,
+    moving_duration_s: 1252,
+    avg_speed_mps: 7.521,
+    avg_hr: 145,
+    avg_power_w: 139,
+    max_power_w: 255,
+    norm_power_w: 147,
+    max_20min_power_w: 138,
+    intensity_factor: 0.442,
+    training_stress_score: 6.7,
+    avg_cadence_rpm: 81,
+    max_cadence_rpm: 100,
+    training_effect_label: "AEROBIC_BASE",
+    hr_zone_s: [37, 63, 1084, 62, 0],
+  });
+  const rideDetail = detail({
+    mile_splits: null,
+    interval_splits: null,
+    ride_splits: [
+      { split: 1, by: "time", distance_m: 2200, duration_s: 300, avg_hr: 130, avg_power_w: 130, avg_cadence_rpm: 80, elevation_gain_m: 0, elevation_loss_m: 0 },
+      { split: 2, by: "time", distance_m: 2300, duration_s: 300, avg_hr: 146, avg_power_w: 142, avg_cadence_rpm: 82, elevation_gain_m: 0, elevation_loss_m: 0 },
+      { split: 3, by: "time", distance_m: 1500, duration_s: 200, avg_hr: 150, avg_power_w: 150, avg_cadence_rpm: 84, elevation_gain_m: 0, elevation_loss_m: 0 },
+    ],
+  });
+  const rideInput = (over: Partial<ActivityViewInput> = {}) =>
+    input({ activity: ride, detail: rideDetail, activities: [ride], profile: { ...PROFILE, hr_zone_bounds_cycling: CYCLING }, ...over });
+
+  it("heads an indoor ride with speed and normalized power, and charts it against time", () => {
+    const v = buildActivityView(rideInput());
+    expect(v).toMatchObject({ typeLabel: "Indoor ride", isRide: true, isRun: false, indoor: true, kind: "easy" });
+    expect(v.headline.map((s) => [s.label, s.value])).toEqual([
+      ["Distance", "5.9"],
+      ["Time", "20:52"],
+      ["Speed", "16.8"],
+      ["Norm. power", "147"],
+      ["Avg HR", "145"],
+      ["Load", "40"],
+    ]);
+  });
+
+  it("lists power, intensity, TSS and rpm cadence", () => {
+    const group = buildActivityView(rideInput()).groups.find((g) => g.title === "Power and cadence")!;
+    expect(Object.fromEntries(group.stats.map((s) => [s.label, s.value]))).toEqual({
+      "Avg power": "139",
+      Normalized: "147",
+      "Max power": "255",
+      "Best 20 min": "138",
+      "Intensity factor": "0.44",
+      TSS: "7",
+      Cadence: "81",
+    });
+    expect(buildActivityView(rideInput()).groups.some((g) => g.title === "Running form")).toBe(false);
+  });
+
+  it("labels zones with Garmin's cycling bounds", () => {
+    expect(buildActivityView(rideInput()).zones![0]).toMatchObject({ low: 97, high: 115 });
+  });
+
+  it("labels 5-minute splits, the last by where it ended", () => {
+    const splits = buildActivityView(rideInput()).rideSplits;
+    expect(splits.map((s) => s.label)).toEqual(["0–5 min", "5–10 min", "10–13 min"]);
+    expect(splits[1]).toMatchObject({ power: 142, cadence: 82, hr: 146, duration: "5:00" });
+  });
+
+  it("shows a ride's intervals in mph, not pace", () => {
+    const v = buildActivityView(
+      rideInput({
+        detail: detail({
+          interval_splits: [
+            { type: "INTERVAL_WARMUP", count: 1, distance_m: 1609, duration_s: 300, avg_speed_mps: 5.36, avg_hr: 120, max_hr: 130, avg_cadence_spm: null, avg_cadence_rpm: 80, avg_power_w: 110, elevation_gain_m: 0 },
+            { type: "INTERVAL_ACTIVE", count: 4, distance_m: 6000, duration_s: 960, avg_speed_mps: 8, avg_hr: 160, max_hr: 172, avg_cadence_spm: null, avg_cadence_rpm: 92, avg_power_w: 240, elevation_gain_m: 0 },
+          ],
+        }),
+      }),
+    );
+    expect(v.intervals.map((i) => [i.label, i.speed, i.power])).toEqual([
+      ["Warm-up", "12 mph", 110],
+      ["Active", "17.9 mph", 240],
+    ]);
+  });
+
+  it("compares with indoor rides of about the same length, by power and watts per heartbeat", () => {
+    const earlier = (day: string, watts: number, hr: number) =>
+      testRide({ local_date: day, started_at: `${day}T03:00:00Z`, activity_type: "indoor_cycling", duration_s: 1300, moving_duration_s: 1300, avg_power_w: watts, avg_hr: hr });
+    const outdoor = testRide({ local_date: "2026-11-01", started_at: "2026-11-01T15:00:00Z", duration_s: 1250, moving_duration_s: 1250, avg_power_w: 300 });
+    const pool = [earlier("2026-10-20", 120, 140), earlier("2026-10-25", 130, 145), earlier("2026-10-30", 135, 150), outdoor];
+    const s = buildActivityView(rideInput({ activities: [...pool, ride] })).context.similar!;
+    expect(s).toMatchObject({ sport: "ride", count: 3, paceRank: 1, powerDelta_w: 9, speedDelta_mph: null, hrDelta: 0 });
+    // 139/145 against the median of 120/140, 130/145, 135/150: 0.897.
+    expect(s.efficiencyPct).toBeCloseTo(6.9, 1);
+  });
+
+  it("counts the week's riding, not running", () => {
+    const week = buildActivityView(rideInput({ activities: [testRun({ local_date: "2026-11-07" }), testRide({ local_date: "2026-11-05" }), ride] })).context.week;
+    expect(week).toMatchObject({ sport: "ride", count: 2, hours: 1.3 });
   });
 });
 

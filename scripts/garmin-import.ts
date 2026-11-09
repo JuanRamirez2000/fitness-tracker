@@ -7,6 +7,7 @@
  *   npm run garmin:import -- --days 365        # a wider backfill
  *   npm run garmin:import -- --since 2024-01-01 --only activities   # run history alone
  *   npm run garmin:import -- --since 2024-01-01 --only details      # samples and splits for those runs
+ *   npm run garmin:import -- --since 2026-01-01 --only details --refresh-details --sport ride   # refetch rides' detail
  *   npm run garmin:import -- --dry-run         # fetch and map, print, write nothing
  *
  * Default window: the last 7 days. `--only <dataset>` (repeatable; see DATASETS in lib/garmin/import.ts) narrows
@@ -29,6 +30,8 @@ async function main() {
       since: { type: "string" },
       only: { type: "string", multiple: true },
       "dry-run": { type: "boolean", default: false },
+      "refresh-details": { type: "boolean", default: false },
+      sport: { type: "string" },
     },
   });
 
@@ -43,6 +46,7 @@ async function main() {
     window = { kind: "days", days };
   }
 
+  if (values.sport && values.sport !== "ride" && values.sport !== "run") throw new Error(`--sport must be ride or run, got "${values.sport}".`);
   const only = values.only ?? [];
   const unknown = only.filter((d) => !(DATASETS as readonly string[]).includes(d));
   if (unknown.length) throw new Error(`--only must be one of ${DATASETS.join(", ")}; got ${unknown.join(", ")}.`);
@@ -54,6 +58,8 @@ async function main() {
     log: console.log,
     // Two requests per activity: pace a long detail backfill under Garmin's rate limit.
     detailDelayMs: 1500,
+    refreshDetails: values["refresh-details"],
+    detailSport: values.sport as "ride" | "run" | undefined,
   });
   if (result.details?.remaining) {
     // Partial: what was fetched is saved. Exit non-zero so a retry loop knows to run again.

@@ -4,7 +4,7 @@
  * the full-resolution samples, and the feel, RPE, location and split summaries from
  * /activity-service/activity/{id}. Pure, unit-tested (details.test.ts).
  */
-import type { ActivityEfforts, ActivitySeries, IntervalSplit, MileSplit, SeriesKey } from "../data/activity-details";
+import type { ActivityEfforts, ActivitySeries, IntervalSplit, MileSplit, RideSplit, SeriesKey } from "../data/activity-details";
 import { bestEfforts } from "./efforts";
 
 export const METERS_PER_MILE = 1609.344;
@@ -18,6 +18,10 @@ export const SERIES_POINTS = 400;
 const ELEVATION_STEP_M = 2;
 /** A last partial mile shorter than this is folded out of the splits table. */
 const MIN_PARTIAL_MILE_M = 0.1 * METERS_PER_MILE;
+/** Rides split every 5 miles outdoors, every 5 minutes indoors; a last split under a quarter of that is folded out. */
+export const RIDE_SPLIT_M = 5 * METERS_PER_MILE;
+export const RIDE_SPLIT_S = 5 * 60;
+const MIN_PARTIAL_SHARE = 0.25;
 
 export interface RawActivityDetails {
   metricDescriptors?: { metricsIndex: number; key: string }[] | null;
@@ -33,6 +37,8 @@ interface RawSplitSummary {
   averageHR?: number | null;
   maxHR?: number | null;
   averageRunCadence?: number | null;
+  averageBikeCadence?: number | null;
+  averagePower?: number | null;
   elevationGain?: number | null;
 }
 
@@ -60,12 +66,14 @@ export interface ActivityDetailRow {
   interval_splits: IntervalSplit[] | null;
   /** On-foot activities only: best times over set distances and the longest continuous running. */
   efforts: ActivityEfforts | null;
+  /** Rides only: 5-mile (outdoors) or 5-minute (indoors) splits. */
+  ride_splits: RideSplit[] | null;
 }
 
 /** The activity_details columns the import writes besides activity_id and user_id. */
 export const ACTIVITY_DETAIL_COLUMNS = [
   "location_name", "workout_feel", "workout_rpe", "min_hr", "stamina_start", "stamina_end", "series",
-  "mile_splits", "interval_splits", "efforts",
+  "mile_splits", "interval_splits", "efforts", "ride_splits",
 ] as const satisfies readonly (keyof ActivityDetailRow)[];
 
 /** Garmin's metric key for each series, first match wins, and the decimals kept. */
@@ -156,12 +164,27 @@ export function thinSeries(samples: Samples, points = SERIES_POINTS): ActivitySe
   return series;
 }
 
-/** Per-mile splits from full-resolution samples; null without distance. */
-export function mileSplits(samples: Samples): MileSplit[] | null {
-  const d = samples.cols.d;
-  if (!d) return null;
+/** One stretch between split boundaries, before it's shaped into a mile or ride split. */
+interface Stretch {
+  distance_m: number;
+  duration_s: number;
+  hr: number | null;
+  cadence: number | null;
+  gap: number | null;
+  power: number | null;
+  gain: number;
+  loss: number;
+}
+
+/**
+ * Cuts the samples every `size` along `axis` (cumulative distance or timer time), interpolating
+ * the moment each boundary was crossed. A last stretch shorter than `minPartial` is dropped.
+ */
+function splitAlong(samples: Samples, axis: (number | null)[], size: number, minPartial: number): Stretch[] {
   const { t } = samples;
-  const splits: MileSplit[] = [];
+  const d = samples.cols.d;
+  const stretches: Stretch[] = [];
+  let startA = 0;
   let startT = 0;
   let startD = 0;
   let from = 0;
@@ -184,41 +207,92 @@ export function mileSplits(samples: Samples): MileSplit[] | null {
         ref = e;
       }
     }
-    const hr = mean(samples.cols.hr);
-    const cadence = mean(samples.cols.cadence);
-    const gap = mean(samples.cols.gap);
-    splits.push({
-      mile: splits.length + 1,
+    stretches.push({
       distance_m: round(endD - startD, 1),
       duration_s: round(endT - startT, 1),
-      avg_hr: hr === null ? null : Math.round(hr),
-      avg_cadence_spm: cadence === null ? null : Math.round(cadence),
-      avg_gap_mps: gap === null ? null : round(gap, 3),
-      elevation_gain_m: round(gain, 1),
-      elevation_loss_m: round(loss, 1),
+      hr: mean(samples.cols.hr),
+      cadence: mean(samples.cols.cadence),
+      gap: mean(samples.cols.gap),
+      power: mean(samples.cols.power),
+      gain: round(gain, 1),
+      loss: round(loss, 1),
     });
   };
 
+  // Distance at sample i, carried forward over gaps (time-cut rides may miss a few distance samples).
+  let lastD = 0;
+  const distAt = (i: number) => {
+    const v = d?.[i];
+    if (finite(v)) lastD = v;
+    return lastD;
+  };
+
+  let prevA = 0;
   let prevT = 0;
   let prevD = 0;
   for (let i = 0; i < t.length; i++) {
-    const di = d[i];
-    if (!finite(di)) continue;
+    const ai = axis[i];
+    const di = distAt(i);
+    if (!finite(ai)) continue;
     // A boundary (or several, after a GPS jump) between the previous sample and this one:
-    // interpolate the time it was crossed.
-    while (di >= startD + METERS_PER_MILE) {
-      const boundary = startD + METERS_PER_MILE;
-      const frac = di === prevD ? 1 : (boundary - prevD) / (di - prevD);
+    // interpolate when it was crossed.
+    while (ai >= startA + size) {
+      const boundary = startA + size;
+      const frac = ai === prevA ? 1 : (boundary - prevA) / (ai - prevA);
       const crossT = prevT + frac * (t[i] - prevT);
-      close(i, crossT, boundary);
+      const crossD = prevD + frac * (di - prevD);
+      close(i, crossT, crossD);
+      startA = boundary;
       startT = crossT;
-      startD = boundary;
+      startD = crossD;
       from = i;
     }
+    prevA = ai;
     prevT = t[i];
     prevD = di;
   }
-  if (prevD - startD >= MIN_PARTIAL_MILE_M) close(t.length, prevT, prevD);
+  if (prevA - startA >= minPartial) close(t.length, prevT, prevD);
+  return stretches;
+}
+
+const intRound = (v: number | null) => (v === null ? null : Math.round(v));
+
+/** Per-mile splits from full-resolution samples; null without distance. */
+export function mileSplits(samples: Samples): MileSplit[] | null {
+  const d = samples.cols.d;
+  if (!d) return null;
+  const splits = splitAlong(samples, d, METERS_PER_MILE, MIN_PARTIAL_MILE_M).map((s, i) => ({
+    mile: i + 1,
+    distance_m: s.distance_m,
+    duration_s: s.duration_s,
+    avg_hr: intRound(s.hr),
+    avg_cadence_spm: intRound(s.cadence),
+    avg_gap_mps: s.gap === null ? null : round(s.gap, 3),
+    elevation_gain_m: s.gain,
+    elevation_loss_m: s.loss,
+  }));
+  return splits.length ? splits : null;
+}
+
+/**
+ * A ride's splits: every 5 miles outdoors, or every 5 minutes indoors, where the distance is
+ * only the trainer's estimate. Null when an outdoor ride has no distance.
+ */
+export function rideSplits(samples: Samples, { indoor }: { indoor: boolean }): RideSplit[] | null {
+  const by: RideSplit["by"] = indoor || !samples.cols.d ? "time" : "distance";
+  const axis = by === "time" ? samples.t : samples.cols.d!;
+  const size = by === "time" ? RIDE_SPLIT_S : RIDE_SPLIT_M;
+  const splits = splitAlong(samples, axis, size, size * MIN_PARTIAL_SHARE).map((s, i) => ({
+    split: i + 1,
+    by,
+    distance_m: s.distance_m,
+    duration_s: s.duration_s,
+    avg_hr: intRound(s.hr),
+    avg_power_w: intRound(s.power),
+    avg_cadence_rpm: intRound(s.cadence),
+    elevation_gain_m: s.gain,
+    elevation_loss_m: s.loss,
+  }));
   return splits.length ? splits : null;
 }
 
@@ -235,6 +309,8 @@ function intervalSplits(record: RawActivityRecord): IntervalSplit[] | null {
             avg_hr: intOrNull(s.averageHR),
             max_hr: intOrNull(s.maxHR),
             avg_cadence_spm: intOrNull(s.averageRunCadence),
+            avg_cadence_rpm: intOrNull(s.averageBikeCadence),
+            avg_power_w: intOrNull(s.averagePower),
             elevation_gain_m: finite(s.elevationGain) ? round(s.elevationGain, 1) : null,
           },
         ]
@@ -245,12 +321,13 @@ function intervalSplits(record: RawActivityRecord): IntervalSplit[] | null {
 
 /**
  * The row for one activity. `withMileSplits` is for on-foot activities: a mile table means
- * little for a ride or a pool swim.
+ * little for a ride or a pool swim. `ride` gets the ride's own splits instead (`indoor`: cut by
+ * time, since a trainer's distance is a guess).
  */
 export function buildActivityDetailRow(
   details: RawActivityDetails | null,
   record: RawActivityRecord | null,
-  { withMileSplits }: { withMileSplits: boolean },
+  { withMileSplits, ride = null }: { withMileSplits: boolean; ride?: { indoor: boolean } | null },
 ): ActivityDetailRow {
   const samples = details ? readSamples(details) : null;
   const s = record?.summaryDTO ?? {};
@@ -266,5 +343,6 @@ export function buildActivityDetailRow(
     interval_splits: record ? intervalSplits(record) : null,
     // From the full-resolution samples, before thinning.
     efforts: samples && withMileSplits ? bestEfforts(samples.t, samples.cols.d, samples.cols.cadence) : null,
+    ride_splits: samples && ride ? rideSplits(samples, ride) : null,
   };
 }

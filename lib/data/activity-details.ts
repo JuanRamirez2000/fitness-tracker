@@ -58,6 +58,25 @@ export const mileSplitSchema = z.object({
 });
 export type MileSplit = z.infer<typeof mileSplitSchema>;
 
+/**
+ * One split of a ride (migration 014), from the full-resolution samples: every 5 miles outdoors,
+ * every 5 minutes indoors (where the distance is the trainer's guess). The last may be partial.
+ */
+export const rideSplitSchema = z.object({
+  /** 1-based. */
+  split: z.number().int(),
+  /** What the splits are cut by: "distance" (5 mi) or "time" (5 min). */
+  by: z.enum(["distance", "time"]),
+  distance_m: z.number(),
+  duration_s: z.number(),
+  avg_hr: z.number().nullable(),
+  avg_power_w: z.number().nullable(),
+  avg_cadence_rpm: z.number().nullable(),
+  elevation_gain_m: z.number(),
+  elevation_loss_m: z.number(),
+});
+export type RideSplit = z.infer<typeof rideSplitSchema>;
+
 /** Garmin's split summary for one split type, totalled over every split of that type. */
 export const intervalSplitSchema = z.object({
   /** Garmin's splitType: RWD_RUN, RWD_WALK, RWD_STAND, INTERVAL_WARMUP, INTERVAL_ACTIVE... */
@@ -69,6 +88,9 @@ export const intervalSplitSchema = z.object({
   avg_hr: z.number().nullable(),
   max_hr: z.number().nullable(),
   avg_cadence_spm: z.number().nullable(),
+  /** Rides (migration 014; absent on rows imported before it). */
+  avg_cadence_rpm: z.number().nullable().default(null),
+  avg_power_w: z.number().nullable().default(null),
   elevation_gain_m: z.number().nullable(),
 });
 export type IntervalSplit = z.infer<typeof intervalSplitSchema>;
@@ -103,6 +125,7 @@ export const activityDetailRowSchema = z.object({
   mile_splits: z.array(mileSplitSchema).nullable(),
   interval_splits: z.array(intervalSplitSchema).nullable(),
   efforts: activityEffortsSchema.nullable().default(null),
+  ride_splits: z.array(rideSplitSchema).nullable().default(null),
   fetched_at: timestampSchema,
 });
 export type ActivityDetail = z.infer<typeof activityDetailRowSchema>;

@@ -9,7 +9,8 @@ Datasets:
              status, load focus with its targets, and VO2 max -> daily_training.
   race       race predictions: 5K, 10K, half and full marathon seconds per day -> daily_training.
   vo2        VO2 max on each day Garmin updated it (max metrics, cheap for long
-             backfills) -> daily_training.vo2max.
+             backfills), running and cycling -> daily_training.vo2max, vo2max_cycling.
+  ftp        the cycling FTP set in Garmin, on each day it changed -> daily_training.ftp_w.
 
 Uses cyberjunky/python-garminconnect, which logs in like the Garmin Connect app. The login
 session lives in ~/.garminconnect and is mirrored to the garmin_token_cache table, so a local
@@ -45,7 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / ".env.local"
 TOKEN_DIR = Path(os.getenv("GARMINTOKENS", "~/.garminconnect")).expanduser()
 TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
-DATASETS = ("readiness", "training", "race", "vo2")
+DATASETS = ("readiness", "training", "race", "vo2", "ftp")
 # Days per request for the range endpoints (race predictions allow up to a year).
 RANGE_CHUNK_DAYS = 90
 PER_DAY_PAUSE_S = 0.4
@@ -148,6 +149,9 @@ def training_row(payload: dict[str, Any] | None, day: str) -> dict[str, Any] | N
     vo2 = ((payload.get("mostRecentVO2Max") or {}).get("generic")) or {}
     if vo2.get("calendarDate") == day and vo2.get("vo2MaxPreciseValue") is not None:
         row["vo2max"] = vo2["vo2MaxPreciseValue"]
+    cycling = ((payload.get("mostRecentVO2Max") or {}).get("cycling")) or {}
+    if cycling.get("calendarDate") == day and cycling.get("vo2MaxPreciseValue") is not None:
+        row["vo2max_cycling"] = cycling["vo2MaxPreciseValue"]
 
     return row if len(row) > 1 else None
 
@@ -172,16 +176,39 @@ def race_rows(payload: list[dict[str, Any]] | dict[str, Any] | None) -> list[dic
 
 
 def vo2_rows(payload: list[dict[str, Any]] | dict[str, Any] | None) -> list[dict[str, Any]]:
-    """daily_training.vo2max for each day get_max_metrics_range lists (days with an update)."""
+    """daily_training.vo2max (running) and vo2max_cycling for each day get_max_metrics_range
+    lists (days with an update), one row per day."""
     if not payload:
         return []
     entries = payload if isinstance(payload, list) else [payload]
-    rows = []
+    by_day: dict[str, dict[str, Any]] = {}
     for e in entries:
-        generic = e.get("generic") or {}
-        if generic.get("calendarDate") and generic.get("vo2MaxPreciseValue") is not None:
-            rows.append({"local_date": generic["calendarDate"], "vo2max": generic["vo2MaxPreciseValue"]})
-    return rows
+        for key, column in (("generic", "vo2max"), ("cycling", "vo2max_cycling")):
+            part = e.get(key) or {}
+            if part.get("calendarDate") and part.get("vo2MaxPreciseValue") is not None:
+                day = part["calendarDate"]
+                by_day.setdefault(day, {"local_date": day})[column] = part["vo2MaxPreciseValue"]
+    return [by_day[d] for d in sorted(by_day)]
+
+
+def ftp_rows(payload: list[dict[str, Any]] | dict[str, Any] | None, today: str) -> list[dict[str, Any]]:
+    """daily_training.ftp_w from Garmin's FTP endpoints. Their shape isn't documented, so this
+    accepts both seen in Garmin's biometric responses: the latest-value record (calendarDate,
+    functionalThresholdPower) and the range series (from, value). An entry without a date is
+    today's (the latest value, as of this run)."""
+    if not payload:
+        return []
+    entries = payload if isinstance(payload, list) else [payload]
+    by_day: dict[str, int] = {}
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        watts = e.get("functionalThresholdPower", e.get("value"))
+        if not isinstance(watts, (int, float)) or watts <= 0:
+            continue
+        day = str(e.get("calendarDate") or e.get("from") or e.get("date") or today)[:10]
+        by_day[day] = round(watts)
+    return [{"local_date": d, "ftp_w": by_day[d]} for d in sorted(by_day)]
 
 
 def chunks(start: date, end: date, days: int):
@@ -196,7 +223,7 @@ def chunks(start: date, end: date, days: int):
 TRAINING_COLUMNS = (
     "acute_load", "chronic_load", "chronic_low", "chronic_high", "acwr", "status",
     "focus", "focus_feedback", "vo2max", "race_5k_s", "race_10k_s", "race_half_s",
-    "race_marathon_s",
+    "race_marathon_s", "vo2max_cycling", "ftp_w",
 )
 
 
@@ -407,6 +434,19 @@ def main() -> None:
                 time.sleep(PER_DAY_PAUSE_S)
             print(f"Fetched VO2 max for {len(rows)} day(s)")
             upsert_training(conn, user_id, rows, args.dry_run, "vo2")
+
+        if "ftp" in datasets:
+            # Extra, never fatal: Garmin answers 404 until an FTP is set or detected.
+            try:
+                payload = garmin.get_functional_threshold_power_range(start.isoformat(), end.isoformat(), sport="CYCLING")
+                rows = ftp_rows(payload, end.isoformat())
+                if not rows:
+                    rows = ftp_rows(garmin.get_cycling_ftp(), end.isoformat())
+            except Exception as err:  # noqa: BLE001 — the library raises several types for a 404
+                print(f"  ftp: skipped ({err})")
+                rows = []
+            print(f"Fetched cycling FTP for {len(rows)} day(s)")
+            upsert_training(conn, user_id, rows, args.dry_run, "ftp")
 
     print("Done.")
 

@@ -9,7 +9,7 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
-const HELP = "VO2 max is Garmin's estimate of your aerobic capacity from your runs; higher is fitter. Fitness age compares that and your habits with typical people your age; below your real age is good. The list shows what would lower it most.";
+const HELP = "VO2 max is Garmin's estimate of your aerobic capacity; higher is fitter. Garmin keeps one from your runs and a separate one from outdoor rides with power, and this card follows the sport picked above. Fitness age compares your fitness and habits with typical people your age; below your real age is good. The list shows what would lower it most.";
 
 const WIDTH = 520;
 const PANEL_HEIGHT = 64;
@@ -95,9 +95,10 @@ const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v
 
 /** VO2 max and fitness age as two panels on one date axis, then Garmin's ranked levers for fitness age. */
 export function FitnessChart({ data }: { data: DashboardData }) {
-  const fit = buildFitness(data);
+  const cycling = data.sport === "ride";
+  const fit = buildFitness(data, { cycling });
   const title = "VO2 max and fitness age";
-  const subtitle = "Garmin's running VO2 max, and the age your fitness matches";
+  const subtitle = `Garmin's ${cycling ? "cycling" : "running"} VO2 max, and the age your fitness matches`;
   if (!fit) {
     return (
       <ChartCard help={HELP} title={title} subtitle={subtitle}>

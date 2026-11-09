@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Segmented } from "@/components/ui/segmented";
 import type { DateRange, RangeKey, TabKey } from "@/lib/dashboard/types";
+import type { SportFilter } from "@/lib/sport";
 import type { LocalDate } from "@/lib/dates/calendar";
 import { storeRange } from "@/lib/range/storage";
 import { rangeToSearchParams } from "@/lib/range/url";
@@ -22,7 +23,7 @@ const LABELS: Record<RangeKey, string> = {
 const OPTIONS = (Object.keys(LABELS) as RangeKey[]).map((value) => ({ value, label: LABELS[value] }));
 
 /** The range picker. Restoring the last-used range on a bare URL is StoredViewRestorer's job. */
-export function RangeControl({ current, tab, today }: { current: DateRange; tab: TabKey; today: LocalDate }) {
+export function RangeControl({ current, tab, sport, today }: { current: DateRange; tab: TabKey; sport: SportFilter; today: LocalDate }) {
   const router = useRouter();
   const pathname = usePathname();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -31,7 +32,7 @@ export function RangeControl({ current, tab, today }: { current: DateRange; tab:
   const shown = pendingRange ?? current.key;
 
   function navigate(range: { key: RangeKey; custom?: { from: string; to: string } }) {
-    startRange(range.key, () => router.push(`${pathname}?${rangeToSearchParams(range, tab)}`));
+    startRange(range.key, () => router.push(`${pathname}?${rangeToSearchParams(range, tab, sport)}`));
   }
 
   function selectPreset(key: Exclude<RangeKey, "custom">) {
