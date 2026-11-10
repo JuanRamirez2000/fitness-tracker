@@ -7,7 +7,7 @@ import { sportToSearchParams, type UrlRange } from "@/lib/range/url";
 import { SPORT_KEYS, SPORT_LABELS, type SportFilter } from "@/lib/sport";
 
 /**
- * The Training tab's Ride | Run | All switch. Plain links (`?sport=`), like the tab row, so each
+ * The Training tab's All | Ride | Run switch. Plain links (`?sport=`), like the tab row, so each
  * sport is a server render that works without JS; the clicked one lights up at once.
  */
 export function SportToggle({ current, range }: { current: SportFilter; range: UrlRange | null }) {

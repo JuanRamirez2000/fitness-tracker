@@ -35,9 +35,16 @@ export interface TrainingTooltipData {
   items: TrainingTooltipItem[];
 }
 
-/** A day's fill: the steps floor on a rest day, toward the accent by the sport's full amount. */
-export function trainingFill(amount: number, sport: SportFilter, palette: Palette): string {
-  return mix(CELL_STEPS_FLOOR, palette.accent, Math.min(1, Math.max(0, amount / TRAINING_SCALE[sport].full)));
+/** A day's fill: the steps floor on a rest day, toward the sport's hue by the filter's full
+ * amount. Under All the hue is the day's main sport (`hue`); otherwise the filter's own. */
+export function trainingFill(amount: number, sport: SportFilter, palette: Palette, hue: "ride" | "run" = sport === "run" ? "run" : "ride"): string {
+  return mix(CELL_STEPS_FLOOR, palette[hue], Math.min(1, Math.max(0, amount / TRAINING_SCALE[sport].full)));
+}
+
+/** The sport a day spent the most minutes on (a ride on a tie, being the main sport now). */
+export function mainSport(items: TrainingTooltipItem[]): "ride" | "run" {
+  const minutes = (sport: "ride" | "run") => items.filter((i) => i.sport === sport).reduce((sum, i) => sum + i.minutes, 0);
+  return minutes("run") > minutes("ride") ? "run" : "ride";
 }
 
 function tooltipItem(a: DashboardData["activities"][number]): TrainingTooltipItem {
@@ -53,7 +60,8 @@ function tooltipItem(a: DashboardData["activities"][number]): TrainingTooltipIte
   };
 }
 
-/** The Training tab's activity heatmap under its sport filter (data.sport). */
+/** The Training tab's activity heatmap under its sport filter (data.sport), in the sport's hue
+ * (under All, each day in the hue of the sport it spent the most minutes on). */
 export const TRAINING_MODE: HeatmapMode = {
   id: "training",
   label: "Training",
@@ -69,13 +77,23 @@ export const TRAINING_MODE: HeatmapMode = {
       }
       const tooltip: TrainingTooltipData = { items: (byDate.get(date) ?? []).map(tooltipItem) };
       const amount = tooltip.items.reduce((sum, i) => sum + (scale.by === "miles" ? i.miles : i.minutes), 0);
-      return { date, fill: trainingFill(amount, data.sport, ctx.palette), state: "data", inRange, tooltip };
+      const hue = data.sport === "all" ? mainSport(tooltip.items) : undefined;
+      return { date, fill: trainingFill(amount, data.sport, ctx.palette, hue), state: "data", inRange, tooltip };
     });
   },
   legend(ctx: ModeContext): LegendItem[] {
     const { sport } = ctx;
     const { by, full } = TRAINING_SCALE[sport];
     const unit = by === "miles" ? "mi" : "min";
+    if (sport === "all") {
+      return [
+        { label: "rest", swatch: trainingFill(0, sport, ctx.palette) },
+        { label: `${full / 2} ${unit}`, swatch: trainingFill(full / 2, sport, ctx.palette, "ride") },
+        { label: `${full}+ ${unit} ride`, swatch: trainingFill(full, sport, ctx.palette, "ride") },
+        { label: `${full}+ ${unit} run`, swatch: trainingFill(full, sport, ctx.palette, "run") },
+        { label: "future", swatch: "transparent" },
+      ];
+    }
     return [
       { label: "rest", swatch: trainingFill(0, sport, ctx.palette) },
       { label: `${full / 2} ${unit}`, swatch: trainingFill(full / 2, sport, ctx.palette) },

@@ -46,6 +46,11 @@
   --z3: #5fb3a5;
   --z4: #e3b25c;
   --z5: #e0735a;
+  /* Sports: text in a badge as well as chart marks, so each keeps 4.5:1 on --bg and --card.
+   * A badge also carries a glyph and a word, so the hue is never the only cue. Swimming will
+   * get a third when it arrives. */
+  --sport-ride: #4cc3a8;
+  --sport-run: #e48fd0;
 }
 
 /*
@@ -93,6 +98,8 @@
   --z3: #24806f;
   --z4: #a8781a;
   --z5: #bf452e;
+  --sport-ride: #127566;
+  --sport-run: #a3387f;
 }
 
 @theme inline {
@@ -124,6 +131,8 @@
   --color-z3: var(--z3);
   --color-z4: var(--z4);
   --color-z5: var(--z5);
+  --color-sport-ride: var(--sport-ride);
+  --color-sport-run: var(--sport-run);
 
   --font-sans: var(--font-plex-sans), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { openActivity } from "@/components/activity/open";
 import { fmtDate } from "@/lib/dates/format";
 import type { DashboardData } from "@/lib/dashboard/types";
+import { SportBadge } from "@/components/ui/sport-badge";
 import { SPORT_NOUN } from "@/lib/sport";
 import { activityColumns, buildActivityRows, COLUMN_LABELS, type ActivityColumn, type ActivityRow } from "@/lib/table/activities";
 
@@ -92,9 +93,8 @@ export function ActivitiesTable({ data }: { data: DashboardData }) {
                   </button>
                 </td>
                 {columns.includes("sport") && (
-                  <td className={`${cellPad} whitespace-nowrap text-[12px] text-muted-1`}>
-                    <span aria-hidden className="mr-1">{row.sport === "ride" ? "◆" : "●"}</span>
-                    {row.sport === "ride" ? "Ride" : "Run"}
+                  <td className={`${cellPad} whitespace-nowrap`}>
+                    <SportBadge sport={row.sport} />
                   </td>
                 )}
                 <td className={`${cellPad} whitespace-nowrap`}>

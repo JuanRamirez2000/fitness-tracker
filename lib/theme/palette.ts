@@ -11,6 +11,9 @@ export interface Palette {
   missed: string;
   warn: string;
   accent: string;
+  /** The sport hues (--sport-ride, --sport-run), for the training heatmap's fills. */
+  ride: string;
+  run: string;
 }
 
 // Sky blue / vermillion — chosen by the user from four color-blind-safe options (2026-09-23),
@@ -26,6 +29,8 @@ export const DEFAULT_PALETTE: Palette = {
   missed: "#d9573b",
   warn: "#d9a441",
   accent: "#7fb2ff",
+  ride: "#4cc3a8",
+  run: "#e48fd0",
 };
 
 export const COLOR_BLIND_PALETTE: Palette = {
@@ -34,6 +39,8 @@ export const COLOR_BLIND_PALETTE: Palette = {
   missed: "#c0705f",
   warn: "#d9a441",
   accent: "#7fb2ff",
+  ride: "#4cc3a8",
+  run: "#e48fd0",
 };
 
 /** The "Warm cream" light theme's semantic colors — mirrors the `[data-theme="light"]`
@@ -45,6 +52,8 @@ export const LIGHT_PALETTE: Palette = {
   missed: "#af4a26",
   warn: "#8a5a10",
   accent: "#2f5f9e",
+  ride: "#127566",
+  run: "#a3387f",
 };
 
 /** The one place that decides which literal palette a piece of JS color math (heatmap fills,

@@ -1,7 +1,7 @@
 import { scaleLinear } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import type { DashboardData } from "@/lib/dashboard/types";
-import { buildFitness, type DatedValue, type FactorTag } from "@/lib/charts/fitness";
+import { buildFitness, type DatedValue, type FactorTag, type FitnessData } from "@/lib/charts/fitness";
 import { dayStartUtcMs } from "@/lib/dates/calendar";
 import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
 import { ChartHover, type HoverRow } from "./chart-hover";
@@ -9,7 +9,7 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Marker, Plot, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
-const HELP = "VO2 max is Garmin's estimate of your aerobic capacity; higher is fitter. Garmin keeps one from your runs and a separate one from outdoor rides with power, and this card follows the sport picked above. Fitness age compares your fitness and habits with typical people your age; below your real age is good. The list shows what would lower it most.";
+const HELP = "VO2 max is Garmin's estimate of your aerobic capacity; higher is fitter. Garmin keeps one from your runs and a separate one from outdoor rides with power, and this card follows the sport picked above (All shows both). Fitness age compares your fitness and habits with typical people your age; below your real age is good. The list shows what would lower it most.";
 
 const WIDTH = 520;
 const PANEL_HEIGHT = 64;
@@ -69,7 +69,7 @@ function Panel({
           label={summary}
           markers={
             points.length === 1 ? (
-              <Marker x={x(points[0].date)} y={y(points[0].value)} width={WIDTH} height={PANEL_HEIGHT} shape="dot" className="bg-domain-rec" />
+              <Marker x={x(points[0].date)} y={y(points[0].value)} width={WIDTH} height={PANEL_HEIGHT} shape="dot" className={markClass} />
             ) : undefined
           }
         >
@@ -93,12 +93,25 @@ function Panel({
 
 const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`;
 
-/** VO2 max and fitness age as two panels on one date axis, then Garmin's ranked levers for fitness age. */
+/** One VO2 max line: which of Garmin's two it is, and how it's drawn. */
+interface Vo2Line {
+  label: string;
+  fit: FitnessData;
+  stroke: string;
+  mark: string;
+}
+
+/** VO2 max and fitness age as panels on one date axis, then Garmin's ranked levers for fitness
+ * age. Under All, cycling and running VO2 max each get a panel, in their sport's color. */
 export function FitnessChart({ data }: { data: DashboardData }) {
-  const cycling = data.sport === "ride";
-  const fit = buildFitness(data, { cycling });
+  const all = data.sport === "all";
+  const cyclingFit = data.sport === "run" ? null : buildFitness(data, { cycling: true });
+  const runningFit = data.sport === "ride" ? null : buildFitness(data);
+  const fit = cyclingFit ?? runningFit;
   const title = "VO2 max and fitness age";
-  const subtitle = `Garmin's ${cycling ? "cycling" : "running"} VO2 max, and the age your fitness matches`;
+  const subtitle = all
+    ? "Garmin's cycling and running VO2 max, and the age your fitness matches"
+    : `Garmin's ${data.sport === "ride" ? "cycling" : "running"} VO2 max, and the age your fitness matches`;
   if (!fit) {
     return (
       <ChartCard help={HELP} title={title} subtitle={subtitle}>
@@ -107,19 +120,30 @@ export function FitnessChart({ data }: { data: DashboardData }) {
     );
   }
 
-  const first = [fit.vo2[0]?.date, fit.fitnessAge[0]?.date].filter(Boolean).sort()[0] as string;
+  const lines: Vo2Line[] = [
+    ...(cyclingFit && cyclingFit.vo2.length > 0 && cyclingFit.vo2Latest !== null
+      ? [{ label: all ? "Cycling VO2" : "VO2 max", fit: cyclingFit, stroke: all ? "stroke-sport-ride" : "stroke-domain-rec", mark: all ? "bg-sport-ride" : "bg-domain-rec" }]
+      : []),
+    ...(runningFit && runningFit.vo2.length > 0 && runningFit.vo2Latest !== null
+      ? [{ label: all ? "Running VO2" : "VO2 max", fit: runningFit, stroke: all ? "stroke-sport-run" : "stroke-domain-rec", mark: all ? "bg-sport-run" : "bg-domain-rec" }]
+      : []),
+  ];
+
+  const first = [...lines.map((l) => l.fit.vo2[0]?.date), fit.fitnessAge[0]?.date].filter(Boolean).sort()[0] as string;
   const from = first > data.dateRange.from ? first : data.dateRange.from;
   const fromMs = dayStartUtcMs(from);
   const toMs = Math.max(dayStartUtcMs(data.dateRange.to), fromMs + 1);
   const xScale = scaleLinear<number>({ domain: [fromMs, toMs], range: [3, WIDTH - 3] });
   const x = (date: string) => xScale(dayStartUtcMs(date));
-  // Each panel's points are its own days; the tooltip shows the latest of both as of that day.
+  // Each panel's points are its own days; the tooltip shows the latest of each as of that day.
   const asOf = (series: { date: string; value: number }[], date: string) => [...series].reverse().find((p) => p.date <= date) ?? null;
   const rows = (date: string): HoverRow[] => {
-    const v = asOf(fit.vo2, date);
     const a = asOf(fit.fitnessAge, date);
     return [
-      ...(v ? [{ label: "VO2 max", value: v.value.toFixed(1), swatch: { shape: "line" as const, className: "bg-domain-rec" } }] : []),
+      ...lines.flatMap((l) => {
+        const v = asOf(l.fit.vo2, date);
+        return v ? [{ label: l.label, value: v.value.toFixed(1), swatch: { shape: "line" as const, className: l.mark } }] : [];
+      }),
       ...(a ? [{ label: "Fitness age", value: a.value.toFixed(1), swatch: { shape: "line" as const, className: "bg-accent" } }] : []),
       ...(fit.realAge !== null ? [{ label: "Real age", value: String(fit.realAge), swatch: { shape: "dashed" as const, className: "border-muted-2" }, muted: true }] : []),
     ];
@@ -131,25 +155,28 @@ export function FitnessChart({ data }: { data: DashboardData }) {
       subtitle={subtitle}
       note={from !== data.dateRange.from ? `data starts ${fmtDate(from)}` : undefined}
       legend={[
-        { label: "VO2 max", swatch: Swatch.line("bg-domain-rec") },
+        ...(all
+          ? lines.map((l) => ({ label: l.label.toLowerCase().replace("vo2", "VO2"), swatch: Swatch.line(l.mark) }))
+          : [{ label: "VO2 max", swatch: Swatch.line("bg-domain-rec") }]),
         { label: "fitness age", swatch: Swatch.line("bg-accent") },
         { label: "real age", swatch: Swatch.dashed("border-muted-2") },
       ]}
     >
       <div className="flex flex-col gap-3">
-        {fit.vo2.length > 0 && fit.vo2Latest !== null && (
+        {lines.map((l) => (
           <Panel
-            label="VO2 max"
-            value={fit.vo2Latest.toFixed(1)}
-            note={fit.vo2Delta === null ? "one update in range" : `${signed(fit.vo2Delta)} in range`}
-            points={fit.vo2}
+            key={l.label + l.stroke}
+            label={l.label}
+            value={l.fit.vo2Latest!.toFixed(1)}
+            note={l.fit.vo2Delta === null ? "one update in range" : `${signed(l.fit.vo2Delta)} in range`}
+            points={l.fit.vo2}
             x={x}
-            strokeClass="stroke-domain-rec"
+            strokeClass={l.stroke}
             rows={rows}
-            markClass="bg-domain-rec"
-            summary={`VO2 max ${fit.vo2Latest.toFixed(1)}${fit.vo2Delta !== null ? `, ${signed(fit.vo2Delta)} in range` : ""}`}
+            markClass={l.mark}
+            summary={`${l.label} ${l.fit.vo2Latest!.toFixed(1)}${l.fit.vo2Delta !== null ? `, ${signed(l.fit.vo2Delta)} in range` : ""}`}
           />
-        )}
+        ))}
         {fit.fitnessAge.length > 0 && fit.fitnessAgeLatest !== null && (
           <Panel
             label="Fitness age"

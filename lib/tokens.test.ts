@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PALETTE } from "@/lib/theme/palette";
+import { DEFAULT_PALETTE, LIGHT_PALETTE } from "@/lib/theme/palette";
 import { CARD_BG, MUTED_2 } from "@/lib/theme/surfaces";
 import { contrastRatio } from "./color";
 
@@ -28,6 +28,8 @@ const TEXT_TOKENS = ["ink", "muted-1", "muted-2", "muted-3", "accent", "good", "
 const GRAPHIC_TOKENS = ["domain-rec", "domain-body", "sleep-deep", "sleep-rem", "sleep-light", "sleep-awake", "z1", "z2", "z3", "z4", "z5"];
 const MIN_GRAPHIC_CONTRAST = 3;
 const SURFACES = ["bg", "card"];
+/** Sport colors are badge text in both themes. */
+const SPORT_TOKENS = ["sport-ride", "sport-run"];
 const MIN_TEXT_CONTRAST = 4.5;
 
 describe("design tokens", () => {
@@ -40,7 +42,14 @@ describe("design tokens", () => {
       missed: tokens.bad,
       warn: tokens.warn,
       accent: tokens.accent,
+      ride: tokens["sport-ride"],
+      run: tokens["sport-run"],
     });
+  });
+
+  it("keeps the light palette's sport hues in sync with the CSS", () => {
+    const light = lightTokens();
+    expect([LIGHT_PALETTE.ride, LIGHT_PALETTE.run]).toEqual([light["sport-ride"], light["sport-run"]]);
   });
 
   it("keeps CARD_BG and MUTED_2 in sync with the CSS", () => {
@@ -63,6 +72,20 @@ describe("design tokens", () => {
       });
     }
   }
+
+  describe("sport tokens", () => {
+    const themes = { dark: tokens, light: lightTokens() };
+    for (const [theme, t] of Object.entries(themes)) {
+      for (const name of SPORT_TOKENS) {
+        for (const surface of SURFACES) {
+          it(`${theme} ${name} on ${surface} is at least ${MIN_TEXT_CONTRAST}:1`, () => {
+            expect(t[name], `${theme} --${name}`).toBeDefined();
+            expect(contrastRatio(t[name], t[surface])).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+          });
+        }
+      }
+    }
+  });
 
   describe("chart tokens", () => {
     const themes = { dark: tokens, light: lightTokens() };

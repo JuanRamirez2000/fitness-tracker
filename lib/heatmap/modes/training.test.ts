@@ -38,12 +38,25 @@ describe("TRAINING_MODE", () => {
     const cells = TRAINING_MODE.toCells(testDashboardData({ sport: "all", activities }), ctx("all"));
     const both = cells.find((c) => c.date === day)!;
     expect((both.tooltip as TrainingTooltipData).items.map((i) => i.sport)).toEqual(["run", "ride"]);
-    expect(both.fill).toBe(trainingFill(96, "all", ctx("all").palette));
+    // 36 min of running against 60 of riding: the ride's hue.
+    expect(both.fill).toBe(trainingFill(96, "all", ctx("all").palette, "ride"));
+  });
+
+  it("under All, colors a day by the sport it spent the most minutes on", () => {
+    const runDay = [testRun({ local_date: day, duration_s: 7200, moving_duration_s: 7200 }), testRide({ local_date: day })];
+    const cell = TRAINING_MODE.toCells(testDashboardData({ sport: "all", activities: runDay }), ctx("all")).find((c) => c.date === day)!;
+    expect(cell.fill).toBe(trainingFill(180, "all", ctx("all").palette, "run"));
+  });
+
+  it("fills in the sport's own hue, not the accent", () => {
+    const palette = ctx("run").palette;
+    expect(trainingFill(5, "run", palette)).toBe(palette.run.toLowerCase());
+    expect(trainingFill(25, "ride", palette)).toBe(palette.ride.toLowerCase());
   });
 
   it("labels the legend in the sport's unit", () => {
     expect(TRAINING_MODE.legend(ctx("ride")).map((l) => l.label)).toEqual(["rest", "12.5 mi", "25+ mi", "future"]);
-    expect(TRAINING_MODE.legend(ctx("all")).map((l) => l.label)).toEqual(["rest", "45 min", "90+ min", "future"]);
+    expect(TRAINING_MODE.legend(ctx("all")).map((l) => l.label)).toEqual(["rest", "45 min", "90+ min ride", "90+ min run", "future"]);
   });
 
   it("leaves days before the program and after today to the shared date states", () => {

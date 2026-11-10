@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import { SportBadge } from "@/components/ui/sport-badge";
 import { Stat } from "@/components/charts/parts";
 import type { ActivityView } from "@/lib/activity/view";
 import { fmtDate, weekdayName } from "@/lib/dates/format";
@@ -107,6 +108,7 @@ function Header({ view, onClose }: { view?: ActivityView; onClose: () => void })
       <div className="flex min-w-0 flex-col gap-1.5">
         {view && (
           <div className="flex flex-wrap items-center gap-1.5">
+            {(view.isRide || view.isRun) && <SportBadge sport={view.isRide ? "ride" : "run"} />}
             <span className="rounded-full border border-border-strong px-2 py-[1px] font-mono text-[10px] text-muted-1">{view.typeLabel}</span>
             {view.kind && (
               <span

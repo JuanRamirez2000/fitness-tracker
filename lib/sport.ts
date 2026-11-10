@@ -5,10 +5,10 @@
  */
 
 /** The Training tab's sport filter (`?sport=`). The first is the default. */
-export const SPORT_KEYS = ["ride", "run", "all"] as const;
+export const SPORT_KEYS = ["all", "ride", "run"] as const;
 export type SportFilter = (typeof SPORT_KEYS)[number];
-export const DEFAULT_SPORT: SportFilter = "ride";
-export const SPORT_LABELS: Record<SportFilter, string> = { ride: "Ride", run: "Run", all: "All" };
+export const DEFAULT_SPORT: SportFilter = "all";
+export const SPORT_LABELS: Record<SportFilter, string> = { all: "All", ride: "Ride", run: "Run" };
 
 export type Sport = "ride" | "run" | "other";
 
@@ -100,3 +100,10 @@ export function mph(metersPerSecond: number): number {
 export function activitiesFor<T extends { activity_type: string }>(data: { activities: T[]; sport: SportFilter }): T[] {
   return data.activities.filter((a) => inSport(a, data.sport));
 }
+
+/** How a sport is drawn wherever it's named: a word, a glyph (so hue is never the only cue) and
+ * its color token (app/globals.css). Swimming gets an entry when it's tracked. */
+export const SPORT_STYLE: Record<"ride" | "run", { label: string; glyph: string; color: string }> = {
+  ride: { label: "Ride", glyph: "◆", color: "var(--sport-ride)" },
+  run: { label: "Run", glyph: "●", color: "var(--sport-run)" },
+};

@@ -41,10 +41,10 @@ describe("inSport", () => {
 });
 
 describe("parseSportParam", () => {
-  it("defaults to ride", () => {
-    expect(parseSportParam(undefined)).toBe("ride");
-    expect(parseSportParam("swim")).toBe("ride");
+  it("defaults to all", () => {
+    expect(parseSportParam(undefined)).toBe("all");
+    expect(parseSportParam("swim")).toBe("all");
     expect(parseSportParam("run")).toBe("run");
-    expect(parseSportParam("all")).toBe("all");
+    expect(parseSportParam("ride")).toBe("ride");
   });
 });

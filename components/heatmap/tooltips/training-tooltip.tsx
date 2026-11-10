@@ -3,6 +3,7 @@ import type { HeatmapCell } from "@/lib/dashboard/types";
 import { fmtDate } from "@/lib/dates/format";
 import type { TrainingTooltipData } from "@/lib/heatmap/modes/training";
 import { fmtDuration } from "@/lib/running/runs";
+import { SPORT_STYLE } from "@/lib/sport";
 
 export function TrainingTooltip({ cell }: { cell: HeatmapCell }) {
   const data = cell.tooltip as TrainingTooltipData | null;
@@ -14,9 +15,9 @@ export function TrainingTooltip({ cell }: { cell: HeatmapCell }) {
       rows={data.items.flatMap((item, i) => [
         {
           id: `${i}-dist`,
-          key: item.sport === "run" ? "Run" : "Ride",
+          key: SPORT_STYLE[item.sport].label,
           value: item.miles > 0 ? `${item.miles.toFixed(item.sport === "run" ? 2 : 1)} mi · ${fmtDuration(item.minutes * 60)}` : fmtDuration(item.minutes * 60),
-          dot: cell.fill ?? undefined,
+          dot: SPORT_STYLE[item.sport].color,
         },
         {
           id: `${i}-speed`,
