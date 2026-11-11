@@ -29,7 +29,7 @@ const GRAPHIC_TOKENS = ["domain-rec", "domain-body", "sleep-deep", "sleep-rem", 
 const MIN_GRAPHIC_CONTRAST = 3;
 const SURFACES = ["bg", "card"];
 /** Sport colors are badge text in both themes. */
-const SPORT_TOKENS = ["sport-ride", "sport-run"];
+const SPORT_TOKENS = ["sport-ride", "sport-run", "sport-swim"];
 const MIN_TEXT_CONTRAST = 4.5;
 
 describe("design tokens", () => {
@@ -44,12 +44,13 @@ describe("design tokens", () => {
       accent: tokens.accent,
       ride: tokens["sport-ride"],
       run: tokens["sport-run"],
+      swim: tokens["sport-swim"],
     });
   });
 
   it("keeps the light palette's sport hues in sync with the CSS", () => {
     const light = lightTokens();
-    expect([LIGHT_PALETTE.ride, LIGHT_PALETTE.run]).toEqual([light["sport-ride"], light["sport-run"]]);
+    expect([LIGHT_PALETTE.ride, LIGHT_PALETTE.run, LIGHT_PALETTE.swim]).toEqual([light["sport-ride"], light["sport-run"], light["sport-swim"]]);
   });
 
   it("keeps CARD_BG and MUTED_2 in sync with the CSS", () => {

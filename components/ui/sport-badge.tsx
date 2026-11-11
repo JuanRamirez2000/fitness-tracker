@@ -4,6 +4,7 @@ import { SPORT_STYLE } from "@/lib/sport";
 const TONE: Record<keyof typeof SPORT_STYLE, string> = {
   ride: "border-sport-ride/45 bg-sport-ride/10 text-sport-ride",
   run: "border-sport-run/45 bg-sport-run/10 text-sport-run",
+  swim: "border-sport-swim/45 bg-sport-swim/10 text-sport-swim",
 };
 
 /** A colored pill naming an activity's sport: glyph, word and hue, so it reads without color too. */

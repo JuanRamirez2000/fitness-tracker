@@ -5,7 +5,7 @@ import { Segmented } from "@/components/ui/segmented";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { heatmapStats } from "@/lib/heatmap/caption";
 import { READINESS_MODE, SLEEP_SCORE_MODE } from "@/lib/heatmap/modes/recovery";
-import { TRAINING_MODE } from "@/lib/heatmap/modes/training";
+import { TRAINING_MODE, TRAINING_SCALE } from "@/lib/heatmap/modes/training";
 import { countOf, SPORT_NOUN } from "@/lib/sport";
 import { STEPS_MODE } from "@/lib/heatmap/modes/steps";
 import { WEIGHT_MODE } from "@/lib/heatmap/modes/weight";
@@ -51,7 +51,8 @@ export function WeightHeatmap({ data }: { data: DashboardData }) {
 export function ActivityHeatmap({ data }: { data: DashboardData }) {
   const [activityMode, setActivityMode] = useState<"steps" | "training">("training");
   const stats = heatmapStats(data);
-  const trainingLabel = { ride: "Rides", run: "Runs", all: "Training" }[data.sport];
+  const trainingLabel = { ride: "Rides", run: "Runs", swim: "Swims", all: "Training" }[data.sport];
+  const byMinutes = TRAINING_SCALE[data.sport].by === "minutes";
   const activityToggle = (
     <Segmented
       aria-label="Activity heatmap"
@@ -64,8 +65,8 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
     />
   );
   const caption =
-    data.sport === "all"
-      ? `${countOf(stats.workouts, "all")} · ${stats.hours.toFixed(1)} h since day 1`
+    byMinutes
+      ? `${countOf(stats.workouts, data.sport)} · ${stats.hours.toFixed(1)} h since day 1`
       : `${countOf(stats.workouts, data.sport)} · ${stats.miles.toFixed(1)} mi since day 1`;
   return activityMode === "steps" ? (
     <HeatmapCard
@@ -84,7 +85,7 @@ export function ActivityHeatmap({ data }: { data: DashboardData }) {
       title="Activity"
       help={ACTIVITY_HELP}
       caption={stats.workouts ? caption : `No ${SPORT_NOUN[data.sport].many} since day 1`}
-      legendTitle={data.sport === "all" ? "Minutes" : "Miles"}
+      legendTitle={byMinutes ? "Minutes" : "Miles"}
       controls={activityToggle}
     />
   );

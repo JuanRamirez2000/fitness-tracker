@@ -5,24 +5,25 @@ import { eachDay } from "@/lib/dates/calendar";
 import { cellDateState, isInRange } from "@/lib/heatmap/cell-state";
 import { CELL_STEPS_FLOOR } from "@/lib/heatmap/colors";
 import { fmtPace, paceSecPerMile, runMiles, runSpeedMps, runsByDate } from "@/lib/running/runs";
-import { activitiesFor, isRun, mph, type SportFilter } from "@/lib/sport";
+import { activitiesFor, mph, sportOf, SPORT_STYLE, SPORTS, type ActiveSport, type SportFilter } from "@/lib/sport";
 import type { Palette } from "@/lib/theme/palette";
 
 /**
  * What a day is measured by under each sport filter, and the amount that gets the full accent.
- * Rides and runs by miles (a ride covers several times a run's distance); "all" by minutes, since
- * a ride's miles and a run's miles don't add up to anything meaningful.
+ * Rides and runs by miles (a ride covers several times a run's distance); swims and "all" by
+ * minutes, since a swim's yards and a ride's miles don't add up to anything meaningful.
  */
 export const TRAINING_SCALE: Record<SportFilter, { by: "miles" | "minutes"; full: number }> = {
   ride: { by: "miles", full: 25 },
   run: { by: "miles", full: 5 },
+  swim: { by: "minutes", full: 60 },
   all: { by: "minutes", full: 90 },
 };
 
 export interface TrainingTooltipItem {
   name: string;
-  /** "ride" or "run": the tooltip's row label. */
-  sport: "ride" | "run";
+  /** The tooltip's row label. */
+  sport: ActiveSport;
   miles: number;
   minutes: number;
   /** "12:05/mi" for a run, "17.2 mph" for a ride; null without a speed. */
@@ -37,22 +38,25 @@ export interface TrainingTooltipData {
 
 /** A day's fill: the steps floor on a rest day, toward the sport's hue by the filter's full
  * amount. Under All the hue is the day's main sport (`hue`); otherwise the filter's own. */
-export function trainingFill(amount: number, sport: SportFilter, palette: Palette, hue: "ride" | "run" = sport === "run" ? "run" : "ride"): string {
+export function trainingFill(amount: number, sport: SportFilter, palette: Palette, hue: ActiveSport = sport === "all" ? "ride" : sport): string {
   return mix(CELL_STEPS_FLOOR, palette[hue], Math.min(1, Math.max(0, amount / TRAINING_SCALE[sport].full)));
 }
 
-/** The sport a day spent the most minutes on (a ride on a tie, being the main sport now). */
-export function mainSport(items: TrainingTooltipItem[]): "ride" | "run" {
-  const minutes = (sport: "ride" | "run") => items.filter((i) => i.sport === sport).reduce((sum, i) => sum + i.minutes, 0);
-  return minutes("run") > minutes("ride") ? "run" : "ride";
+/** The sport a day spent the most minutes on (the earlier sport in SPORTS on a tie: a ride, being
+ * the main sport now). */
+export function mainSport(items: TrainingTooltipItem[]): ActiveSport {
+  const minutes = (sport: ActiveSport) => items.filter((i) => i.sport === sport).reduce((sum, i) => sum + i.minutes, 0);
+  return SPORTS.reduce((best, s) => (minutes(s) > minutes(best) ? s : best), SPORTS[0] as ActiveSport);
 }
 
 function tooltipItem(a: DashboardData["activities"][number]): TrainingTooltipItem {
-  const run = isRun(a);
-  const speed = run ? runSpeedMps(a) : a.avg_speed_mps;
+  const sport = sportOf(a.activity_type) as ActiveSport;
+  const run = sport === "run";
+  // A swim's speed is per 100 yards, which waits for the swim charts; until then it shows time only.
+  const speed = sport === "swim" ? null : run ? runSpeedMps(a) : a.avg_speed_mps;
   return {
-    name: a.name ?? (run ? "Run" : "Ride"),
-    sport: run ? "run" : "ride",
+    name: a.name ?? SPORT_STYLE[sport].label,
+    sport,
     miles: runMiles(a),
     minutes: (a.moving_duration_s ?? a.duration_s) / 60,
     speed: speed ? (run ? `${fmtPace(paceSecPerMile(speed))}/mi` : `${mph(speed).toFixed(1)} mph`) : null,

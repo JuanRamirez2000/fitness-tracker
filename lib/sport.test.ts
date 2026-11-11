@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inSport, isRide, isRun, parseSportParam, sportOf } from "./sport";
+import { inSport, isRide, isRun, parseSportParam, sportOf, sportsIn } from "./sport";
 
 describe("sportOf", () => {
   it.each([
@@ -16,7 +16,9 @@ describe("sportOf", () => {
     ["walking", "other"],
     ["hiking", "other"],
     ["strength_training", "other"],
-    ["lap_swimming", "other"],
+    ["lap_swimming", "swim"],
+    ["open_water_swimming", "swim"],
+    ["strength_training", "other"],
   ])("%s is %s", (type, sport) => {
     expect(sportOf(type)).toBe(sport);
   });
@@ -43,8 +45,16 @@ describe("inSport", () => {
 describe("parseSportParam", () => {
   it("defaults to all", () => {
     expect(parseSportParam(undefined)).toBe("all");
-    expect(parseSportParam("swim")).toBe("all");
+    expect(parseSportParam("swim")).toBe("swim");
+    expect(parseSportParam("bogus")).toBe("all");
     expect(parseSportParam("run")).toBe("run");
     expect(parseSportParam("ride")).toBe("ride");
+  });
+});
+
+describe("sportsIn", () => {
+  it("lists the sports present, in SPORTS order", () => {
+    expect(sportsIn([{ activity_type: "lap_swimming" }, { activity_type: "running" }, { activity_type: "hiking" }])).toEqual(["run", "swim"]);
+    expect(sportsIn([])).toEqual([]);
   });
 });

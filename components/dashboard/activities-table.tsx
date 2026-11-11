@@ -5,7 +5,8 @@ import { openActivity } from "@/components/activity/open";
 import { fmtDate } from "@/lib/dates/format";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { SportBadge } from "@/components/ui/sport-badge";
-import { SPORT_NOUN } from "@/lib/sport";
+import { Segmented } from "@/components/ui/segmented";
+import { SPORT_LABELS, SPORT_NOUN, SPORTS, type SportFilter } from "@/lib/sport";
 import { activityColumns, buildActivityRows, COLUMN_LABELS, type ActivityColumn, type ActivityRow } from "@/lib/table/activities";
 
 const PAGE_SIZE = 10;
@@ -39,17 +40,35 @@ function cell(col: ActivityColumn, row: ActivityRow) {
 
 /** Rides, runs or both (the sport filter) in the selected range, newest first. Read-only: every row comes from Garmin; a row opens its detail. */
 export function ActivitiesTable({ data }: { data: DashboardData }) {
-  const rows = buildActivityRows(data);
+  const allRows = buildActivityRows(data);
+  // Under All, a local switch narrows the table to one sport (only sports with rows in range).
+  const sports = data.sport === "all" ? SPORTS.filter((s) => allRows.some((r) => r.sport === s)) : [];
+  const [only, setOnly] = useState<SportFilter>("all");
+  const filter = sports.includes(only as (typeof sports)[number]) ? only : "all";
+  const rows = filter === "all" ? allRows : allRows.filter((r) => r.sport === filter);
   const columns = activityColumns(data.sport);
-  const title = { ride: "Rides", run: "Runs", all: "Activities" }[data.sport];
+  const title = { ride: "Rides", run: "Runs", swim: "Swims", all: "Activities" }[data.sport];
   const [visible, setVisible] = useState(PAGE_SIZE);
   const shown = rows.slice(0, visible);
 
   return (
     <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card">
-      <div className="flex items-baseline justify-between px-4 pt-4 pb-2 md:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-4 pb-2 md:px-6">
         <span className="font-serif text-[16px]">{title}</span>
-        <span className="font-mono text-[10px] text-muted-3">{rows.length} in range</span>
+        <div className="flex items-center gap-3">
+          {sports.length > 1 && (
+            <Segmented
+              aria-label="Sport shown in the table"
+              options={(["all", ...sports] as SportFilter[]).map((value) => ({ value, label: SPORT_LABELS[value] }))}
+              value={filter}
+              onChange={(v) => {
+                setOnly(v);
+                setVisible(PAGE_SIZE);
+              }}
+            />
+          )}
+          <span className="font-mono text-[10px] text-muted-3">{rows.length} in range</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">

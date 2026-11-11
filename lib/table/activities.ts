@@ -1,6 +1,6 @@
 import type { DashboardData } from "@/lib/dashboard/types";
 import { fmtDuration, fmtPace, isEasyRun, paceSecPerMile, runMiles, runSpeedMps, runsIn } from "@/lib/running/runs";
-import { activitiesFor, isRun, mph, type SportFilter } from "@/lib/sport";
+import { activitiesFor, mph, sportOf, SPORT_STYLE, type ActiveSport, type SportFilter } from "@/lib/sport";
 
 const FEET_PER_METER = 3.28084;
 
@@ -9,7 +9,7 @@ export interface ActivityRow {
   id: string;
   local_date: string;
   name: string;
-  sport: "ride" | "run";
+  sport: ActiveSport;
   /** Easy or workout, by Garmin's training-effect label (rides too: an easy spin is "Easy"). */
   kind: "easy" | "workout" | null;
   miles: string;
@@ -65,21 +65,24 @@ export function trainingEffectWord(score: number): string {
 export function buildActivityRows(data: DashboardData): ActivityRow[] {
   return runsIn(activitiesFor(data), data.dateRange)
     .map((a): ActivityRow => {
-      const run = isRun(a);
-      const speed = run ? runSpeedMps(a) : a.avg_speed_mps;
+      const sport = sportOf(a.activity_type) as ActiveSport;
+      const run = sport === "run";
+      const swim = sport === "swim";
+      // A swim's pace (per 100 yd) and stroke rate wait for the swim charts in 2027.
+      const speed = swim ? null : run ? runSpeedMps(a) : a.avg_speed_mps;
       const label = a.training_effect_label?.toLowerCase().replaceAll("_", " ");
-      const cadence = run ? a.avg_cadence_spm : a.avg_cadence_rpm;
+      const cadence = swim ? null : run ? a.avg_cadence_spm : a.avg_cadence_rpm;
       return {
         id: a.id,
         local_date: a.local_date,
-        name: a.name ?? (run ? "Run" : "Ride"),
-        sport: run ? "run" : "ride",
+        name: a.name ?? SPORT_STYLE[sport].label,
+        sport,
         kind: a.training_effect_label === null ? null : isEasyRun(a) ? "easy" : "workout",
-        miles: runMiles(a).toFixed(run ? 2 : 1),
+        miles: runMiles(a).toFixed(run || swim ? 2 : 1),
         time: fmtDuration(a.moving_duration_s ?? a.duration_s),
         speed: speed ? (run ? `${fmtPace(paceSecPerMile(speed))}/mi` : `${mph(speed).toFixed(1)} mph`) : null,
         avgHr: a.avg_hr,
-        power: run ? null : (a.norm_power_w ?? a.avg_power_w),
+        power: sport === "ride" ? (a.norm_power_w ?? a.avg_power_w) : null,
         cadence: cadence === null ? null : Math.round(cadence),
         elevFt: a.elevation_gain_m ? Math.round(a.elevation_gain_m * FEET_PER_METER) : null,
         effect:

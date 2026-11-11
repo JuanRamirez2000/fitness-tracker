@@ -16,7 +16,7 @@ export function TrainingTooltip({ cell }: { cell: HeatmapCell }) {
         {
           id: `${i}-dist`,
           key: SPORT_STYLE[item.sport].label,
-          value: item.miles > 0 ? `${item.miles.toFixed(item.sport === "run" ? 2 : 1)} mi · ${fmtDuration(item.minutes * 60)}` : fmtDuration(item.minutes * 60),
+          value: item.miles > 0 && item.sport !== "swim" ? `${item.miles.toFixed(item.sport === "run" ? 2 : 1)} mi · ${fmtDuration(item.minutes * 60)}` : fmtDuration(item.minutes * 60),
           dot: SPORT_STYLE[item.sport].color,
         },
         {

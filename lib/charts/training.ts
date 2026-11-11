@@ -4,7 +4,7 @@ import { LOAD_FOCUS_KEYS, type DailyTraining, type LoadFocusKey } from "@/lib/da
 import { addDays, eachDay, type LocalDate } from "@/lib/dates/calendar";
 import { isInRange } from "@/lib/heatmap/cell-state";
 import { runMiles } from "@/lib/running/runs";
-import { activitiesFor, type SportFilter } from "@/lib/sport";
+import { activitiesFor, inSport, type ActiveSport, type SportFilter } from "@/lib/sport";
 import { weeklyBuckets } from "./weekly-buckets";
 
 // ---------- Time in HR zones ----------
@@ -19,8 +19,10 @@ export interface ZoneBar {
   label: LocalDate;
   /** Minutes in Z1..Z5. */
   minutes: [number, number, number, number, number];
-  /** Miles run in this bar's day or week (every run, with or without HR). */
+  /** Miles covered in this bar's day or week (every activity, with or without HR). */
   miles: number;
+  /** Hours of activity in this bar (moving time, every activity): the label under All and Swim. */
+  hours: number;
 }
 
 export interface ZoneChartData {
@@ -33,6 +35,11 @@ export interface ZoneChartData {
   /** Miles and activities in the range (every one, with or without HR), folded in from the old running volume card. */
   totalMiles: number;
   count: number;
+  /** Hours of activity in the range (moving time, every activity). */
+  totalHours: number;
+  /** What each bar is labelled with: miles for one land sport, hours under All (a ride mile and
+   * a run mile don't add up) and for swims (measured in yards). */
+  per: "miles" | "hours";
   /** Garmin's own zone bounds, [low, high] bpm, when imported: its cycling zones under Ride. */
   bounds: [number, number][] | null;
 }
@@ -65,8 +72,11 @@ export function buildZoneChart(
   for (const r of inRange) secondsByDate.set(r.local_date, add(secondsByDate.get(r.local_date) ?? ZERO, r.hr_zone_s!));
   const milesByDate = new Map<LocalDate, number>();
   for (const r of runsInRange) milesByDate.set(r.local_date, (milesByDate.get(r.local_date) ?? 0) + runMiles(r));
+  const hoursByDate = new Map<LocalDate, number>();
+  for (const r of runsInRange) hoursByDate.set(r.local_date, (hoursByDate.get(r.local_date) ?? 0) + (r.moving_duration_s ?? r.duration_s) / 3600);
   const toMinutes = (z: Zones) => z.map((s) => s / 60) as Zones;
   const milesOf = (days: LocalDate[]) => days.reduce((sum, d) => sum + (milesByDate.get(d) ?? 0), 0);
+  const hoursOf = (days: LocalDate[]) => days.reduce((sum, d) => sum + (hoursByDate.get(d) ?? 0), 0);
 
   const weekly = eachDay(data.dateRange.from, data.dateRange.to).length > DAILY_ZONE_BARS_MAX_DAYS;
   const bars: ZoneBar[] = weekly
@@ -74,11 +84,13 @@ export function buildZoneChart(
         label: week[0],
         minutes: toMinutes(week.reduce((acc, d) => add(acc, secondsByDate.get(d) ?? ZERO), ZERO)),
         miles: milesOf(week),
+        hours: hoursOf(week),
       }))
     : eachDay(data.dateRange.from, data.dateRange.to).map((d) => ({
         label: d,
         minutes: toMinutes(secondsByDate.get(d) ?? ZERO),
         miles: milesOf([d]),
+        hours: hoursOf([d]),
       }));
 
   const rangeTotal = inRange.reduce((acc, r) => add(acc, r.hr_zone_s!), ZERO);
@@ -93,6 +105,8 @@ export function buildZoneChart(
     totalMinutes: rangeTotal.reduce((s, v) => s + v, 0) / 60,
     totalMiles: milesOf([...milesByDate.keys()]),
     count: runsInRange.length,
+    totalHours: hoursOf([...hoursByDate.keys()]),
+    per: data.sport === "ride" || data.sport === "run" ? "miles" : "hours",
     // Under All, rides and runs use different zones, so no single set of bpm labels is right.
     bounds: data.sport === "ride" ? data.profile.hr_zone_bounds_cycling ?? data.profile.hr_zone_bounds : data.sport === "run" ? data.profile.hr_zone_bounds : null,
   };
@@ -169,6 +183,58 @@ export function buildTrainingLoad(data: Pick<DashboardData, "training" | "dateRa
       acwr,
       acwrState: acwr === null ? null : acwr < ACWR_RANGE[0] ? "low" : acwr > ACWR_RANGE[1] ? "high" : "optimal",
       status: trainingStatus(latest.status),
+    },
+    dataFrom: points[0].date,
+  };
+}
+
+/**
+ * One sport's share of the load, which Garmin doesn't split: from each activity's own Garmin
+ * training load, acute is the 7-day sum and chronic the weekly average over 4 weeks (the same
+ * shape as Garmin's numbers, so the ratio reads the same). No optimal band or status: those are
+ * Garmin's, for every sport together.
+ */
+export function buildSportLoad(
+  data: Pick<DashboardData, "activities" | "dateRange" | "today">,
+  sport: ActiveSport,
+): TrainingLoadData | null {
+  const loadByDate = new Map<LocalDate, number>();
+  for (const a of data.activities) {
+    if (a.training_load === null || !inSport(a, sport)) continue;
+    loadByDate.set(a.local_date, (loadByDate.get(a.local_date) ?? 0) + a.training_load);
+  }
+  if (loadByDate.size === 0) return null;
+  const sumOver = (end: LocalDate, days: number) => {
+    let sum = 0;
+    for (let i = 0; i < days; i++) sum += loadByDate.get(addDays(end, -i)) ?? 0;
+    return sum;
+  };
+  const end = data.dateRange.to < data.today ? data.dateRange.to : data.today;
+  if (end < data.dateRange.from) return null;
+  const points: LoadPoint[] = eachDay(data.dateRange.from, end).map((date) => ({
+    date,
+    acute: sumOver(date, 7),
+    chronic: sumOver(date, 28) / 4,
+    low: null,
+    high: null,
+  }));
+  if (points.every((p) => p.acute === 0 && p.chronic === 0)) return null;
+  const last = points.at(-1)!;
+  // A ratio needs a full four weeks of the sport behind it: in a sport's first weeks the chronic
+  // side is mostly empty days, and every session reads as a spike.
+  const firstDay = [...loadByDate.keys()].sort()[0];
+  const acwr = last.chronic > 0 && firstDay <= addDays(last.date, -27) ? last.acute / last.chronic : null;
+  return {
+    points,
+    latest: {
+      date: last.date,
+      acute: last.acute,
+      chronic: last.chronic,
+      low: null,
+      high: null,
+      acwr,
+      acwrState: acwr === null ? null : acwr < ACWR_RANGE[0] ? "low" : acwr > ACWR_RANGE[1] ? "high" : "optimal",
+      status: null,
     },
     dataFrom: points[0].date,
   };

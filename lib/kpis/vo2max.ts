@@ -26,7 +26,7 @@ export function vo2maxSeries(data: Pick<DashboardData, "activities" | "training"
 /** Garmin's running VO2 max, as of its latest update. */
 export const vo2max: KpiDefinition = {
   id: "vo2max",
-  label: "VO2 max",
+  label: "Running VO2 max",
   visual: "sparkline",
   emptyMessage: "No VO2 max estimate yet",
   compute(data: DashboardData): KpiValue | null {

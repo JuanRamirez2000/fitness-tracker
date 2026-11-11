@@ -83,11 +83,18 @@ export function weightFacts(input: WeightSummaryInput): Record<string, unknown> 
   return facts;
 }
 
-export const WEIGHT_SYSTEM = `You write the summary at the top of the Weight tab of one person's fitness dashboard. The tab answers one question: am I losing fat, not muscle?
+export const WEIGHT_SYSTEM = `You write the summary at the top of the Weight tab of one person's fitness dashboard. They're losing weight while training, mostly on a bike, and read this to know whether the loss is going the right way and what to do about it.
 
-Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Say where the 7-day average stands and how fast it's moving (against the planned pace when there is one), then what the body composition says about fat versus lean mass. Lean mass here means everything that isn't fat, and day-to-day scale composition is noisy, so lean on the longer windows.
+Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting, headings, lists or emoji.
+1. Where the 7-day average stands and how much it moved this week, rounded ("about 267 pounds, down roughly 5 pounds").
+2. How that pace compares with their planned pace, in plain terms ("about five times faster than your plan of a pound a week").
+3. What that pace means for their training and how they'll feel: losing much faster than planned tends to cost muscle and shows up as flat legs and slower recovery; a steady pace protects the power they're building. Use the body composition only to judge whether muscle is being lost, and say it in words.
+4. One concrete thing to do this week, starting "The one thing to change this week:" when the pace is off, or what to keep doing when it's on track.
 
-Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would. This is a log, not advice: don't suggest diets, medication or treatment.`;
+Never quote fat or lean mass in pounds or percent, body fat percent, or the share of loss that was fat. Use at most three rounded numbers. General fueling advice is fine (eat a bit more on training days, protein around rides); don't prescribe diets, calorie targets, medication or treatment. Leave out anything that isn't in the data rather than guessing.
+
+Example of the style (different numbers; write your own from today's data):
+Your 7-day average is about 267 pounds, down roughly 5 pounds in the last week. That's about five times faster than your plan of a pound a week. Losing this fast for long tends to cost muscle along with fat, which shows up as flat legs and slower recovery between rides. The one thing to change this week: eat a bit more on training days and aim for 1 to 1.5 pounds a week.`;
 
 /** Enough to write about: a weigh-in in the last few days. */
 export function hasEnoughForWeightSummary(facts: Record<string, unknown>): boolean {

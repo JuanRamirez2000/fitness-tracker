@@ -3,7 +3,7 @@ import type { DashboardData, KpiDefinition, KpiValue } from "@/lib/dashboard/typ
 import { addDays } from "@/lib/dates/calendar";
 import { fmtDate } from "@/lib/dates/format";
 import { runMiles, runsIn } from "@/lib/running/runs";
-import { inSport, isRide, type SportFilter } from "@/lib/sport";
+import { countOf, inSport, sportOf, SPORTS, type SportFilter } from "@/lib/sport";
 import { signed } from "./format";
 
 const SPARKLINE_WEEKS = 8;
@@ -86,16 +86,31 @@ export const rideHours = weeklyVolume({
   },
 });
 
-/** Hours of riding and running together in the last 7 days (the All filter). */
+/** Hours of every sport together in the last 7 days (the All filter), with a count per sport. */
 export const trainingHours = weeklyVolume({
   id: "training-hours",
   label: "Training time",
   sport: "all",
   unit: "h",
   measure: hoursOf,
-  emptyMessage: "No rides or runs synced yet",
+  emptyMessage: "No workouts synced yet",
   sub: (as) => {
-    const rides = as.filter(isRide).length;
-    return as.length === 0 ? "No rides or runs in the last 7 days" : `Last 7 days · ${plural(rides, "ride")} · ${plural(as.length - rides, "run")}`;
+    if (as.length === 0) return "No workouts in the last 7 days";
+    const counts = SPORTS.flatMap((s) => {
+      const n = as.filter((a) => sportOf(a.activity_type) === s).length;
+      return n ? [countOf(n, s)] : [];
+    });
+    return ["Last 7 days", ...counts].join(" · ");
   },
+});
+
+/** Hours swum in the last 7 days (the Swim filter; swimming starts in 2027). */
+export const swimHours = weeklyVolume({
+  id: "swim-hours",
+  label: "Swim time",
+  sport: "swim",
+  unit: "h",
+  measure: hoursOf,
+  emptyMessage: "No swims synced yet",
+  sub: (swims) => (swims.length === 0 ? "No swims in the last 7 days" : `Last 7 days · ${plural(swims.length, "swim")}`),
 });

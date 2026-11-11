@@ -51,6 +51,7 @@
    * get a third when it arrives. */
   --sport-ride: #4cc3a8;
   --sport-run: #e48fd0;
+  --sport-swim: #a99bf5;
 }
 
 /*
@@ -100,6 +101,7 @@
   --z5: #bf452e;
   --sport-ride: #127566;
   --sport-run: #a3387f;
+  --sport-swim: #5843b8;
 }
 
 @theme inline {
@@ -133,6 +135,7 @@
   --color-z5: var(--z5);
   --color-sport-ride: var(--sport-ride);
   --color-sport-run: var(--sport-run);
+  --color-sport-swim: var(--sport-swim);
 
   --font-sans: var(--font-plex-sans), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;

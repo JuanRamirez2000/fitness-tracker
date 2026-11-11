@@ -6,7 +6,7 @@ import { buildLoadFocus, buildZoneChart, trainingStatus } from "@/lib/charts/tra
 import { fmtRaceTime } from "@/lib/charts/fitness";
 import { currentFtp } from "@/lib/kpis/ftp";
 import { runMiles, runsIn, runsOf } from "@/lib/running/runs";
-import { isRide } from "@/lib/sport";
+import { isRide, isSwim } from "@/lib/sport";
 
 /** The rows the Training tab's summary is written from. */
 export interface TrainingSummaryInput {
@@ -79,6 +79,23 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
     };
   }
 
+  // Swimming (from 2027): time rather than distance, like every cross-sport measure here.
+  const swims = input.activities.filter(isSwim);
+  const swimsLast7 = runsIn(swims, lastWeek);
+  const swimsPrior7 = runsIn(swims, { from: addDays(today, -13), to: addDays(today, -7) });
+  if (swimsLast7.length || swimsPrior7.length) {
+    const zones = buildZoneChart({ sport: "swim", activities: input.activities, dateRange: lastWeek, today, profile: input.profile });
+    const hours = (as: typeof swims) => round1(as.reduce((sum, r) => sum + (r.moving_duration_s ?? r.duration_s), 0) / 3600);
+    facts.swimming_last_7_days = {
+      swims: swimsLast7.length,
+      hours: hours(swimsLast7),
+      hours_the_week_before: hours(swimsPrior7),
+      ...(zones && zones.totalMinutes > 0 && swimsLast7.every((r) => r.hr_zone_s !== null)
+        ? { easy_share_of_time_percent: Math.round(zones.easyShare * 100), easy_share_aim_percent: 80 }
+        : {}),
+    };
+  }
+
   const load = onOrBefore(input.training, today, (r) => r.acute_load !== null);
   if (load && load.local_date >= addDays(today, -2)) {
     facts.training_load = {
@@ -139,13 +156,20 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
   return facts;
 }
 
-export const TRAINING_SYSTEM = `You write the summary at the top of the Training tab of one person's fitness dashboard (they used to train mostly by running and are now mostly riding a bike, indoors and out, with some running). The tab answers two questions: am I training at the right effort and load, and am I getting fitter and faster?
+export const TRAINING_SYSTEM = `You write the summary at the top of the Training tab of one person's fitness dashboard. They train mostly on a bike now (indoors on a Wahoo Kickr Core 2 and outdoors), also run, and will add swimming; heart rate comes from a chest strap. They read this to know how their training is going and what to change, not to re-read the charts.
 
-Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Cover the effort and load of the last week first (riding and running volume, how much was easy against the 80% aim, load and its ratio, Garmin's status), then the fitness trend (cycling FTP and VO2 max, running VO2 max and race predictions, fitness age), picking what's most notable rather than listing everything. Lead with riding when there is any. Garmin's load and status count rides and runs together.
+Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting, headings, lists or emoji.
+1. What the last week was (the sessions across riding, running and swimming, any race or standout session) and Garmin's verdict on the load.
+2. What the balance of easy and hard work over the last month says: whether the aerobic base is solid, and whether too much is landing in the middle.
+3. The fitness trend in words, with at most one number (VO2 max moving, race predictions getting faster, cycling fitness still settling in).
+4. One concrete thing to change or keep doing for the next few sessions, starting "The one thing to change:" when something needs changing.
 
-Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would, write race times as a clock ("29:13") and ride speeds in mph. This is a training log, not medical advice.`;
+Use at most two or three rounded numbers in the whole summary, and only ones in the data. Explain what a number means for them rather than listing it. Lead with riding when there is any. Garmin's load, status and load focus count every sport together. Garmin's FTP may be set wrong, so don't lean on it. Leave out anything that isn't in the data rather than guessing. This is a training log, not medical advice.
 
-/** Enough to write about: some riding or running in the last two weeks, or a current load. */
+Example of the style (different day, different numbers; write your own from today's data):
+This week mixed a hard 5K race with your first two indoor rides, and Garmin rates the result as productive. Over the past month your easy and harder aerobic work are both above Garmin's targets, so your base is solid. Running VO2 max is up 2 points in a month, a real gain, and cycling fitness will start to show after a few more logged rides. The one thing to change: slow your easy days down, because both rides and runs are drifting out of the easy zone.`;
+
+/** Enough to write about: some riding, running or swimming in the last two weeks, or a current load. */
 export function hasEnoughForTrainingSummary(facts: Record<string, unknown>): boolean {
-  return "riding_last_7_days" in facts || "running_last_7_days" in facts || "training_load" in facts;
+  return "riding_last_7_days" in facts || "running_last_7_days" in facts || "swimming_last_7_days" in facts || "training_load" in facts;
 }

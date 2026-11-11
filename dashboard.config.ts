@@ -7,7 +7,7 @@ import { loggingStreak } from "@/lib/kpis/logging-streak";
 import { progressToGoal } from "@/lib/kpis/progress-to-goal";
 import { race5k } from "@/lib/kpis/race-5k";
 import { restingHr } from "@/lib/kpis/resting-hr";
-import { rideHours, rideMiles, trainingHours } from "@/lib/kpis/ride-volume";
+import { rideHours, rideMiles, swimHours, trainingHours } from "@/lib/kpis/ride-volume";
 import { sevenDayAverage } from "@/lib/kpis/seven-day-average";
 import { sleepDebt } from "@/lib/kpis/sleep-debt";
 import { sleepScore } from "@/lib/kpis/sleep-score";
@@ -47,6 +47,7 @@ export const KPIS: KpiDefinition[] = [
   trainingHours,
   ftp,
   vo2maxCycling,
+  swimHours,
 ];
 
 // Which KPI cards each tab shows, by id. Each tab fills one row of six units (a wide card,
@@ -60,5 +61,6 @@ export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = 
 export const TRAINING_KPIS: Record<SportFilter, readonly string[]> = {
   ride: ["ride-miles", "ride-hours", "ftp", "load-ratio", "vo2max-cycling"],
   run: ["weekly-miles", "easy-pace", "vo2max", "load-ratio", "race-5k"],
-  all: ["training-hours", "ride-miles", "weekly-miles", "load-ratio", "ftp"],
+  swim: ["swim-hours", "training-hours", "load-ratio"],
+  all: ["training-hours", "load-ratio", "vo2max-cycling", "vo2max", "ftp"],
 };

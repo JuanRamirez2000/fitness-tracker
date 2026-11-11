@@ -1,3 +1,4 @@
+import { SportSwitchControl } from "@/components/dashboard/sport-switch";
 import { HelpTip } from "@/components/ui/help-tip";
 import type { ReactNode } from "react";
 
@@ -10,8 +11,8 @@ export interface ChartLegendItem {
 
 /**
  * Shared chrome for every chart card: a serif title with an optional muted subtitle under it,
- * an optional mono caption and an optional actions slot (e.g. a Segmented toggle) on the
- * right, the chart itself, then an optional legend row and a one-line mono note
+ * an optional mono caption, the sport switch when the card sits in a SportSwitch, and an
+ * optional actions slot (e.g. a Segmented toggle) on the right, the chart itself, then an optional legend row and a one-line mono note
  * ("scale data starts Sep 1").
  */
 export function ChartCard({
@@ -41,13 +42,13 @@ export function ChartCard({
           <span className="font-serif text-[16px] md:text-[18px]">{title}</span>
           {subtitle && <span className="text-[12px] text-muted-2">{subtitle}</span>}
         </div>
-        {(caption || actions || help) && (
-          <div className="flex flex-wrap items-center gap-3">
-            {caption && <div className="flex flex-wrap items-center gap-3 font-mono text-[9.5px] text-muted-2">{caption}</div>}
-            {actions}
-            {help && <HelpTip title={title}>{help}</HelpTip>}
-          </div>
-        )}
+        {/* Always rendered: inside a SportSwitch (a shared card under All) it carries the card's sport switch. */}
+        <div className="flex flex-wrap items-center gap-3">
+          {caption && <div className="flex flex-wrap items-center gap-3 font-mono text-[9.5px] text-muted-2">{caption}</div>}
+          <SportSwitchControl />
+          {actions}
+          {help && <HelpTip title={title}>{help}</HelpTip>}
+        </div>
       </div>
       {children}
       {legend && legend.length > 0 && <ChartLegend items={legend} />}

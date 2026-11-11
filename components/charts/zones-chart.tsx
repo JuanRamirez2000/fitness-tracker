@@ -8,7 +8,7 @@ import { ChartCard, ChartEmpty } from "./chart-card";
 import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
-const HELP = "Minutes in each heart-rate zone, per day or week, for the sport picked above, with the miles covered above each bar. Zones 1-2 are easy; most coaches suggest about 80% of training there to build endurance without wearing you down. Garmin keeps separate zones for cycling, and each ride counts against those.";
+const HELP = "Minutes in each heart-rate zone, per day or week, for the sport picked, with the miles covered above each bar (hours under All, since a ride mile and a run mile don't add up). Zones 1-2 are easy; most coaches suggest about 80% of training there to build endurance without wearing you down. Garmin keeps separate zones for cycling, and each ride counts against those.";
 
 const WIDTH = 520;
 const HEIGHT = 140;
@@ -27,7 +27,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 export function ZonesChart({ data }: { data: DashboardData }) {
   const chart = buildZoneChart(data);
   const title = "Time in HR zones";
-  const what = { ride: "Rides", run: "Runs", all: "Rides and runs" }[data.sport];
+  const what = { ride: "Rides", run: "Runs", swim: "Swims", all: "Every sport" }[data.sport];
   if (!chart) {
     return (
       <ChartCard help={HELP} title={title} subtitle={`${what}, by heart rate zone`}>
@@ -37,6 +37,8 @@ export function ZonesChart({ data }: { data: DashboardData }) {
   }
 
   const unit = chart.weekly ? "per week" : "per day";
+  const hours = chart.per === "hours";
+  const barLabel = (b: { miles: number; hours: number }) => (hours ? (b.hours > 0 ? `${b.hours.toFixed(1)}h` : null) : b.miles > 0 ? b.miles.toFixed(1) : null);
   const x = scaleBand<string>({ domain: chart.bars.map((b) => b.label), range: [0, WIDTH - Y_LABEL_W], padding: 0.25 });
   const maxMin = Math.max(30, ...chart.bars.map((b) => b.minutes.reduce((s, v) => s + v, 0)));
   const y = scaleLinear<number>({ domain: [0, maxMin], range: [HEIGHT, LABEL_ROOM] }).nice();
@@ -57,7 +59,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
           b.minutes[i] >= 0.5 ? [{ label: `Z${i + 1}`, value: `${Math.round(b.minutes[i])} min`, swatch: { shape: "square" as const, className: ZONE_BG[i] } }] : [],
         ),
         ...(total > 0 ? [{ label: "Easy (Z1–2)", value: pct((b.minutes[0] + b.minutes[1]) / total) }] : [{ label: "Heart rate", value: "none recorded" }]),
-        { label: "Distance", value: `${b.miles.toFixed(1)} mi`, muted: true },
+        hours ? { label: "Time", value: `${b.hours.toFixed(1)} h`, muted: true } : { label: "Distance", value: `${b.miles.toFixed(1)} mi`, muted: true },
       ],
     };
   });
@@ -65,7 +67,7 @@ export function ZonesChart({ data }: { data: DashboardData }) {
   return (
     <ChartCard help={HELP}
       title={title}
-      subtitle={`${what}, minutes ${unit}, Z1 at the bottom, miles over each bar${chart.bounds ? " · bpm from your Garmin zones" : ""}`}
+      subtitle={`${what}, minutes ${unit}, Z1 at the bottom, ${hours ? "hours" : "miles"} over each bar${chart.bounds ? " · bpm from your Garmin zones" : ""}`}
       legend={legend}
     >
       <StatRow>
@@ -74,8 +76,14 @@ export function ZonesChart({ data }: { data: DashboardData }) {
           value={chart.totalMinutes > 0 ? pct(chart.easyShare) : "–"}
           note={`${chart.easyShareLast7 !== null ? `last 7 days ${pct(chart.easyShareLast7)} · ` : ""}aim ${pct(EASY_SHARE_AIM)}`}
         />
-        <Stat label="Time" value={Math.round(chart.totalMinutes)} unit="min" />
-        <Stat label="Distance" value={chart.totalMiles.toFixed(1)} unit="mi" note={countOf(chart.count, data.sport)} />
+        {hours ? (
+          <Stat label="Time" value={chart.totalHours.toFixed(1)} unit="h" note={countOf(chart.count, data.sport)} />
+        ) : (
+          <>
+            <Stat label="Time" value={Math.round(chart.totalMinutes)} unit="min" />
+            <Stat label="Distance" value={chart.totalMiles.toFixed(1)} unit="mi" note={countOf(chart.count, data.sport)} />
+          </>
+        )}
       </StatRow>
       <ChartHover points={points} label={chart.weekly ? "weeks" : "days"} band={x.bandwidth() / WIDTH}>
         <Plot
@@ -96,14 +104,14 @@ export function ZonesChart({ data }: { data: DashboardData }) {
             const barTop = y(b.minutes.reduce((sum, m) => sum + m, 0));
             return (
               <g key={b.label}>
-                {b.miles > 0 && (
+                {barLabel(b) && (
                   <text
                     x={Y_LABEL_W + (x(b.label) ?? 0) + x.bandwidth() / 2}
                     y={Math.min(barTop, HEIGHT) - 4}
                     textAnchor="middle"
                     className="fill-muted-2 font-mono text-[9px]"
                   >
-                    {b.miles.toFixed(1)}
+                    {barLabel(b)}
                   </text>
                 )}
                 {b.minutes.map((m, i) => {

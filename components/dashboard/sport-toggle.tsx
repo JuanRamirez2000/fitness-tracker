@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { sportToSearchParams, type UrlRange } from "@/lib/range/url";
-import { SPORT_KEYS, SPORT_LABELS, type SportFilter } from "@/lib/sport";
+import { SPORT_LABELS, type ActiveSport, type SportFilter } from "@/lib/sport";
 
 /**
- * The Training tab's All | Ride | Run switch. Plain links (`?sport=`), like the tab row, so each
- * sport is a server render that works without JS; the clicked one lights up at once.
+ * The Training tab's All | Ride | Run (| Swim) switch: All, then every sport with at least one
+ * activity (`sports`). Plain links (`?sport=`), like the tab row, so each sport is a server
+ * render that works without JS; the clicked one lights up at once.
  */
-export function SportToggle({ current, range }: { current: SportFilter; range: UrlRange | null }) {
+export function SportToggle({ current, range, sports }: { current: SportFilter; range: UrlRange | null; sports: readonly ActiveSport[] }) {
   const pathname = usePathname();
   // The clicked sport, and the sport on screen when it was clicked: once the server render for
   // it arrives, `current` moves on and the optimistic highlight no longer applies.
@@ -19,7 +20,7 @@ export function SportToggle({ current, range }: { current: SportFilter; range: U
 
   return (
     <nav aria-label="Sport" className="flex w-fit gap-0.5 rounded-lg border border-field-border bg-inset p-[3px]">
-      {SPORT_KEYS.map((sport) => {
+      {(["all", ...sports, ...(current !== "all" && !sports.includes(current) ? [current] : [])] as SportFilter[]).map((sport) => {
         const on = sport === shown;
         return (
           <Link

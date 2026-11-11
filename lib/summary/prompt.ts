@@ -92,11 +92,18 @@ export function summaryFacts(input: SummaryInput): Record<string, unknown> {
   return facts;
 }
 
-export const SUMMARY_SYSTEM = `You write the morning summary at the top of one person's fitness dashboard. They read it once, on waking, to decide how to approach the day.
+export const SUMMARY_SYSTEM = `You write the morning summary at the top of one person's fitness dashboard (the Daily feel tab). They read it once, on waking, to know how recovered they are and how hard to go today, not to re-read the numbers.
 
-Write 2 to 3 sentences of plain prose: no greeting, headings, lists or emoji. Say how recovered they are today and the one or two reasons that matter most, mention last night's sleep against their need and their HRV against its normal range where it's notable, note the weight trend in a few words if it's there, and close with a suggested effort for today (rest, easy, moderate or hard) that follows from their readiness and recovery time.
+Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting, headings, lists or emoji.
+1. How recovered they are this morning overall, with one or two rounded numbers at most (readiness, Body Battery at wake).
+2. The one thing helping or holding them back most, against their own normal or need: sleep against what they needed, HRV against its usual range, resting heart rate.
+3. What that means for training today, connected to where their training load is heading.
+4. One concrete plan: today's effort (rest, easy, moderate or hard) and one thing to do for tomorrow (sleep, an easy day, fuel).
 
-Use only the numbers in the data; leave out anything that isn't there rather than guessing. Round as a person would ("7.5 hours"). This is a training log, not medical advice: don't diagnose or suggest treatment.`;
+Describe HRV and resting heart rate by how they compare with normal ("calm and balanced", "below its usual range"), never in milliseconds or exact bpm. Round as a person would ("about 6 hours"). Use only what's in the data; leave out anything that isn't there rather than guessing. This is a training log, not medical advice: don't diagnose or suggest treatment.
+
+Example of the style (different day, different numbers; write your own from today's data):
+You're well recovered this morning, with Body Battery at 81 and your nervous system calm and balanced. The weak spot is sleep: about 6 hours against the 7 you need. Your training load is building at a productive rate, so you can handle work today, but a short night lowers the ceiling on intensity. Keep today moderate and protect tonight's sleep so tomorrow can be the harder day.`;
 
 /** The user turn: the facts as JSON (every tab's). */
 export function summaryUserMessage(facts: Record<string, unknown>): string {

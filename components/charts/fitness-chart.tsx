@@ -105,13 +105,17 @@ interface Vo2Line {
  * age. Under All, cycling and running VO2 max each get a panel, in their sport's color. */
 export function FitnessChart({ data }: { data: DashboardData }) {
   const all = data.sport === "all";
-  const cyclingFit = data.sport === "run" ? null : buildFitness(data, { cycling: true });
-  const runningFit = data.sport === "ride" ? null : buildFitness(data);
+  // Garmin keeps a VO2 max for running and one for cycling, none for swimming: a swim view shows
+  // fitness age only (both builds carry it; the cycling one drops its VO2 line below).
+  const cyclingFit = data.sport === "ride" || all || data.sport === "swim" ? buildFitness(data, { cycling: true }) : null;
+  const runningFit = data.sport === "run" || all ? buildFitness(data) : null;
   const fit = cyclingFit ?? runningFit;
   const title = "VO2 max and fitness age";
   const subtitle = all
     ? "Garmin's cycling and running VO2 max, and the age your fitness matches"
-    : `Garmin's ${data.sport === "ride" ? "cycling" : "running"} VO2 max, and the age your fitness matches`;
+    : data.sport === "swim"
+      ? "Garmin keeps no swimming VO2 max; the age your fitness matches"
+      : `Garmin's ${data.sport === "ride" ? "cycling" : "running"} VO2 max, and the age your fitness matches`;
   if (!fit) {
     return (
       <ChartCard help={HELP} title={title} subtitle={subtitle}>
@@ -121,7 +125,7 @@ export function FitnessChart({ data }: { data: DashboardData }) {
   }
 
   const lines: Vo2Line[] = [
-    ...(cyclingFit && cyclingFit.vo2.length > 0 && cyclingFit.vo2Latest !== null
+    ...(cyclingFit && data.sport !== "swim" && cyclingFit.vo2.length > 0 && cyclingFit.vo2Latest !== null
       ? [{ label: all ? "Cycling VO2" : "VO2 max", fit: cyclingFit, stroke: all ? "stroke-sport-ride" : "stroke-domain-rec", mark: all ? "bg-sport-ride" : "bg-domain-rec" }]
       : []),
     ...(runningFit && runningFit.vo2.length > 0 && runningFit.vo2Latest !== null
