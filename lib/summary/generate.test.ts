@@ -51,3 +51,21 @@ describe("callGemini", () => {
     expect(waits).toEqual([]);
   });
 });
+
+describe("parseTrainingAnswer", () => {
+  it("takes the summary and valid sessions, dropping malformed ones", async () => {
+    const { parseTrainingAnswer } = await import("./generate");
+    const answer = parseTrainingAnswer(
+      JSON.stringify({
+        summary: " Four sentences. ",
+        next_sessions: [
+          { date: "2026-11-13", title: "Base", details: "Easy spin.", source: "garmin" },
+          { date: "soon", title: "Bad", details: "x", source: "garmin" },
+        ],
+      }),
+    );
+    expect(answer).toEqual({ text: "Four sentences.", nextSessions: [{ date: "2026-11-13", title: "Base", details: "Easy spin.", source: "garmin" }] });
+    expect(parseTrainingAnswer("not json")).toBeNull();
+    expect(parseTrainingAnswer(JSON.stringify({ next_sessions: [] }))).toBeNull();
+  });
+});

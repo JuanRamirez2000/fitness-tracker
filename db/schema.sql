@@ -227,9 +227,30 @@ create table daily_summaries (
   tab text not null default 'today',     -- today | weight | training
   text text not null,
   model text,                            -- the model that wrote it
+  next_sessions jsonb,                   -- training tab: [{date, title, details, source}] (migration 015)
   generated_at timestamptz not null default now(),
   primary key (user_id, local_date, tab)
 );
+
+-- Planned sessions from a Garmin Coach plan (migration 015), written by the unofficial import's
+-- "plan" dataset. Future rows are replaced on each run, since an adaptive plan reshuffles.
+create table planned_workouts (
+  user_id uuid not null references profiles(id) on delete cascade,
+  workout_uuid text not null,
+  local_date date not null,
+  sport text,
+  name text,
+  description text,
+  duration_s integer,
+  benefit text,
+  rest_day boolean not null default false,
+  key_workout boolean not null default false,
+  status text,
+  plan_name text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, workout_uuid)
+);
+create index planned_workouts_user_date_idx on planned_workouts (user_id, local_date);
 
 -- The unofficial Garmin login session, shared by a local run and the GitHub Actions job
 -- (scripts/garmin/). Only the Python importer touches it; the app never does.

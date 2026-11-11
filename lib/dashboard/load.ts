@@ -56,7 +56,7 @@ export function tabNeeds(tab: TabKey): {
     weighIns: tab === "weight",
     recovery: tab === "today", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
-    training: tab === "training", // daily_training
+    training: tab === "training" || tab === "weight", // daily_training (Weight: Garmin's FTP, for watts per kilo)
   };
 }
 

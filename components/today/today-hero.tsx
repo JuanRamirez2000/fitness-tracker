@@ -1,14 +1,42 @@
 import type { DashboardData } from "@/lib/dashboard/types";
 import { fmtDate } from "@/lib/dates/format";
 import { clockTimeIn } from "@/lib/dates/timezone";
-import { FACTOR_GLYPH, FACTOR_WORD, buildTodayHero, type FactorState, type ReadinessBand, type TodayHero } from "@/lib/today/hero";
+import { readyBy, splitFactors, type FactorPhrase } from "@/lib/insights/daily";
+import { buildTodayHero, type ReadinessBand, type TodayHero } from "@/lib/today/hero";
 
 const RING_SIZE = 150;
 const RING_STROKE = 10;
 
 const BAND_STROKE: Record<ReadinessBand, string> = { good: "stroke-good", warn: "stroke-warn", bad: "stroke-bad" };
-const STATE_TEXT: Record<FactorState, string> = { good: "text-good", fair: "text-warn", low: "text-bad" };
-const STATE_BG: Record<FactorState, string> = { good: "bg-good", fair: "bg-warn", low: "bg-bad" };
+const PHRASE_GLYPH: Record<FactorPhrase["strength"], { glyph: string; className: string }> = {
+  good: { glyph: "●", className: "text-good" },
+  fair: { glyph: "◐", className: "text-warn" },
+  low: { glyph: "○", className: "text-bad" },
+};
+
+/** "What's helping" or "What's holding you back": Garmin's readiness factors in plain words,
+ * each factor's percent in its hover title. */
+function FactorList({ title, items, empty }: { title: string; items: FactorPhrase[]; empty: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">{title}</span>
+      {items.length === 0 ? (
+        <span className="text-[12.5px] text-muted-2">{empty}</span>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((p) => (
+            <li key={p.key} className="flex items-baseline gap-2 text-[13px]" title={`Garmin's ${p.key.replaceAll("_", " ")} factor: ${Math.round(p.percent)}%`}>
+              <span className={`font-mono text-[11px] ${PHRASE_GLYPH[p.strength].className}`} aria-hidden>
+                {PHRASE_GLYPH[p.strength].glyph}
+              </span>
+              {p.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** The readiness score inside a ring whose arc is the score out of 100. */
 function ReadinessRing({ score, band, label }: { score: number; band: ReadinessBand; label: string }) {
@@ -81,15 +109,17 @@ function StageBar({ stages }: { stages: NonNullable<TodayHero["lastNight"]>["sta
 }
 
 /**
- * The Today hero: training readiness ring, its six factor rows, and recovery left, last night
- * and Body Battery at wake beside a stacked sleep-stage bar. A part whose latest data is from
- * an earlier day says which day.
+ * The Today hero: training readiness ring, what's helping and holding it back (Garmin's six
+ * factors in words), and when you're ready for hard effort, last night and Body Battery at wake
+ * beside a stacked sleep-stage bar. A part whose latest data is from an earlier day says which day.
  */
 export function TodayHero({ data }: { data: DashboardData }) {
   const hero = buildTodayHero(data);
   const tz = data.profile.timezone;
   const { readiness, lastNight, batteryWake } = hero;
   const dayNote = (date: string) => (date === hero.today ? null : fmtDate(date));
+  const ready = readiness ? readyBy({ recovery_hours: readiness.recoveryHours, readiness_at: readiness.at }, tz) : null;
+  const factors = readiness ? splitFactors(readiness.factors) : null;
 
   if (!readiness && !lastNight && !batteryWake) {
     return (
@@ -118,30 +148,16 @@ export function TodayHero({ data }: { data: DashboardData }) {
         )}
       </div>
 
-      {readiness && readiness.factors.length > 0 && (
-        <ul className="grid min-w-0 flex-[1_1_300px] grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-x-7 gap-y-3.5">
-          {readiness.factors.map((f) => (
-            <li key={f.key} className="flex flex-col gap-1.5">
-              <div className="flex justify-between gap-2.5 text-[12.5px]">
-                <span>{f.label}</span>
-                <span className="shrink-0 whitespace-nowrap font-mono text-[11.5px] text-muted-2">
-                  <span className={STATE_TEXT[f.state]} aria-hidden>
-                    {FACTOR_GLYPH[f.state]}
-                  </span>{" "}
-                  {FACTOR_WORD[f.state]} · {Math.round(f.percent)}%
-                </span>
-              </div>
-              <div className="h-[5px] rounded-[3px] bg-track" aria-hidden>
-                <div className={`h-full rounded-[3px] ${STATE_BG[f.state]}`} style={{ width: `${Math.min(100, f.percent)}%` }} />
-              </div>
-            </li>
-          ))}
-        </ul>
+      {factors && readiness!.factors.length > 0 && (
+        <div className="grid min-w-0 flex-[1_1_300px] grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-x-7 gap-y-5">
+          <FactorList title="What's helping" items={factors.helping} empty="Nothing stands out today." />
+          <FactorList title="What's holding you back" items={factors.holding} empty="Nothing: every factor is in good shape." />
+        </div>
       )}
 
       <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-[18px] md:border-l md:border-divider md:pl-7">
         <div className="flex flex-wrap gap-x-7 gap-y-3">
-          <BigStat label="Recovery left" value={readiness?.recoveryHours != null ? readiness.recoveryHours.toFixed(1) : "–"} unit="h" />
+          <BigStat label="Ready for hard effort" value={ready ? ready.label : "–"} />
           {lastNight && (
             <BigStat
               label={`Last night${dayNote(lastNight.date) ? ` · ${dayNote(lastNight.date)}` : ""}`}

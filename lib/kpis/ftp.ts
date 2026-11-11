@@ -44,6 +44,17 @@ export function currentFtp(data: Pick<DashboardData, "activities" | "training" |
   return best ? { watts: Math.round(best.watts * TWENTY_MIN_FACTOR), date: best.date, source: "estimate" } : null;
 }
 
+/** The FTP to do math with: Garmin's, unless it's far above what the rides show (an FTP nobody
+ * set or tested), in which case the 95%-of-20-minutes estimate. */
+export function workingFtp(data: Pick<DashboardData, "activities" | "training" | "today">): FtpReading | null {
+  const reading = currentFtp(data);
+  const best = best20Min(data);
+  if (reading && best && reading.source !== "estimate" && reading.watts > best.watts * TWENTY_MIN_FACTOR * IMPLAUSIBLE_RATIO) {
+    return { watts: Math.round(best.watts * TWENTY_MIN_FACTOR), date: best.date, source: "estimate" };
+  }
+  return reading;
+}
+
 /** The latest weigh-in's 7-day average, in kg, for watts per kilo. */
 function weightKg(data: Pick<DashboardData, "weightTrend" | "today">): number | null {
   const row = [...data.weightTrend].reverse().find((r) => r.local_date <= data.today);

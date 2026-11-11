@@ -11,6 +11,9 @@ Datasets:
   vo2        VO2 max on each day Garmin updated it (max metrics, cheap for long
              backfills), running and cycling -> daily_training.vo2max, vo2max_cycling.
   ftp        the cycling FTP set in Garmin, on each day it changed -> daily_training.ftp_w.
+  plan       planned sessions: a Garmin Coach plan's tasks (name, workout, estimated time,
+             benefit, rest days) plus any other workouts on the Garmin calendar, from a week
+             back to about two months ahead -> planned_workouts (future rows replaced).
 
 Uses cyberjunky/python-garminconnect, which logs in like the Garmin Connect app. The login
 session lives in ~/.garminconnect and is mirrored to the garmin_token_cache table, so a local
@@ -46,7 +49,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / ".env.local"
 TOKEN_DIR = Path(os.getenv("GARMINTOKENS", "~/.garminconnect")).expanduser()
 TOKEN_FILE = TOKEN_DIR / "garmin_tokens.json"
-DATASETS = ("readiness", "training", "race", "vo2", "ftp")
+DATASETS = ("readiness", "training", "race", "vo2", "ftp", "plan")
+# Garmin Coach plan statuses still worth importing.
+LIVE_PLAN_STATUSES = {"Scheduled", "Active", "InProgress", "In_Progress"}
+# Calendar item types that are planned sessions (not done activities, badges or plan banners).
+PLANNED_ITEM_TYPES = {"fbtAdaptiveWorkout", "workout"}
+PLAN_LOOKBACK_DAYS = 7
 # Days per request for the range endpoints (race predictions allow up to a year).
 RANGE_CHUNK_DAYS = 90
 PER_DAY_PAUSE_S = 0.4
@@ -211,6 +219,54 @@ def ftp_rows(payload: list[dict[str, Any]] | dict[str, Any] | None, today: str) 
     return [{"local_date": d, "ftp_w": by_day[d]} for d in sorted(by_day)]
 
 
+def plan_rows(plan: dict[str, Any] | None, calendar_items: list[dict[str, Any]], earliest: str) -> list[dict[str, Any]]:
+    """planned_workouts rows from an adaptive Coach plan (its taskList carries the detail: the
+    workout shorthand, estimated time, benefit, rest days) and the Garmin calendar's planned
+    items (names only, but weeks further ahead). The plan's version of a session wins; days
+    before `earliest` are dropped."""
+    rows: dict[str, dict[str, Any]] = {}
+    plan_name = (plan or {}).get("name")
+    for task in (plan or {}).get("taskList") or []:
+        workout = task.get("taskWorkout") or {}
+        uuid, day = workout.get("workoutUuid"), task.get("calendarDate")
+        if not uuid or not day or day < earliest:
+            continue
+        label = workout.get("trainingEffectLabel")
+        rows[uuid] = {
+            "workout_uuid": uuid,
+            "local_date": day,
+            "sport": (workout.get("sportType") or {}).get("sportTypeKey"),
+            "name": workout.get("workoutName"),
+            "description": workout.get("workoutDescription"),
+            "duration_s": workout.get("estimatedDurationInSecs"),
+            "benefit": None if label in (None, "INVALID") else label,
+            "rest_day": bool(workout.get("restDay")),
+            "key_workout": bool(task.get("keyWorkout")),
+            "status": workout.get("adaptiveCoachingWorkoutStatus"),
+            "plan_name": plan_name,
+        }
+    for item in calendar_items:
+        if item.get("itemType") not in PLANNED_ITEM_TYPES or not item.get("date") or item["date"] < earliest:
+            continue
+        uuid = item.get("workoutUuid") or (f"workout-{item['workoutId']}-{item['date']}" if item.get("workoutId") else None)
+        if not uuid or uuid in rows:
+            continue
+        rows[uuid] = {
+            "workout_uuid": uuid,
+            "local_date": item["date"],
+            "sport": item.get("sportTypeKey"),
+            "name": item.get("title"),
+            "description": None,
+            "duration_s": int(item["duration"]) if item.get("duration") else None,
+            "benefit": None,
+            "rest_day": False,
+            "key_workout": False,
+            "status": None,
+            "plan_name": plan_name if item.get("itemType") == "fbtAdaptiveWorkout" else None,
+        }
+    return sorted(rows.values(), key=lambda r: (r["local_date"], r["workout_uuid"]))
+
+
 def chunks(start: date, end: date, days: int):
     """start..end as consecutive (first, last) windows of at most `days` days."""
     first = start
@@ -372,6 +428,50 @@ def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: boo
     print(f"  {label}: upserted {len(rows)} row(s)")
 
 
+PLAN_COLUMNS = ("local_date", "sport", "name", "description", "duration_s", "benefit", "rest_day", "key_workout", "status", "plan_name")
+
+
+def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry_run: bool) -> None:
+    """Today's and later planned rows are replaced wholesale (an adaptive plan reshuffles and
+    drops sessions); earlier ones are upserted, so a session's status can still change."""
+    if dry_run:
+        print(f"  plan: would replace planned sessions from {today} with {len(rows)} row(s) (dry run)")
+        for row in rows[:8]:
+            print(f"    {row}")
+        return
+    with conn.cursor() as cur:
+        cur.execute("delete from planned_workouts where user_id = %s and local_date >= %s", (user_id, today))
+        for row in rows:
+            cur.execute(
+                f"""insert into planned_workouts (user_id, workout_uuid, {", ".join(PLAN_COLUMNS)})
+                    values (%(user_id)s, %(workout_uuid)s, {", ".join(f"%({c})s" for c in PLAN_COLUMNS)})
+                    on conflict (user_id, workout_uuid) do update set
+                      {", ".join(f"{c} = excluded.{c}" for c in PLAN_COLUMNS)}, updated_at = now()""",
+                {**row, "user_id": user_id},
+            )
+    conn.commit()
+    print(f"  plan: wrote {len(rows)} planned session(s)")
+
+
+def fetch_plan(garmin, today: date) -> list[dict[str, Any]]:
+    """The live Coach plan (if any) and three months of the Garmin calendar."""
+    plan = None
+    listing = garmin.get_training_plans() or {}
+    for p in listing.get("trainingPlanList") or []:
+        status = (p.get("trainingStatus") or {}).get("statusKey")
+        if p.get("trainingPlanCategory") == "FBT_ADAPTIVE" and status in LIVE_PLAN_STATUSES:
+            plan = garmin.get_adaptive_training_plan_by_id(p["trainingPlanId"])
+            break
+    items: list[dict[str, Any]] = []
+    year, month = today.year, today.month
+    for _ in range(3):
+        cal = garmin.get_scheduled_workouts(year, month) or {}
+        items += cal.get("calendarItems") or []
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        time.sleep(PER_DAY_PAUSE_S)
+    return plan_rows(plan, items, (today - timedelta(days=PLAN_LOOKBACK_DAYS)).isoformat())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"trailing days ending today (default {DEFAULT_DAYS})")
@@ -447,6 +547,18 @@ def main() -> None:
                 rows = []
             print(f"Fetched cycling FTP for {len(rows)} day(s)")
             upsert_training(conn, user_id, rows, args.dry_run, "ftp")
+
+        if "plan" in datasets:
+            # Extra, never fatal: a failed fetch leaves the planned sessions as they were.
+            today = datetime.now(ZoneInfo(tz)).date()
+            try:
+                rows = fetch_plan(garmin, today)
+            except Exception as err:  # noqa: BLE001
+                print(f"  plan: skipped ({err})")
+                rows = None
+            if rows is not None:
+                print(f"Fetched {len(rows)} planned session(s)")
+                replace_plan(conn, user_id, rows, today.isoformat(), args.dry_run)
 
     print("Done.")
 

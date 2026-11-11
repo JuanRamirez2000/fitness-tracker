@@ -1,4 +1,5 @@
 import { bodyFat } from "@/lib/kpis/body-fat";
+import { climbGain } from "@/lib/kpis/climb-gain";
 import { easyPace } from "@/lib/kpis/easy-pace";
 import { ftp } from "@/lib/kpis/ftp";
 import { hrv } from "@/lib/kpis/hrv";
@@ -35,6 +36,7 @@ export const KPIS: KpiDefinition[] = [
   weeklyRate,
   progressToGoal,
   bodyFat,
+  climbGain,
   loggingStreak,
   // Training
   weeklyMiles,
@@ -54,7 +56,7 @@ export const KPIS: KpiDefinition[] = [
 // span 2, takes two), so keep a tab's spans adding up to 6.
 export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = {
   today: ["sleep-score", "sleep-debt", "hrv", "resting-hr", "steps-today"],
-  weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "body-fat", "logging-streak"],
+  weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"],
 };
 
 // The Training tab's cards under each sport filter (lib/sport.ts), the same six units a row.

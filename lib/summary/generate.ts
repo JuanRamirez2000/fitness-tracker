@@ -1,6 +1,6 @@
 /**
- * The AI summaries, one per dashboard tab: each tab's rows -> 2 to 3 sentences from Gemini
- * (Google's free API tier) -> daily_summaries. Daily feel (lib/summary/prompt.ts), Weight
+ * The AI summaries, one per dashboard tab: each tab's rows -> 4 sentences from Gemini (plus the
+ * Training tab's "Next up" sessions) (Google's free API tier) -> daily_summaries. Daily feel (lib/summary/prompt.ts), Weight
  * (weight.ts) and Training (training.ts) each have their own facts and instructions. Run once
  * each morning by the summary cron (app/api/summary/cron/route.ts) after that morning's import,
  * again after each press of the owner's Refresh button (app/api/summary/refresh/route.ts), or by
@@ -14,6 +14,7 @@
  */
 import type { TabKey } from "../dashboard/types";
 import { activityRowSchema } from "../data/activities";
+import { nextSessionSchema, plannedWorkoutRowSchema, type NextSession } from "../data/planned";
 import { profileSchema, type Profile } from "../data/profiles";
 import { dailyRecoveryRowSchema, sleepNightRowSchema } from "../data/recovery";
 import { dailyTrainingRowSchema } from "../data/training";
@@ -71,6 +72,8 @@ export async function callGemini(
   userMessage: string,
   fetchImpl: typeof fetch,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  /** A JSON schema for a structured answer (Gemini's responseSchema); the text is then JSON. */
+  responseSchema?: Record<string, unknown>,
 ): Promise<{ text: string; modelVersion: string } | { skipped: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set. Create a free key at aistudio.google.com/apikey.");
@@ -86,6 +89,7 @@ export async function callGemini(
         maxOutputTokens: 2000,
         // A short summary of given numbers needs little reasoning.
         thinkingConfig: { thinkingLevel: "LOW" },
+        ...(responseSchema ? { responseMimeType: "application/json", responseSchema } : {}),
       },
     }),
   });
@@ -121,7 +125,7 @@ async function loadRows(profile: Profile, today: LocalDate) {
   const sql = db();
   const recent = addDays(today, -14);
   const month = addDays(today, -40);
-  const [recovery, sleep, training, weightTrend, bodyComposition, activities] = await Promise.all([
+  const [recovery, sleep, training, weightTrend, bodyComposition, activities, planned] = await Promise.all([
     sql`select * from daily_recovery where user_id = ${profile.id} and local_date between ${recent} and ${today} order by local_date`,
     sql`select * from sleep_nights where user_id = ${profile.id} and local_date between ${recent} and ${today} order by local_date`,
     sql`select * from daily_training where user_id = ${profile.id} and local_date between ${month} and ${today} order by local_date`,
@@ -129,7 +133,9 @@ async function loadRows(profile: Profile, today: LocalDate) {
     sql`select distinct on (local_date) local_date, weight_lb, body_fat_pct, muscle_mass_lb, bone_mass_lb, body_water_pct
         from weigh_ins where user_id = ${profile.id} and body_fat_pct is not null and local_date <= ${today}
         order by local_date, measured_at`,
-    sql`select * from activities where user_id = ${profile.id} and local_date between ${recent} and ${today} order by started_at`,
+    // 90 days of activities: the training facts look back that far for the best 20-minute power.
+    sql`select * from activities where user_id = ${profile.id} and local_date between ${addDays(today, -90)} and ${today} order by started_at`,
+    sql`select * from planned_workouts where user_id = ${profile.id} and local_date >= ${today} order by local_date, workout_uuid`,
   ]);
   return {
     recovery: recovery.map((r) => dailyRecoveryRowSchema.parse(r)),
@@ -138,13 +144,51 @@ async function loadRows(profile: Profile, today: LocalDate) {
     weightTrend: weightTrend.map((r) => weightTrendRowSchema.parse(r)),
     bodyComposition: bodyComposition.map((r) => bodyCompositionDaySchema.parse(r)),
     activities: activities.map((r) => activityRowSchema.parse(r)),
+    planned: planned.map((r) => plannedWorkoutRowSchema.parse(r)),
   };
 }
 
 type Rows = Awaited<ReturnType<typeof loadRows>>;
 
 /** Each tab's facts, instructions, and what it needs before it's worth writing. */
-const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string }> = {
+/** The Training tab's structured answer: the 4 sentences and the "Next up" sessions. */
+const TRAINING_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    next_sessions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          date: { type: "string" },
+          title: { type: "string" },
+          details: { type: "string" },
+          source: { type: "string", enum: ["garmin", "suggested"] },
+        },
+        required: ["date", "title", "details", "source"],
+      },
+    },
+  },
+  required: ["summary", "next_sessions"],
+};
+
+/** A structured Training answer -> its text and sessions; null when it isn't valid JSON of that shape. */
+export function parseTrainingAnswer(text: string): { text: string; nextSessions: NextSession[] } | null {
+  try {
+    const parsed = JSON.parse(text) as { summary?: unknown; next_sessions?: unknown };
+    if (typeof parsed.summary !== "string" || !parsed.summary.trim()) return null;
+    const sessions = Array.isArray(parsed.next_sessions) ? parsed.next_sessions.flatMap((s) => {
+      const ok = nextSessionSchema.safeParse(s);
+      return ok.success ? [ok.data] : [];
+    }) : [];
+    return { text: parsed.summary.trim(), nextSessions: sessions.slice(0, 3) };
+  } catch {
+    return null;
+  }
+}
+
+const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string; schema?: Record<string, unknown> }> = {
   today: {
     system: SUMMARY_SYSTEM,
     facts: (rows, _profile, today) => summaryFacts({ today, ...rows }),
@@ -159,9 +203,10 @@ const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profil
   },
   training: {
     system: TRAINING_SYSTEM,
-    facts: (rows, profile, today) => trainingFacts({ today, profile, activities: rows.activities, training: rows.training }),
+    facts: (rows, profile, today) => trainingFacts({ today, profile, activities: rows.activities, training: rows.training, planned: rows.planned }),
     enough: hasEnoughForTrainingSummary,
     missing: "no recent riding, running or training load",
+    schema: TRAINING_RESPONSE_SCHEMA,
   },
 };
 
@@ -196,7 +241,7 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
 
     let call: Awaited<ReturnType<typeof callGemini>>;
     try {
-      call = await callGemini(model, spec.system, summaryUserMessage(facts), options.fetch ?? fetch, options.wait);
+      call = await callGemini(model, spec.system, summaryUserMessage(facts), options.fetch ?? fetch, options.wait, spec.schema);
     } catch (err) {
       // One tab's API failure (Gemini still busy after the retries) leaves the others to run.
       call = { skipped: err instanceof Error ? err.message : String(err) };
@@ -205,15 +250,27 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
       log(`[${tab}] ${call.skipped}; nothing written.`);
       return { tab, date: today, text: null, model, skipped: call.skipped };
     }
-    log(`[${tab}] ${call.modelVersion}: ${call.text}`);
-    if (!dryRun) {
-      await sql`
-        insert into daily_summaries (user_id, local_date, tab, text, model, generated_at)
-        values (${profile.id}, ${today}, ${tab}, ${call.text}, ${call.modelVersion}, now())
-        on conflict (user_id, local_date, tab)
-        do update set text = excluded.text, model = excluded.model, generated_at = excluded.generated_at`;
+    let text = call.text;
+    let nextSessions: NextSession[] | null = null;
+    if (spec.schema) {
+      const answer = parseTrainingAnswer(call.text);
+      if (!answer) {
+        log(`[${tab}] the answer wasn't the expected JSON; nothing written.`);
+        return { tab, date: today, text: null, model, skipped: "the answer wasn't the expected JSON" };
+      }
+      text = answer.text;
+      nextSessions = answer.nextSessions;
     }
-    return { tab, date: today, text: call.text, model: call.modelVersion };
+    log(`[${tab}] ${call.modelVersion}: ${text}${nextSessions ? `\n[${tab}] next up: ${JSON.stringify(nextSessions)}` : ""}`);
+    if (!dryRun) {
+      const sessions = nextSessions ? sql.json(nextSessions) : null;
+      await sql`
+        insert into daily_summaries (user_id, local_date, tab, text, model, next_sessions, generated_at)
+        values (${profile.id}, ${today}, ${tab}, ${text}, ${call.modelVersion}, ${sessions}, now())
+        on conflict (user_id, local_date, tab)
+        do update set text = excluded.text, model = excluded.model, next_sessions = excluded.next_sessions, generated_at = excluded.generated_at`;
+    }
+    return { tab, date: today, text, model: call.modelVersion };
   }
 
   return Promise.all(tabs.map(writeTab));

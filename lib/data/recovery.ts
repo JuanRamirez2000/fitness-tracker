@@ -1,3 +1,4 @@
+import { nextSessionSchema } from "./planned";
 import { z } from "zod";
 import { localDateSchema } from "@/lib/dates/calendar";
 import { timestampSchema, uuidSchema } from "./common";
@@ -61,6 +62,8 @@ export const dailySummaryRowSchema = z.object({
   tab: z.enum(["today", "weight", "training"]).default("today"),
   text: z.string(),
   model: z.string().nullable(),
+  /** The Training tab's "Next up" sessions (migration 015); null on the other tabs. */
+  next_sessions: z.array(nextSessionSchema).nullable().default(null),
   generated_at: timestampSchema,
 });
 

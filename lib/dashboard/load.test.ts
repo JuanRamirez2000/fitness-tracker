@@ -22,8 +22,8 @@ describe("resolveProgramStart", () => {
 });
 
 describe("tabNeeds", () => {
-  it("loads weigh-ins and activities (run ticks) for the weight tab, not steps", () => {
-    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: false, bodyComposition: true, training: false });
+  it("loads weigh-ins, activities (run ticks) and training (Garmin's FTP, for watts per kilo) for the weight tab, not steps", () => {
+    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: false, bodyComposition: true, training: true });
   });
 
   it("loads activities and steps for the training tab, not weigh-ins", () => {

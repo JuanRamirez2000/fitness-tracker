@@ -6,6 +6,7 @@ import { buildLoadFocus, buildZoneChart, trainingStatus } from "@/lib/charts/tra
 import { fmtRaceTime } from "@/lib/charts/fitness";
 import { currentFtp } from "@/lib/kpis/ftp";
 import { runMiles, runsIn, runsOf } from "@/lib/running/runs";
+import type { PlannedWorkout } from "@/lib/data/planned";
 import { isRide, isSwim } from "@/lib/sport";
 
 /** The rows the Training tab's summary is written from. */
@@ -16,7 +17,15 @@ export interface TrainingSummaryInput {
   activities: Activity[];
   /** Daily training snapshots from at least the last 30 days, oldest first. */
   training: DailyTraining[];
+  /** Planned sessions from today on (Garmin Coach or the Garmin calendar), oldest first. */
+  planned?: PlannedWorkout[];
 }
+
+/** How far ahead the planned sessions in the facts reach. */
+const PLAN_DAYS_AHEAD = 7;
+/** How far back the best 20-minute power is looked for (the FTP sanity check). */
+const POWER_LOOKBACK_DAYS = 90;
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 const onOrBefore = <T extends { local_date: LocalDate }>(rows: T[], date: LocalDate, has: (r: T) => boolean) =>
@@ -96,6 +105,31 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
     };
   }
 
+  // The plan ahead (Garmin Coach): what's coming, so the summary can explain it and say how to
+  // approach it. Done sessions are left out.
+  const planned = (input.planned ?? []).filter(
+    (p) => p.local_date >= today && p.local_date <= addDays(today, PLAN_DAYS_AHEAD) && p.status !== "COMPLETE",
+  );
+  if (planned.length) {
+    facts.upcoming_planned_sessions = planned.map((p) => ({
+      date: p.local_date,
+      weekday: WEEKDAYS[new Date(`${p.local_date}T12:00:00Z`).getUTCDay()],
+      ...(p.rest_day
+        ? { rest_day: true }
+        : {
+            sport: p.sport,
+            name: p.name,
+            ...(p.description ? { garmin_workout: p.description } : {}),
+            ...(p.duration_s ? { minutes: Math.round(p.duration_s / 60) } : {}),
+            ...(p.benefit ? { benefit: p.benefit.toLowerCase().replaceAll("_", " ") } : {}),
+            ...(p.key_workout ? { key_session: true } : {}),
+          }),
+    }));
+    if (planned[0].plan_name) facts.plan_name = planned[0].plan_name;
+  }
+  const recentPower = rides.filter((r) => r.local_date > addDays(today, -POWER_LOOKBACK_DAYS) && r.max_20min_power_w !== null);
+  if (recentPower.length) facts.best_20_min_power_watts_last_90_days = Math.max(...recentPower.map((r) => r.max_20min_power_w!));
+
   const load = onOrBefore(input.training, today, (r) => r.acute_load !== null);
   if (load && load.local_date >= addDays(today, -2)) {
     facts.training_load = {
@@ -165,6 +199,10 @@ Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting
 4. One concrete thing to change or keep doing for the next few sessions, starting "The one thing to change:" when something needs changing.
 
 Use at most two or three rounded numbers in the whole summary, and only ones in the data. Explain what a number means for them rather than listing it. Lead with riding when there is any. Garmin's load, status and load focus count every sport together. Garmin's FTP may be set wrong, so don't lean on it. Leave out anything that isn't in the data rather than guessing. This is a training log, not medical advice.
+
+Answer as JSON with two fields:
+- "summary": the 4 sentences.
+- "next_sessions": the next 2 or 3 sessions, soonest first, each {"date": "YYYY-MM-DD", "title", "details", "source"}. When upcoming_planned_sessions exist, use those (source "garmin", title = Garmin's name, e.g. "Tempo"), skipping rest days. In "details", one or two plain sentences: what the workout is in words (spell out shorthand like "3x9:00@210W" as three 9-minute efforts at 210 watts with easy riding between) and how to approach it given this week's recovery and load. Garmin sets its power targets from the FTP in Garmin Connect; when best_20_min_power_watts_last_90_days is far below that FTP, say the watt targets may be too high and to ride by feel or heart rate instead. Only when nothing is planned, suggest sessions that follow from their week (source "suggested"), with a date starting tomorrow.
 
 Example of the style (different day, different numbers; write your own from today's data):
 This week mixed a hard 5K race with your first two indoor rides, and Garmin rates the result as productive. Over the past month your easy and harder aerobic work are both above Garmin's targets, so your base is solid. Running VO2 max is up 2 points in a month, a real gain, and cycling fitness will start to show after a few more logged rides. The one thing to change: slow your easy days down, because both rides and runs are drifting out of the easy zone.`;

@@ -126,3 +126,26 @@ describe("trainingFacts", () => {
     expect(hasEnoughForTrainingSummary(facts)).toBe(false);
   });
 });
+
+describe("trainingFacts: the plan ahead", () => {
+  it("lists upcoming Garmin sessions in words, skipping done ones, and the best 20 minutes", () => {
+    const planned = [
+      { workout_uuid: "a", local_date: "2026-11-03", sport: "cycling", name: "Tempo", description: "3x9:00@210W", duration_s: 3720, benefit: "TEMPO", rest_day: false, key_workout: true, status: "NOT_COMPLETE", plan_name: "2027 Fitness Plan" },
+      { workout_uuid: "b", local_date: "2026-11-04", sport: null, name: null, description: null, duration_s: null, benefit: null, rest_day: true, key_workout: false, status: "NOT_COMPLETE", plan_name: "2027 Fitness Plan" },
+      { workout_uuid: "c", local_date: "2026-11-03", sport: "cycling", name: "Base", description: null, duration_s: 1800, benefit: "AEROBIC_BASE", rest_day: false, key_workout: false, status: "COMPLETE", plan_name: "2027 Fitness Plan" },
+    ];
+    const facts = trainingFacts({
+      today: TODAY,
+      profile: { hr_zone_bounds: null, hr_zone_bounds_cycling: null },
+      activities: [testRun({ local_date: "2026-11-01", activity_type: "indoor_cycling", max_20min_power_w: 138 })],
+      training: [],
+      planned,
+    });
+    expect(facts.upcoming_planned_sessions).toEqual([
+      { date: "2026-11-03", weekday: "Tuesday", sport: "cycling", name: "Tempo", garmin_workout: "3x9:00@210W", minutes: 62, benefit: "tempo", key_session: true },
+      { date: "2026-11-04", weekday: "Wednesday", rest_day: true },
+    ]);
+    expect(facts.plan_name).toBe("2027 Fitness Plan");
+    expect(facts.best_20_min_power_watts_last_90_days).toBe(138);
+  });
+});

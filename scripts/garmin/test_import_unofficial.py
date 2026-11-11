@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import chunks, ftp_rows, race_rows, readiness_row, training_row, vo2_rows, window
+from import_unofficial import chunks, ftp_rows, plan_rows, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -109,3 +109,40 @@ class WindowTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlanRowsTest(unittest.TestCase):
+    PLAN = {
+        "name": "2027 Fitness Plan",
+        "taskList": [
+            {"calendarDate": "2026-11-11", "keyWorkout": True, "taskWorkout": {
+                "workoutUuid": "a", "sportType": {"sportTypeKey": "cycling"}, "workoutName": "Tempo",
+                "workoutDescription": "3x9:00@210W", "estimatedDurationInSecs": 3720, "trainingEffectLabel": "TEMPO",
+                "restDay": False, "adaptiveCoachingWorkoutStatus": "NOT_COMPLETE"}},
+            {"calendarDate": "2026-11-12", "keyWorkout": False, "taskWorkout": {
+                "workoutUuid": "b", "sportType": None, "workoutName": None, "trainingEffectLabel": "INVALID", "restDay": True}},
+            {"calendarDate": "2026-10-01", "taskWorkout": {"workoutUuid": "old"}},
+        ],
+    }
+    CALENDAR = [
+        {"itemType": "fbtAdaptiveWorkout", "date": "2026-11-11", "title": "Tempo", "sportTypeKey": "cycling", "workoutUuid": "a"},
+        {"itemType": "fbtAdaptiveWorkout", "date": "2026-11-21", "title": "Long Ride", "sportTypeKey": "cycling", "workoutUuid": "c"},
+        {"itemType": "activity", "date": "2026-11-09", "title": "Recovery"},
+        {"itemType": "trainingPlan", "date": "2027-01-03", "title": "2027 Fitness Plan"},
+    ]
+
+    def test_plan_detail_wins_and_calendar_adds_later_sessions(self):
+        rows = plan_rows(self.PLAN, self.CALENDAR, "2026-11-04")
+        self.assertEqual([r["workout_uuid"] for r in rows], ["a", "b", "c"])
+        tempo, rest, long_ride = rows
+        self.assertEqual(tempo["description"], "3x9:00@210W")
+        self.assertEqual(tempo["duration_s"], 3720)
+        self.assertTrue(tempo["key_workout"])
+        self.assertTrue(rest["rest_day"])
+        self.assertIsNone(rest["benefit"])
+        self.assertEqual(long_ride["name"], "Long Ride")
+        self.assertEqual(long_ride["plan_name"], "2027 Fitness Plan")
+
+    def test_no_plan_keeps_calendar_workouts(self):
+        rows = plan_rows(None, self.CALENDAR, "2026-11-04")
+        self.assertEqual([r["name"] for r in rows], ["Tempo", "Long Ride"])

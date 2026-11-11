@@ -65,10 +65,10 @@ Wait for real swims:
 - Pool-length and stroke fields in the database.
 - Per-100 splits in the activity window.
 
-## Afterwards (earlier Phases 2–4)
+## Phases 2–4 (built 2026-11-11)
 
-- **Phase 2:** next workouts in the Training summary. Waiting on where workouts are planned: Garmin Coach or calendar, Wahoo SYSTM, Zwift, TrainerRoad, or nowhere.
-- **Phase 3:** Daily feel insight cards.
-- **Phase 4:** Weight built around W/kg.
+- **Phase 2, next workouts:** the plan lives in a Garmin Cycling Coach adaptive plan ("2027 Fitness Plan"). The unofficial import's `plan` dataset writes it to `planned_workouts` (migration 015): name, workout shorthand, estimated time, benefit, rest days, key sessions. The Training summary is a structured Gemini answer: 4 sentences plus 2–3 "Next up" sessions, explained in words, stored in `daily_summaries.next_sessions`. With no plan it suggests sessions instead.
+- **Phase 3, Daily feel:** insight cards for recovery ("Ready for hard effort by …"), sleep, HRV and resting heart rate (`lib/insights/daily.ts`). The hero's factor bars became "What's helping / What's holding you back". KPI cards, charts and the calendar are folded behind "Show the numbers".
+- **Phase 4, Weight:** insight cards for pace of loss, climbing at the same power (W/kg in the numbers) and one muscle verdict (`lib/insights/weight.ts`). The body fat KPI became "Climbing, same power". Body composition charts and the weigh-in log are folded.
 
 **FTP note:** Garmin's FTP is now set to 222 W. The best 20-minute power on record is 138 W, from a steady zone 3 ride, not an all-out effort, so the true FTP is unknown. A ramp test on the Kickr would settle it.

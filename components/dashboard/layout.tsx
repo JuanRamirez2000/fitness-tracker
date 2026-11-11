@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 /** Column spans at lg and up. Literal class names so Tailwind generates them. */
 const SPAN_CLASS = {
+  4: "lg:col-span-4",
   5: "lg:col-span-5",
   6: "lg:col-span-6",
   7: "lg:col-span-7",
