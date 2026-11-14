@@ -11,6 +11,7 @@ import { SPORT_STYLE } from "@/lib/sport";
 import { sessionSport, type Suggestion } from "@/lib/workouts/plan";
 import type { PlannerData } from "@/lib/workouts/service";
 import { toPlannedSession } from "@/lib/workouts/session";
+import { actionErrorMessage } from "./action-error";
 import { PlanWorkoutDialog, type DialogStart } from "./plan-workout-dialog";
 
 /**
@@ -69,8 +70,8 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
       try {
         const result = await run();
         setMessage(result.message);
-      } catch {
-        setMessage("That didn't work. Try again.");
+      } catch (err) {
+        setMessage(actionErrorMessage(err, "That didn't work. Try again."));
       }
     });
   }

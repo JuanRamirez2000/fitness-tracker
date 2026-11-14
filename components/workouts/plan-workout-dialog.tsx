@@ -15,6 +15,7 @@ import type { PlannerData } from "@/lib/workouts/service";
 import { SWIM_STAGES } from "@/lib/workouts/settings";
 import { stepSeconds } from "@/lib/workouts/steps";
 import { EFFORT_LABELS, type Block, type Effort, type Step } from "@/lib/workouts/types";
+import { actionErrorMessage } from "./action-error";
 
 /**
  * "Plan a workout": sport, day, type, effort and length, with a live preview built in the
@@ -94,8 +95,8 @@ export function PlanWorkoutDialog({
     startTransition(async () => {
       try {
         await saveWorkoutSettings(patch);
-      } catch {
-        setError("Couldn't save that setting.");
+      } catch (err) {
+        setError(actionErrorMessage(err, "Couldn't save that setting."));
       }
     });
   }
@@ -107,8 +108,8 @@ export function PlanWorkoutDialog({
         const result = await planWorkout({ sport, date, kind: workout.kind, effort, minutes: shownMinutes }, send);
         if (result.ok) onDone(result);
         else setError(result.message);
-      } catch {
-        setError("Couldn't save the workout. Try again.");
+      } catch (err) {
+        setError(actionErrorMessage(err, "Couldn't save the workout. Try again."));
       }
     });
   }
