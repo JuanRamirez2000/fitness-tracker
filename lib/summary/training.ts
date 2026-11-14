@@ -18,7 +18,9 @@ export interface TrainingSummaryInput {
   /** Daily training snapshots from at least the last 30 days, oldest first. */
   training: DailyTraining[];
   /** Planned sessions from today on (Garmin Coach or the Garmin calendar), oldest first. */
-  planned?: PlannedWorkout[];
+  planned?: (Omit<PlannedWorkout, "source" | "settings" | "steps" | "push_status" | "push_error" | "pushed_at"> & {
+    source?: PlannedWorkout["source"];
+  })[];
 }
 
 /** How far ahead the planned sessions in the facts reach. */
@@ -116,7 +118,16 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
       weekday: WEEKDAYS[new Date(`${p.local_date}T12:00:00Z`).getUTCDay()],
       ...(p.rest_day
         ? { rest_day: true }
-        : {
+        : p.source === "self"
+          ? {
+              // The athlete's own supplemental workout (lib/workouts/), not the Coach plan's.
+              sport: p.sport,
+              name: p.name,
+              self_planned: true,
+              ...(p.description ? { purpose: p.description } : {}),
+              ...(p.duration_s ? { minutes: Math.round(p.duration_s / 60) } : {}),
+            }
+          : {
             sport: p.sport,
             name: p.name,
             ...(p.description ? { garmin_workout: p.description } : {}),
@@ -125,7 +136,8 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
             ...(p.key_workout ? { key_session: true } : {}),
           }),
     }));
-    if (planned[0].plan_name) facts.plan_name = planned[0].plan_name;
+    const coachRow = planned.find((p) => p.plan_name);
+    if (coachRow?.plan_name) facts.plan_name = coachRow.plan_name;
   }
   const recentPower = rides.filter((r) => r.local_date > addDays(today, -POWER_LOOKBACK_DAYS) && r.max_20min_power_w !== null);
   if (recentPower.length) facts.best_20_min_power_watts_last_90_days = Math.max(...recentPower.map((r) => r.max_20min_power_w!));
@@ -202,7 +214,7 @@ Use at most two or three rounded numbers in the whole summary, and only ones in 
 
 Answer as JSON with two fields:
 - "summary": the 4 sentences.
-- "next_sessions": the next 2 or 3 sessions, soonest first, each {"date": "YYYY-MM-DD", "title", "details", "source"}. When upcoming_planned_sessions exist, use those (source "garmin", title = Garmin's name, e.g. "Tempo"), skipping rest days. In "details", one or two plain sentences: what the workout is in words (spell out shorthand like "3x9:00@210W" as three 9-minute efforts at 210 watts with easy riding between) and how to approach it given this week's recovery and load. Garmin sets its power targets from the FTP in Garmin Connect; when best_20_min_power_watts_last_90_days is far below that FTP, say the watt targets may be too high and to ride by feel or heart rate instead. Only when nothing is planned, suggest sessions that follow from their week (source "suggested"), with a date starting tomorrow.
+- "next_sessions": the next 2 or 3 sessions, soonest first, each {"date": "YYYY-MM-DD", "title", "details", "source"}. When upcoming_planned_sessions exist, use those (source "garmin", title = Garmin's name, e.g. "Tempo"), skipping rest days; a session with "self_planned" is the athlete's own supplemental workout (a run or swim alongside the Coach plan): use source "self", its own name as the title, and explain it from its "purpose". In "details", one or two plain sentences: what the workout is in words (spell out shorthand like "3x9:00@210W" as three 9-minute efforts at 210 watts with easy riding between) and how to approach it given this week's recovery and load. Garmin sets its power targets from the FTP in Garmin Connect; when best_20_min_power_watts_last_90_days is far below that FTP, say the watt targets may be too high and to ride by feel or heart rate instead. Only when nothing is planned, suggest sessions that follow from their week (source "suggested"), with a date starting tomorrow.
 
 Example of the style (different day, different numbers; write your own from today's data):
 This week mixed a hard 5K race with your first two indoor rides, and Garmin rates the result as productive. Over the past month your easy and harder aerobic work are both above Garmin's targets, so your base is solid. Running VO2 max is up 2 points in a month, a real gain, and cycling fitness will start to show after a few more logged rides. The one thing to change: slow your easy days down, because both rides and runs are drifting out of the easy zone.`;

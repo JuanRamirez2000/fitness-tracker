@@ -1,0 +1,38 @@
+name: Garmin push workouts
+
+# Sends the tracker's own workouts (planned_workouts rows with source = 'self' and push_status
+# queued or removing) to the Garmin calendar, so they reach the watch on its next sync. Started
+# by the web app's "Send to watch" (lib/workouts/dispatch.ts) and by hand; the twice-daily
+# Garmin import (garmin-unofficial.yml) also sends anything still queued.
+#
+# The Garmin login session comes from the garmin_token_cache table, shared with local runs.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  # One push at a time: two runs refreshing the shared Garmin session would log each other out.
+  group: garmin-session
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts/garmin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: scripts/garmin/requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - run: python push_workout.py --pending
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

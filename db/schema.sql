@@ -18,6 +18,7 @@ create table profiles (
   start_weight_lb numeric(5,1),          -- optional override; default = first weigh-in
   hr_zone_bounds jsonb,                  -- [[low, high] x 5] bpm, from Garmin's zone settings
   hr_zone_bounds_cycling jsonb,          -- the same from Garmin's CYCLING zones (migration 014)
+  workout_settings jsonb,                -- lib/workouts/settings.ts: FTP, swim stage, pool, race (migration 016)
   shot_weekday smallint not null default 4
     check (shot_weekday between 0 and 6),  -- 0 = Sunday ... 4 = Thursday
   created_at timestamptz not null default now()
@@ -247,10 +248,21 @@ create table planned_workouts (
   key_workout boolean not null default false,
   status text,
   plan_name text,
+  -- Self-made workouts (migration 016, lib/workouts/, scripts/garmin/push_workout.py)
+  source text not null default 'garmin',  -- garmin (Coach plan / Garmin calendar) | self
+  settings jsonb,                         -- the builder's inputs: sport, kind, effort, minutes
+  steps jsonb,                            -- the builder's step list, for display
+  garmin_workout jsonb,                   -- the workout JSON uploaded to Garmin
+  push_status text,                       -- draft | queued | sent | failed | removing
+  push_error text,
+  garmin_workout_id bigint,
+  garmin_schedule_id bigint,
+  pushed_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, workout_uuid)
 );
 create index planned_workouts_user_date_idx on planned_workouts (user_id, local_date);
+create index planned_workouts_push_idx on planned_workouts (push_status) where source = 'self';
 
 -- The unofficial Garmin login session, shared by a local run and the GitHub Actions job
 -- (scripts/garmin/). Only the Python importer touches it; the app never does.

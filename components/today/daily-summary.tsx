@@ -30,7 +30,7 @@ function NextUp({ sessions, today }: { sessions: NextSession[]; today: string })
               <span className="font-mono text-[10px] text-muted-2">{dayLabel(s.date, today)}</span>
             </div>
             <p className="text-[12.5px] leading-[1.5] text-muted-1">{s.details}</p>
-            <span className="font-mono text-[9.5px] text-muted-2">{s.source === "garmin" ? "From your Garmin Coach plan" : "Suggested"}</span>
+            <span className="font-mono text-[9.5px] text-muted-2">{s.source === "garmin" ? "From your Garmin Coach plan" : s.source === "self" ? "Your own workout" : "Suggested"}</span>
           </li>
         ))}
       </ol>

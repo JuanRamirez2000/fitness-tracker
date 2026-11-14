@@ -26,7 +26,8 @@ import { dailyWeightRowSchema, weightTrendRowSchema, type DailyWeight, type Weig
 export async function fetchOwnerProfile(): Promise<Profile | null> {
   const [row] = await db()`
     select id, display_name, timezone, program_start_date,
-           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds, hr_zone_bounds_cycling
+           goal_weight_lb, goal_pace_lb_per_week, start_weight_lb, shot_weekday, hr_zone_bounds, hr_zone_bounds_cycling,
+           workout_settings
     from profiles order by created_at limit 1`;
   return row ? profileSchema.parse(row) : null;
 }
@@ -39,7 +40,7 @@ export async function fetchOwnerProfile(): Promise<Profile | null> {
 export async function fetchOwnerProfileAndFirstWeight(): Promise<{ profile: Profile; firstWeighIn: DailyWeight | null } | null> {
   const [row] = await db()`
     select p.id, p.display_name, p.timezone, p.program_start_date, p.goal_weight_lb, p.goal_pace_lb_per_week,
-           p.start_weight_lb, p.shot_weekday, p.hr_zone_bounds, p.hr_zone_bounds_cycling,
+           p.start_weight_lb, p.shot_weekday, p.hr_zone_bounds, p.hr_zone_bounds_cycling, p.workout_settings,
            fw.local_date as first_local_date, fw.weight_lb as first_weight_lb
     from profiles p
     left join lateral (

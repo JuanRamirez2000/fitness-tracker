@@ -14,7 +14,8 @@
     "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
     "garmin:import": "tsx --env-file=.env.local scripts/garmin-import.ts",
     "summary:generate": "tsx --env-file=.env.local scripts/summary-generate.ts",
-    "efforts:backfill": "tsx --env-file=.env.local scripts/backfill-efforts.ts"
+    "efforts:backfill": "tsx --env-file=.env.local scripts/backfill-efforts.ts",
+    "workout": "tsx scripts/workout.ts"
   },
   "dependencies": {
     "@visx/curve": "^4.0.0",

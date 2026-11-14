@@ -164,7 +164,7 @@ const TRAINING_RESPONSE_SCHEMA = {
           date: { type: "string" },
           title: { type: "string" },
           details: { type: "string" },
-          source: { type: "string", enum: ["garmin", "suggested"] },
+          source: { type: "string", enum: ["garmin", "self", "suggested"] },
         },
         required: ["date", "title", "details", "source"],
       },

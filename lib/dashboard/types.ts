@@ -12,6 +12,7 @@ import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import type { Palette } from "@/lib/theme/palette";
 import type { SportFilter } from "@/lib/sport";
+import type { PlannerData } from "@/lib/workouts/service";
 
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
@@ -76,6 +77,8 @@ export interface DashboardData {
   bodyComposition: BodyCompositionDay[];
   /** Today's AI-written summary for the active tab, or null when none was written today. */
   summary: DailySummary | null;
+  /** The workout planner's week (lib/workouts/service.ts): Training tab only, null elsewhere. */
+  planner: PlannerData | null;
   /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
    * unbounded at the start, for VO2 max's history. */
   training: DailyTraining[];

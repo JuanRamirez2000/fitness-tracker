@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseWorkoutSettings } from "@/lib/workouts/settings";
 import { WEIGHT_MAX_LB, WEIGHT_MIN_LB } from "./weigh-ins";
 
 /** Mirrors the profiles table in db/schema.sql. */
@@ -17,6 +18,8 @@ export const profileSchema = z.object({
   hr_zone_bounds: z.array(z.tuple([z.number(), z.number()])).length(5).nullable().default(null),
   /** The same from Garmin's CYCLING zones (migration 014), or null when none are set. */
   hr_zone_bounds_cycling: z.array(z.tuple([z.number(), z.number()])).length(5).nullable().default(null),
+  /** The workout builder's settings (migration 016), defaults filled in. */
+  workout_settings: z.unknown().optional().transform((v) => parseWorkoutSettings(v)),
 });
 
 export type Profile = z.infer<typeof profileSchema>;

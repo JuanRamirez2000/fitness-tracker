@@ -13,7 +13,8 @@ Datasets:
   ftp        the cycling FTP set in Garmin, on each day it changed -> daily_training.ftp_w.
   plan       planned sessions: a Garmin Coach plan's tasks (name, workout, estimated time,
              benefit, rest days) plus any other workouts on the Garmin calendar, from a week
-             back to about two months ahead -> planned_workouts (future rows replaced).
+             back to about two months ahead -> planned_workouts (future Garmin rows replaced;
+             the tracker's own workouts, source = 'self', are left alone: push_workout.py).
 
 Uses cyberjunky/python-garminconnect, which logs in like the Garmin Connect app. The login
 session lives in ~/.garminconnect and is mirrored to the garmin_token_cache table, so a local
@@ -219,11 +220,17 @@ def ftp_rows(payload: list[dict[str, Any]] | dict[str, Any] | None, today: str) 
     return [{"local_date": d, "ftp_w": by_day[d]} for d in sorted(by_day)]
 
 
-def plan_rows(plan: dict[str, Any] | None, calendar_items: list[dict[str, Any]], earliest: str) -> list[dict[str, Any]]:
+def plan_rows(
+    plan: dict[str, Any] | None,
+    calendar_items: list[dict[str, Any]],
+    earliest: str,
+    own_workout_ids: set[int] | frozenset[int] = frozenset(),
+) -> list[dict[str, Any]]:
     """planned_workouts rows from an adaptive Coach plan (its taskList carries the detail: the
     workout shorthand, estimated time, benefit, rest days) and the Garmin calendar's planned
     items (names only, but weeks further ahead). The plan's version of a session wins; days
-    before `earliest` are dropped."""
+    before `earliest` are dropped, and so are calendar items for the tracker's own workouts
+    (`own_workout_ids`), which already have a richer row."""
     rows: dict[str, dict[str, Any]] = {}
     plan_name = (plan or {}).get("name")
     for task in (plan or {}).get("taskList") or []:
@@ -247,6 +254,8 @@ def plan_rows(plan: dict[str, Any] | None, calendar_items: list[dict[str, Any]],
         }
     for item in calendar_items:
         if item.get("itemType") not in PLANNED_ITEM_TYPES or not item.get("date") or item["date"] < earliest:
+            continue
+        if item.get("workoutId") in own_workout_ids:
             continue
         uuid = item.get("workoutUuid") or (f"workout-{item['workoutId']}-{item['date']}" if item.get("workoutId") else None)
         if not uuid or uuid in rows:
@@ -440,7 +449,10 @@ def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry
             print(f"    {row}")
         return
     with conn.cursor() as cur:
-        cur.execute("delete from planned_workouts where user_id = %s and local_date >= %s", (user_id, today))
+        cur.execute(
+            "delete from planned_workouts where user_id = %s and local_date >= %s and source = 'garmin'",
+            (user_id, today),
+        )
         for row in rows:
             cur.execute(
                 f"""insert into planned_workouts (user_id, workout_uuid, {", ".join(PLAN_COLUMNS)})
@@ -453,7 +465,17 @@ def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry
     print(f"  plan: wrote {len(rows)} planned session(s)")
 
 
-def fetch_plan(garmin, today: date) -> list[dict[str, Any]]:
+def own_workout_ids(conn, user_id: str) -> set[int]:
+    """Garmin workout ids of the tracker's own workouts (push_workout.py), so the calendar copy
+    of one isn't imported a second time."""
+    rows = conn.execute(
+        "select garmin_workout_id from planned_workouts where user_id = %s and source = 'self' and garmin_workout_id is not null",
+        (user_id,),
+    ).fetchall()
+    return {int(r[0]) for r in rows}
+
+
+def fetch_plan(garmin, today: date, own_ids: set[int]) -> list[dict[str, Any]]:
     """The live Coach plan (if any) and three months of the Garmin calendar."""
     plan = None
     listing = garmin.get_training_plans() or {}
@@ -469,7 +491,7 @@ def fetch_plan(garmin, today: date) -> list[dict[str, Any]]:
         items += cal.get("calendarItems") or []
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
         time.sleep(PER_DAY_PAUSE_S)
-    return plan_rows(plan, items, (today - timedelta(days=PLAN_LOOKBACK_DAYS)).isoformat())
+    return plan_rows(plan, items, (today - timedelta(days=PLAN_LOOKBACK_DAYS)).isoformat(), own_ids)
 
 
 def main() -> None:
@@ -552,7 +574,7 @@ def main() -> None:
             # Extra, never fatal: a failed fetch leaves the planned sessions as they were.
             today = datetime.now(ZoneInfo(tz)).date()
             try:
-                rows = fetch_plan(garmin, today)
+                rows = fetch_plan(garmin, today, own_workout_ids(conn, user_id))
             except Exception as err:  # noqa: BLE001
                 print(f"  plan: skipped ({err})")
                 rows = None

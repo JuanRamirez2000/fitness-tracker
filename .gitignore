@@ -42,7 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 # local tooling
-/.claude/
+/.claude/*
+# Project skills are versioned (the /workout skill); the rest of .claude/ stays local.
+!/.claude/skills/
 
 # The Python half of the Garmin import (scripts/garmin/): its venv and caches, never the
 # scripts. The login session lives outside the repo, in ~/.garminconnect.

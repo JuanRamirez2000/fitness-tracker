@@ -146,3 +146,11 @@ class PlanRowsTest(unittest.TestCase):
     def test_no_plan_keeps_calendar_workouts(self):
         rows = plan_rows(None, self.CALENDAR, "2026-11-04")
         self.assertEqual([r["name"] for r in rows], ["Tempo", "Long Ride"])
+
+    def test_own_workouts_on_the_calendar_are_skipped(self):
+        calendar = self.CALENDAR + [
+            {"itemType": "workout", "date": "2026-11-14", "title": "Easy run", "sportTypeKey": "running", "workoutId": 99},
+            {"itemType": "workout", "date": "2026-11-15", "title": "Other", "sportTypeKey": "running", "workoutId": 7},
+        ]
+        rows = plan_rows(None, calendar, "2026-11-04", {99})
+        self.assertEqual([r["name"] for r in rows], ["Tempo", "Other", "Long Ride"])

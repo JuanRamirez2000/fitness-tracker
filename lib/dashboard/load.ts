@@ -19,6 +19,7 @@ import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
 import { DEFAULT_SPORT, type SportFilter } from "@/lib/sport";
+import { loadPlanner } from "@/lib/workouts/service";
 import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
@@ -97,7 +98,7 @@ export async function loadDashboardData(shell: DashboardShell): Promise<Dashboar
     from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
-  const [weightTrend, injections, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts] =
+  const [weightTrend, injections, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
@@ -110,6 +111,7 @@ export async function loadDashboardData(shell: DashboardShell): Promise<Dashboar
       needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
       fetchDailySummary(profile.id, today, shell.tab),
       needs.training ? fetchRunEfforts(profile.id) : [],
+      shell.tab === "training" ? loadPlanner(profile, today) : null,
     ]);
 
   return {
@@ -126,5 +128,6 @@ export async function loadDashboardData(shell: DashboardShell): Promise<Dashboar
     training,
     summary,
     runEfforts,
+    planner,
   };
 }

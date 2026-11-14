@@ -21,6 +21,7 @@ import { SportToggle } from "@/components/dashboard/sport-toggle";
 import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
 import { DailySummary } from "@/components/today/daily-summary";
 import { SportBadge } from "@/components/ui/sport-badge";
+import { WeekPlanner } from "@/components/workouts/week-planner";
 import { TRAINING_KPIS } from "@/dashboard.config";
 import { sportsInRange } from "@/lib/charts/all-sports";
 import type { DashboardData } from "@/lib/dashboard/types";
@@ -34,7 +35,7 @@ import { SPORT_NOUN, SPORT_STYLE, sportsIn, type ActiveSport, type SportFilter }
  * locked to it and only its section follows. Sections come from SPORT_SECTIONS, so a new sport
  * is one more entry there.
  */
-export function TrainingTab({ data, urlRange }: { data: DashboardData; urlRange: UrlRange | null }) {
+export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; urlRange: UrlRange | null; canEdit: boolean }) {
   // The filter offers sports trained since the program began (old swims from before it stay out).
   const filterSports = sportsIn(data.activities.filter((a) => a.local_date >= data.programStart));
   const rangeSports = sportsInRange(data);
@@ -44,6 +45,7 @@ export function TrainingTab({ data, urlRange }: { data: DashboardData; urlRange:
   return (
     <>
       <DailySummary data={data} />
+      {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
       <SportToggle current={data.sport} range={urlRange} sports={filterSports} />
       <KpiCards data={data} ids={TRAINING_KPIS[data.sport]} />
       <Section>

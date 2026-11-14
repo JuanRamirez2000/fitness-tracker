@@ -3,6 +3,7 @@ import type { Activity } from "@/lib/data/activities";
 import type { Profile } from "@/lib/data/profiles";
 import type { WeightTrendRow } from "@/lib/data/weight-trend";
 import type { DashboardData } from "@/lib/dashboard/types";
+import { parseWorkoutSettings } from "@/lib/workouts/settings";
 
 export const USER = "6f0c1c1e-1d0a-4b5e-9c3e-2f6a1d8b7c01";
 export const PROGRAM_START = "2026-09-17";
@@ -20,6 +21,7 @@ export function testProfile(over: Partial<Profile> = {}): Profile {
     shot_weekday: 4,
     hr_zone_bounds: null,
     hr_zone_bounds_cycling: null,
+    workout_settings: parseWorkoutSettings(null),
     ...over,
   };
 }
@@ -54,6 +56,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     bodyComposition: [],
     training: [],
     runEfforts: [],
+    planner: null,
     summary: null,
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
