@@ -5,6 +5,7 @@ import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
 import { addDays, type LocalDate } from "@/lib/dates/calendar";
 import { clockTimeIn } from "@/lib/dates/timezone";
+import { brickOf } from "@/lib/charts/bricks";
 import { trainingStatus } from "@/lib/charts/training";
 import { trainingEffectWord } from "@/lib/table/activities";
 import { METERS_PER_MILE, fmtDuration, fmtPace, isEasyRun, median, paceSecPerMile, runMiles, runsIn } from "@/lib/running/runs";
@@ -130,6 +131,8 @@ export interface ActivityContext {
     bodyBatteryWake: number | null;
   } | null;
   goingIn: { acute: number; chronic: number | null; ratio: number | null; status: string | null } | null;
+  /** Part of a brick (lib/charts/bricks.ts): a run straight off a ride, or the ride before one. */
+  brick: { role: "run" | "ride"; other: string; otherMinutes: number; otherMiles: number; transitionMinutes: number } | null;
 }
 
 export interface ActivityView {
@@ -553,6 +556,9 @@ function context(input: ActivityViewInput): ActivityContext {
         }
       : null;
 
+  const b = brickOf(a.id, activities);
+  const other = b && (b.run.id === a.id ? b.ride : b.run);
+
   return {
     similar: similar(a, activities),
     load:
@@ -573,6 +579,16 @@ function context(input: ActivityViewInput): ActivityContext {
     goingIn:
       t?.acute_load != null && t.local_date >= addDays(day, -2)
         ? { acute: t.acute_load, chronic: t.chronic_load, ratio: t.acwr, status: trainingStatus(t.status)?.label ?? null }
+        : null,
+    brick:
+      b && other
+        ? {
+            role: b.run.id === a.id ? "run" : "ride",
+            other: typeLabel(other.activity_type),
+            otherMinutes: Math.round((other.moving_duration_s ?? other.duration_s) / 60),
+            otherMiles: round1((other.distance_m ?? 0) / METERS_PER_MILE),
+            transitionMinutes: round1(b.gapS / 60),
+          }
         : null,
   };
 }

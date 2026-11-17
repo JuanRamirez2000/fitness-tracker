@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
-import { activityDetailRowSchema, activityEffortsSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
+import { activityDetailRowSchema, activityEffortsSchema, mileSplitSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
+import type { BrickRunDetail } from "@/lib/charts/bricks";
 import { injectionRowSchema, type Injection } from "./injections";
 import { isEmptyLog, moodLogRowSchema, type MoodLog, type MoodLogInput } from "./mood";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
@@ -166,6 +167,21 @@ export async function fetchRunEfforts(userId: string): Promise<RunEfforts[]> {
     local_date: String(r.local_date),
     name: r.name === null ? null : String(r.name),
     efforts: activityEffortsSchema.parse(r.efforts),
+  }));
+}
+
+/** The brick runs' splits and their samples' time and distance (lib/charts/bricks.ts firstMileDrop). */
+export async function fetchBrickRunDetails(userId: string, activityIds: string[]): Promise<BrickRunDetail[]> {
+  if (!activityIds.length) return [];
+  const rows = await db()`
+    select activity_id, mile_splits, series->'t' as t, series->'d' as d
+    from activity_details where user_id = ${userId} and activity_id = any(${activityIds}::uuid[])`;
+  const nums = (v: unknown) => (Array.isArray(v) ? v.map((x) => (typeof x === "number" ? x : null)) : null);
+  return rows.map((r) => ({
+    activity_id: String(r.activity_id),
+    mile_splits: Array.isArray(r.mile_splits) ? r.mile_splits.map((x: unknown) => mileSplitSchema.parse(x)) : null,
+    t: Array.isArray(r.t) ? r.t.map(Number) : null,
+    d: nums(r.d),
   }));
 }
 

@@ -66,8 +66,8 @@ soreness is 3 or more.
    days drawn as markers on the recovery and training charts.
 2. **Brick card** (Training tab, hidden until the first brick). `lib/charts/bricks.ts` pairs
    ride → run by the 15-min gap (plus multisport parents, to be checked against a real one).
-   Off-bike cost: the run's speed per heartbeat vs the median of fresh runs in the last 60 days
-   within ±5 bpm. First-mile drop: first mile vs the rest from `mile_splits`; runs under 1.5 mi
+   Off-bike cost: the run's speed per heartbeat vs the median of fresh runs in the last 90 days
+   within ±10 bpm (±5 over 60 days left both real bricks without enough runs). **Built 11-17.** First-mile drop: first mile vs the rest from `mile_splits`; runs under 1.5 mi
    use the first 5 minutes vs the rest from the series. Activity and weekly summaries name a
    brick as one.
 3. **Progress tab, numbers.** `TAB_KEYS` + label, week picker, the three top cards, hours by sport

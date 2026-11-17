@@ -57,6 +57,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     bodyComposition: [],
     training: [],
     runEfforts: [],
+    brickRuns: [],
     planner: null,
     summary: null,
     steps: [],

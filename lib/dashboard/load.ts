@@ -1,7 +1,9 @@
+import { findBricks } from "@/lib/charts/bricks";
 import type { MoodLog } from "@/lib/data/mood";
 import type { Profile } from "@/lib/data/profiles";
 import {
   fetchActivities,
+  fetchBrickRunDetails,
   fetchBodyComposition,
   fetchDailySummary,
   fetchInjections,
@@ -104,12 +106,17 @@ export async function loadDashboardData(
     from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
-  const [weightTrend, injections, moodLogRows, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
+  const activityRows = needs.activities ? fetchActivities(profile.id) : Promise.resolve([]);
+  // The brick runs' detail waits on the activities (the pairing is by start and end times).
+  const brickRunRows =
+    shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
+  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
       moodLogs,
-      needs.activities ? fetchActivities(profile.id) : [],
+      activityRows,
+      brickRunRows,
       needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
       needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
       needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
@@ -136,6 +143,7 @@ export async function loadDashboardData(
     training,
     summary,
     runEfforts,
+    brickRuns,
     planner,
   };
 }

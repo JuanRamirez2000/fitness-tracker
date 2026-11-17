@@ -94,6 +94,12 @@ export function activityFacts(view: ActivityView): Record<string, unknown> {
       ...(c.similar.efficiencyPct !== null ? { speed_per_heartbeat_percent_vs_their_median: c.similar.efficiencyPct } : {}),
     };
   }
+  if (c.brick) {
+    facts.brick =
+      c.brick.role === "run"
+        ? { this_run_came_straight_off_a_ride: `${c.brick.other}, ${c.brick.otherMinutes} min`, transition_minutes: c.brick.transitionMinutes }
+        : { this_ride_was_followed_by_a_run: `${c.brick.otherMiles} mi`, transition_minutes: c.brick.transitionMinutes };
+  }
   if (c.load?.avg28 != null) facts.training_load_vs_4_week_average_per_activity = { this: c.load.value, average: c.load.avg28 };
   if (view.isRun) facts.running_that_week = { miles_in_7_days_to_this_run: c.week.miles, runs: c.week.count, miles_the_week_before: c.week.milesPrior };
   if (view.isRide) facts.riding_that_week = { rides_in_7_days_to_this_one: c.week.count, hours: c.week.hours, miles: c.week.miles };
@@ -129,6 +135,8 @@ Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting
 2. Where it sat in their week and recovery: what came before it (a race, a hard day, a short night) and whether the effort fit.
 3. One detail that stands out (pacing across the splits, cadence, heart rate drift, what it cost in Body Battery) and what it means.
 4. One tip for next time a session like this comes up.
+
+If it was part of a brick (brick), call it a brick in sentence 1: a run off the bike is naturally slower and heavier-legged than a fresh run, so judge its pace with that in mind, and treat the pair as triathlon practice for their April sprint.
 
 Round as a person would; write run paces as a clock ("11:20 per mile") and ride speeds in mph. An intensity factor and TSS are against the FTP set in Garmin, which may be out of date, so don't lean on them. Use only the numbers in the data; leave out anything that isn't there rather than guessing. This is a training log, not medical advice: don't diagnose or suggest treatment.
 

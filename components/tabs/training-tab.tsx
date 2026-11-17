@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BestEffortsCard } from "@/components/charts/best-efforts-card";
+import { BrickCard } from "@/components/charts/brick-card";
 import { EngineTrendChart } from "@/components/charts/engine-trend-chart";
 import { FitnessChart } from "@/components/charts/fitness-chart";
 import { LoadFocusCard } from "@/components/charts/load-focus-card";
@@ -24,6 +25,7 @@ import { SportBadge } from "@/components/ui/sport-badge";
 import { WeekPlanner } from "@/components/workouts/week-planner";
 import { TRAINING_KPIS } from "@/dashboard.config";
 import { sportsInRange } from "@/lib/charts/all-sports";
+import { buildBricks } from "@/lib/charts/bricks";
 import type { DashboardData } from "@/lib/dashboard/types";
 import type { UrlRange } from "@/lib/range/url";
 import { SPORT_NOUN, SPORT_STYLE, sportsIn, type ActiveSport, type SportFilter } from "@/lib/sport";
@@ -41,6 +43,8 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
   const rangeSports = sportsInRange(data);
   const sections: ActiveSport[] = data.sport === "all" ? filterSports : [data.sport];
   const share = (render: (d: DashboardData) => ReactNode) => <Shared data={data} sports={rangeSports} render={render} />;
+  // Ride-then-run sessions: hidden until the first brick, and under the swim filter.
+  const bricks = data.sport === "swim" ? null : buildBricks(data);
 
   return (
     <>
@@ -69,6 +73,11 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
           <Cell span={12}>
             <SessionMixCard data={data} />
           </Cell>
+          {bricks && (
+            <Cell span={12}>
+              <BrickCard bricks={bricks} />
+            </Cell>
+          )}
           <Cell span={12}>
             <ActivityHeatmap data={data} />
           </Cell>

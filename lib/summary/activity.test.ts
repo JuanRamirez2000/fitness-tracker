@@ -22,6 +22,17 @@ describe("activityFacts", () => {
     for (const key of ["mile_splits", "segments", "vs_similar_recent_runs", "that_morning", "load_going_in"]) expect(facts).not.toHaveProperty(key);
   });
 
+  it("names a run straight off a ride as a brick, from both sides", () => {
+    // The ride ends at 23:50 UTC; the run starts 4 minutes later.
+    const ride = testRide({ local_date: "2026-11-03", activity_type: "indoor_cycling", started_at: "2026-11-03T23:00:00Z", duration_s: 3000, moving_duration_s: 3000 });
+    const brickRun = { ...run, started_at: "2026-11-03T23:54:00Z" };
+    const all = [ride, brickRun];
+    const input = { detail: null, activities: all, recovery: null, sleep: null, trainingBefore: null, profile: PROFILE };
+    expect(activityFacts(buildActivityView({ ...input, activity: brickRun })).brick).toEqual({ this_run_came_straight_off_a_ride: "Indoor ride, 50 min", transition_minutes: 4 });
+    expect(activityFacts(buildActivityView({ ...input, activity: ride })).brick).toEqual({ this_ride_was_followed_by_a_run: "3 mi", transition_minutes: 4 });
+    expect(activityFacts(buildActivityView({ ...input, activity: run, activities: [run] }))).not.toHaveProperty("brick");
+  });
+
   it("summarises a very long activity's miles instead of listing them", () => {
     const splits = Array.from({ length: 30 }, (_, i) => ({
       mile: i + 1,

@@ -41,6 +41,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     bodyComposition: [],
     training: [],
     runEfforts: [],
+    brickRuns: [],
     planner: null,
     summary: null,
     steps: [],

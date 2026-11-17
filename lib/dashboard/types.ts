@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import type { BrickRunDetail } from "@/lib/charts/bricks";
 import type { Activity } from "@/lib/data/activities";
 import type { RunEfforts } from "@/lib/data/activity-details";
 import type { DailyRecovery, DailySummary, SleepNight } from "@/lib/data/recovery";
@@ -62,6 +63,9 @@ export interface DashboardData {
   moodLogs: MoodLog[];
   /** Every run's best efforts, oldest first (Training tab only; empty elsewhere). */
   runEfforts: RunEfforts[];
+  /** The brick runs' splits and samples, for the brick card's first-mile drop (Training tab
+   * only; empty elsewhere). */
+  brickRuns: BrickRunDetail[];
   /** Every Garmin activity, oldest first, unbounded like weightTrend: the running KPIs compare
    * the latest weeks against earlier ones, whatever range is selected. */
   activities: Activity[];

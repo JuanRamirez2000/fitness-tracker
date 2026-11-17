@@ -21,6 +21,7 @@ function data(over: Partial<DashboardData>): DashboardData {
     bodyComposition: [],
     training: [],
     runEfforts: [],
+    brickRuns: [],
     planner: null,
     summary: null,
     steps: [],
