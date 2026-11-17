@@ -1,9 +1,11 @@
+import type { MoodLog } from "@/lib/data/mood";
 import type { Profile } from "@/lib/data/profiles";
 import {
   fetchActivities,
   fetchBodyComposition,
   fetchDailySummary,
   fetchInjections,
+  fetchMoodLogs,
   fetchRecovery,
   fetchRunEfforts,
   fetchSleepNights,
@@ -78,7 +80,11 @@ export function resolveShell(
 
 /** Loads what the active tab renders, every query in one parallel batch (the range is already
  * known from the shell). Callers have already checked the session. */
-export async function loadDashboardData(shell: DashboardShell): Promise<DashboardData> {
+export async function loadDashboardData(
+  shell: DashboardShell,
+  /** Already started by the page (the header reads it too); fetched here when not given. */
+  moodLogs: Promise<MoodLog[]> = fetchMoodLogs(shell.profile.id),
+): Promise<DashboardData> {
   const { profile, today, programStart, dateRange } = shell;
   const needs = tabNeeds(shell.tab);
   const window = heatmapWindow(programStart, today);
@@ -98,10 +104,11 @@ export async function loadDashboardData(shell: DashboardShell): Promise<Dashboar
     from: earliest,
     to: dateRange.to > today ? dateRange.to : today,
   };
-  const [weightTrend, injections, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
+  const [weightTrend, injections, moodLogRows, activities, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
+      moodLogs,
       needs.activities ? fetchActivities(profile.id) : [],
       needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
       needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
@@ -118,6 +125,7 @@ export async function loadDashboardData(shell: DashboardShell): Promise<Dashboar
     ...shell,
     weightTrend,
     injections,
+    moodLogs: moodLogRows,
     activities,
     heatmap: { window, steps: allSteps.filter((s) => isInRange(s.local_date, window)) },
     steps: allSteps.filter((s) => isInRange(s.local_date, dateRange)),

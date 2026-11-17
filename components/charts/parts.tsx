@@ -110,3 +110,39 @@ export const Swatch = {
   triangle: (className: string) => <span className={`inline-block h-[8px] w-[9px] ${className}`} style={{ clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }} />,
   diamond: (className: string) => <span className={`inline-block h-[7px] w-[7px] rotate-45 rounded-[1px] ${className}`} />,
 };
+
+/**
+ * Sick and injured days (from the mood log, lib/charts/off-days.ts) as faint full-height
+ * columns, drawn first inside a Plot so the lines sit on top. `xOf` gives a day's center.
+ */
+export function OffDayBands({
+  dates,
+  xOf,
+  dayWidth,
+  width,
+  height,
+  className,
+}: {
+  dates: readonly string[];
+  xOf: (date: string) => number;
+  /** One day's width in plot units; drawn between 3 and MAX_OFF_DAY_W wide. */
+  dayWidth: number;
+  /** The plot's width: columns are clipped to it. */
+  width: number;
+  height: number;
+  className: string;
+}) {
+  const w = Math.min(Math.max(dayWidth, 3), MAX_OFF_DAY_W);
+  return (
+    <>
+      {dates.map((d) => {
+        const left = Math.max(0, xOf(d) - w / 2);
+        const right = Math.min(width, xOf(d) + w / 2);
+        return right > left ? <rect key={d} x={left} y={0} width={right - left} height={height} className={className} /> : null;
+      })}
+    </>
+  );
+}
+
+/** A short range makes a day very wide; past this a column stops growing. */
+const MAX_OFF_DAY_W = 60;

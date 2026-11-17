@@ -3,9 +3,10 @@
 import { refresh } from "next/cache";
 import { requireOwner } from "@/lib/auth/session";
 import { profileSettingsSchema } from "@/lib/data/profiles";
-import { deleteWeighIn, fetchOwnerProfile, insertWeighIn, setShot, updateProfile, updateWeighIn } from "@/lib/data/queries";
+import { moodLogInputSchema } from "@/lib/data/mood";
+import { deleteWeighIn, fetchOwnerProfile, insertWeighIn, saveMoodLog, setShot, updateProfile, updateWeighIn } from "@/lib/data/queries";
 import { weighInSchema } from "@/lib/data/weigh-ins";
-import { localDateSchema } from "@/lib/dates/calendar";
+import { addDays, localDateSchema } from "@/lib/dates/calendar";
 import { defaultMeasuredAt, todayIn } from "@/lib/dates/timezone";
 import { z } from "zod";
 import { dispatchPush, type DispatchResult } from "@/lib/workouts/dispatch";
@@ -48,6 +49,20 @@ export async function toggleShot(localDate: unknown, taken: boolean): Promise<vo
   const profile = await ownerProfile();
   await setShot(profile.id, localDateSchema.parse(localDate), taken === true);
   refresh();
+}
+
+/** The mood log modal: today's (or a recent day's) answers. Logs for the future are refused,
+ * and so are logs more than a week back (the modal only offers today and yesterday). */
+export async function logMood(values: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
+  const profile = await ownerProfile();
+  const parsed = moodLogInputSchema.safeParse(values);
+  if (!parsed.success) return { ok: false, message: "Those answers aren't valid." };
+  const today = todayIn(profile.timezone);
+  if (parsed.data.local_date > today) return { ok: false, message: "You can't log a day that hasn't happened yet." };
+  if (parsed.data.local_date < addDays(today, -7)) return { ok: false, message: "That day is too far back to log." };
+  await saveMoodLog(profile.id, parsed.data);
+  refresh();
+  return { ok: true };
 }
 
 // ---------- The workout builder (lib/workouts/) ----------

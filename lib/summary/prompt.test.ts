@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { MoodLog } from "@/lib/data/mood";
 import { testTraining, trendRow } from "@/lib/kpis/testing";
 import { testNight, testRecovery } from "@/lib/today/testing";
 import { hasEnoughForSummary, summaryFacts, summaryUserMessage } from "./prompt";
@@ -62,5 +63,24 @@ describe("summaryFacts", () => {
     });
     expect(facts).toEqual({ date: TODAY });
     expect(hasEnoughForSummary(facts)).toBe(false);
+  });
+
+  it("adds yesterday's and today's mood log in words, and nothing older", () => {
+    const log = (local_date: string, over: Partial<MoodLog>): MoodLog => ({
+      user_id: "00000000-0000-4000-8000-000000000000", local_date, mood: null, energy: null, soreness: null,
+      sore_areas: [], motivation: null, sick: false, injured: false, updated_at: "2026-11-02T20:00:00Z", ...over,
+    });
+    const facts = summaryFacts({
+      today: TODAY, recovery: [], sleep: [], training: [], weightTrend: [],
+      moodLogs: [
+        log("2026-11-01", { mood: 1 }),
+        log("2026-11-02", { energy: 2, soreness: 4, sore_areas: ["legs"] }),
+        log(TODAY, { sick: true }),
+      ],
+    });
+    expect(facts.how_they_said_they_felt).toEqual({
+      yesterday: { energy: "Tired (2 of 5)", soreness: "Sore (4 of 5)", sore_areas: ["legs"] },
+      today: { sick: true },
+    });
   });
 });

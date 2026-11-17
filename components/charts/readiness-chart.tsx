@@ -9,7 +9,8 @@ import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
 import { FACTOR_GLYPH, FACTOR_LABELS, FACTOR_WORD, factorState, type FactorState } from "@/lib/today/hero";
 import { ChartCard, ChartEmpty } from "./chart-card";
 import { ChartHover, type HoverPoint } from "./chart-hover";
-import { AxisRow, Marker, Plot, Stat, StatRow, Swatch } from "./parts";
+import { OFF_DAY_BG, OFF_DAY_FILL, offDayRows, offDaysIn } from "@/lib/charts/off-days";
+import { AxisRow, Marker, OffDayBands, Plot, Stat, StatRow, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
 const HELP = "Training readiness is Garmin's 0-100 score each morning for how ready you are to train hard (75 or more is high, under 50 is low). The rows underneath are what feeds it: sleep, HRV, recovery time, training load and stress, each shaded good, fair or low that day, so you can see what pulled a low morning down.";
@@ -53,6 +54,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
   const span = (toMs - fromMs) / 86_400_000 + 1;
   const cellW = Math.max(1.5, Math.min(16, ((WIDTH - 12) / span) * 0.8));
 
+  const off = offDaysIn(data.moodLogs, { from, to: data.dateRange.to });
   const points: HoverPoint[] = t.days.map((d) => ({
     at: xOf(d.date) / WIDTH,
     title: fmtPointTitle(d.date),
@@ -64,6 +66,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
         const s = factorState(v);
         return [{ label: FACTOR_LABELS[k], value: `${FACTOR_GLYPH[s]} ${FACTOR_WORD[s]} · ${v}%`, swatch: { shape: "square" as const, className: STATE_BG[s] }, muted: s === "good" }];
       }),
+      ...offDayRows(off, d.date),
     ],
     marks: [{ y: y(d.score) / TOTAL_HEIGHT, className: "bg-accent" }],
   }));
@@ -80,6 +83,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
         { label: "factor good", swatch: Swatch.square("bg-good") },
         { label: "fair", swatch: Swatch.square("bg-warn") },
         { label: "low", swatch: Swatch.square("bg-bad") },
+        ...(off.days.length ? [{ label: "sick or injured", swatch: Swatch.band(OFF_DAY_BG) }] : []),
       ]}
     >
       <StatRow>
@@ -111,6 +115,7 @@ export function ReadinessChart({ data }: { data: DashboardData }) {
                 : undefined
             }
           >
+            <OffDayBands dates={off.days.map((d) => d.date)} xOf={xOf} dayWidth={(WIDTH - 12) / span} width={WIDTH} height={LINE_HEIGHT} className={OFF_DAY_FILL} />
             <rect x={0} y={y(100)} width={WIDTH} height={y(75) - y(100)} className="fill-good/10" />
             <rect x={0} y={y(50)} width={WIDTH} height={y(0) - y(50)} className="fill-bad/10" />
             {[50, 75].map((v) => (

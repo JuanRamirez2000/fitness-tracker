@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { APP_NAME } from "@/lib/app";
 import { signOut } from "@/lib/auth/actions";
 import type { DashboardShell } from "@/lib/dashboard/types";
@@ -17,12 +18,15 @@ export function AppHeader({
   data,
   canEdit,
   urlRange,
+  moodButton,
 }: {
   /** The page's first query: renders before the tab's rows are in. */
   data: DashboardShell;
   canEdit: boolean;
   /** The URL's own range, or null when the page fell back to the default. */
   urlRange: UrlRange | null;
+  /** The owner's Log feel button (components/mood/), streamed in its own Suspense. */
+  moodButton?: ReactNode;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-divider bg-bg">
@@ -37,6 +41,7 @@ export function AppHeader({
         </div>
 
         <div className="ml-auto flex items-center gap-2.5 lg:ml-3">
+          {moodButton}
           {canEdit && <GarminRefreshButton />}
           {canEdit && <SettingsDialog profile={data.profile} />}
           <ThemeToggle />

@@ -1,3 +1,4 @@
+import { MOOD_SCALES, MOOD_SCALE_WORDS, type MoodLog } from "@/lib/data/mood";
 import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
 import type { WeightTrendRow } from "@/lib/data/weight-trend";
@@ -13,6 +14,21 @@ export interface SummaryInput {
   sleep: SleepNight[];
   training: DailyTraining[];
   weightTrend: WeightTrendRow[];
+  /** The owner's mood logs (Log feel); only yesterday's and today's are used. */
+  moodLogs?: MoodLog[];
+}
+
+/** One day's log in words ("energy": "Tired (2 of 5)"), leaving out what wasn't answered. */
+export function moodLogFacts(log: MoodLog): Record<string, unknown> {
+  const facts: Record<string, unknown> = {};
+  for (const k of MOOD_SCALES) {
+    const v = log[k];
+    if (v !== null) facts[k] = `${MOOD_SCALE_WORDS[k][v - 1]} (${v} of 5)`;
+  }
+  if (log.sore_areas.length) facts.sore_areas = log.sore_areas;
+  if (log.sick) facts.sick = true;
+  if (log.injured) facts.injured = true;
+  return facts;
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
@@ -89,6 +105,15 @@ export function summaryFacts(input: SummaryInput): Record<string, unknown> {
     };
   }
 
+  // How they said they felt: yesterday evening's log (the usual time) and anything logged today.
+  const yesterday = addDays(today, -1);
+  const felt = Object.fromEntries(
+    (input.moodLogs ?? []).flatMap((l) =>
+      l.local_date === today ? [["today", moodLogFacts(l)]] : l.local_date === yesterday ? [["yesterday", moodLogFacts(l)]] : [],
+    ),
+  );
+  if (Object.keys(felt).length) facts.how_they_said_they_felt = felt;
+
   return facts;
 }
 
@@ -99,6 +124,8 @@ Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting
 2. The one thing helping or holding them back most, against their own normal or need: sleep against what they needed, HRV against its usual range, resting heart rate.
 3. What that means for training today, connected to where their training load is heading.
 4. One concrete plan: today's effort (rest, easy, moderate or hard) and one thing to do for tomorrow (sleep, an easy day, fuel).
+
+If they logged how they felt (how_they_said_they_felt), weigh it next to the watch: say so in sentence 1 or 2 when it agrees or clearly disagrees with readiness, mention sore areas when soreness is high, and when they marked themselves sick or injured make today rest or very easy whatever the scores say.
 
 Describe HRV and resting heart rate by how they compare with normal ("calm and balanced", "below its usual range"), never in milliseconds or exact bpm. Round as a person would ("about 6 hours"). Use only what's in the data; leave out anything that isn't there rather than guessing. This is a training log, not medical advice: don't diagnose or suggest treatment.
 

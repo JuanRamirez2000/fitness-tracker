@@ -4,6 +4,7 @@ import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
 import { activityDetailRowSchema, activityEffortsSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
 import { injectionRowSchema, type Injection } from "./injections";
+import { isEmptyLog, moodLogRowSchema, type MoodLog, type MoodLogInput } from "./mood";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import {
   dailyRecoveryRowSchema,
@@ -112,6 +113,29 @@ export async function setShot(userId: string, localDate: string, taken: boolean)
   } else {
     await db()`delete from injections where user_id = ${userId} and local_date = ${localDate}`;
   }
+}
+
+/** Every mood log, oldest first. One short row a day, so never windowed: the Daily feel chart,
+ * the chart markers and the summaries each take the days they need. */
+export async function fetchMoodLogs(userId: string): Promise<MoodLog[]> {
+  const rows = await db()`select * from mood_logs where user_id = ${userId} order by local_date`;
+  return rows.map((row) => moodLogRowSchema.parse(row));
+}
+
+/** Saves a day's log, replacing that day's earlier answers; an empty log removes the row. */
+export async function saveMoodLog(userId: string, log: MoodLogInput): Promise<void> {
+  if (isEmptyLog(log)) {
+    await db()`delete from mood_logs where user_id = ${userId} and local_date = ${log.local_date}`;
+    return;
+  }
+  await db()`
+    insert into mood_logs (user_id, local_date, mood, energy, soreness, sore_areas, motivation, sick, injured, updated_at)
+    values (${userId}, ${log.local_date}, ${log.mood}, ${log.energy}, ${log.soreness}, ${log.sore_areas},
+            ${log.motivation}, ${log.sick}, ${log.injured}, now())
+    on conflict (user_id, local_date) do update set
+      mood = excluded.mood, energy = excluded.energy, soreness = excluded.soreness,
+      sore_areas = excluded.sore_areas, motivation = excluded.motivation,
+      sick = excluded.sick, injured = excluded.injured, updated_at = now()`;
 }
 
 /** Each day's step count inside `range`, oldest first. Days with no row had no data. */

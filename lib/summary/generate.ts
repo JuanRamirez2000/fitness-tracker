@@ -17,6 +17,7 @@ import { activityRowSchema } from "../data/activities";
 import { nextSessionSchema, plannedWorkoutRowSchema, type NextSession } from "../data/planned";
 import { profileSchema, type Profile } from "../data/profiles";
 import { dailyRecoveryRowSchema, sleepNightRowSchema } from "../data/recovery";
+import { moodLogRowSchema } from "../data/mood";
 import { dailyTrainingRowSchema } from "../data/training";
 import { bodyCompositionDaySchema } from "../data/weigh-ins";
 import { weightTrendRowSchema } from "../data/weight-trend";
@@ -125,7 +126,7 @@ async function loadRows(profile: Profile, today: LocalDate) {
   const sql = db();
   const recent = addDays(today, -14);
   const month = addDays(today, -40);
-  const [recovery, sleep, training, weightTrend, bodyComposition, activities, planned] = await Promise.all([
+  const [recovery, sleep, training, weightTrend, bodyComposition, activities, planned, moodLogs] = await Promise.all([
     sql`select * from daily_recovery where user_id = ${profile.id} and local_date between ${recent} and ${today} order by local_date`,
     sql`select * from sleep_nights where user_id = ${profile.id} and local_date between ${recent} and ${today} order by local_date`,
     sql`select * from daily_training where user_id = ${profile.id} and local_date between ${month} and ${today} order by local_date`,
@@ -136,6 +137,7 @@ async function loadRows(profile: Profile, today: LocalDate) {
     // 90 days of activities: the training facts look back that far for the best 20-minute power.
     sql`select * from activities where user_id = ${profile.id} and local_date between ${addDays(today, -90)} and ${today} order by started_at`,
     sql`select * from planned_workouts where user_id = ${profile.id} and local_date >= ${today} order by local_date, workout_uuid`,
+    sql`select * from mood_logs where user_id = ${profile.id} and local_date between ${recent} and ${today} order by local_date`,
   ]);
   return {
     recovery: recovery.map((r) => dailyRecoveryRowSchema.parse(r)),
@@ -145,6 +147,7 @@ async function loadRows(profile: Profile, today: LocalDate) {
     bodyComposition: bodyComposition.map((r) => bodyCompositionDaySchema.parse(r)),
     activities: activities.map((r) => activityRowSchema.parse(r)),
     planned: planned.map((r) => plannedWorkoutRowSchema.parse(r)),
+    moodLogs: moodLogs.map((r) => moodLogRowSchema.parse(r)),
   };
 }
 

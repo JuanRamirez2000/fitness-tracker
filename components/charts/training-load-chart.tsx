@@ -7,7 +7,8 @@ import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
 import { SPORT_NOUN, SPORT_STYLE } from "@/lib/sport";
 import { ChartHover, type HoverPoint } from "./chart-hover";
 import { ChartCard, ChartEmpty } from "./chart-card";
-import { AxisRow, Plot, Stat, StatRow, Swatch } from "./parts";
+import { OFF_DAY_BG, OFF_DAY_FILL, offDayRows, offDaysIn } from "@/lib/charts/off-days";
+import { AxisRow, OffDayBands, Plot, Stat, StatRow, Swatch } from "./parts";
 
 /** The card's "?" explanation. */
 const HELP = "Acute load is your last week of training strain; chronic load is the last four weeks, roughly your fitness. The shaded band is Garmin's optimal range for chronic load. Acute climbing well above chronic (a ratio over 1.5) raises injury risk; well below it means you're backing off. Garmin only counts every sport together, so a single sport's view is worked out here from each activity's own Garmin load: the 7-day sum against the 4-week weekly average, with no band or status.";
@@ -44,6 +45,8 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
   const values = chart.points.flatMap((p) => [p.acute, p.chronic, p.low ?? p.chronic, p.high ?? p.chronic]);
   const y = scaleLinear<number>({ domain: [0, Math.max(...values) * 1.1], range: [HEIGHT - 2, 4] });
   const banded = chart.points.filter((p): p is LoadPoint & { low: number; high: number } => p.low !== null && p.high !== null);
+  const off = offDaysIn(data.moodLogs, { from, to: data.dateRange.to });
+  const dayWidth = x(fromMs + 86_400_000) - x(fromMs);
   const points: HoverPoint[] = chart.points.map((p) => ({
     at: xOf(p) / WIDTH,
     title: fmtPointTitle(p.date),
@@ -54,6 +57,7 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
       ...(p.low !== null && p.high !== null
         ? [{ label: "Optimal band", value: `${Math.round(p.low)}–${Math.round(p.high)}`, swatch: { shape: "band" as const, className: "bg-good/20" }, muted: true }]
         : []),
+      ...offDayRows(off, p.date),
     ],
     marks: [
       { y: y(p.acute) / HEIGHT, className: acuteBg },
@@ -71,6 +75,7 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
         { label: "acute", swatch: Swatch.line(acuteBg) },
         { label: "chronic", swatch: Swatch.dashed("border-muted-1") },
         ...(banded.length ? [{ label: "optimal chronic band", swatch: Swatch.band("bg-good/20") }] : []),
+        ...(off.days.length ? [{ label: "sick or injured", swatch: Swatch.band(OFF_DAY_BG) }] : []),
       ]}
     >
       <StatRow>
@@ -101,6 +106,7 @@ export function TrainingLoadChart({ data }: { data: DashboardData }) {
           height={HEIGHT}
           label={`Training load: acute ${Math.round(latest.acute)}, chronic ${Math.round(latest.chronic)}${latest.acwr !== null ? `, ratio ${latest.acwr.toFixed(1)}` : ""}${latest.status ? `, ${latest.status.label}` : ""}`}
         >
+          <OffDayBands dates={off.days.map((d) => d.date)} xOf={(d) => x(dayStartUtcMs(d))} dayWidth={dayWidth} width={WIDTH} height={HEIGHT} className={OFF_DAY_FILL} />
           <Area data={banded} x={xOf} y0={(p) => y(p.low)} y1={(p) => y(p.high)} className="fill-good/15" />
           <LinePath data={chart.points} x={xOf} y={(p) => y(p.chronic)} className="fill-none stroke-muted-1" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
           <LinePath data={chart.points} x={xOf} y={(p) => y(p.acute)} className={`fill-none ${acuteStroke}`} strokeWidth={2} vectorEffect="non-scaling-stroke" />

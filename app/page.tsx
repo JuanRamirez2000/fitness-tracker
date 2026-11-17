@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { ActivityModal } from "@/components/activity/activity-modal";
 import { AppHeader } from "@/components/app-header";
+import { MoodButton, MoodLogButton } from "@/components/mood/mood-log-button";
 import { TabSkeleton } from "@/components/dashboard/skeletons";
 import { NavStatusProvider, TabBodyFrame } from "@/components/dashboard/nav-status";
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
@@ -11,7 +12,8 @@ import { WeightTab } from "@/components/tabs/weight-tab";
 import { getRole } from "@/lib/auth/session";
 import { loadDashboardData, resolveShell } from "@/lib/dashboard/load";
 import { DEFAULT_TAB, type DashboardData } from "@/lib/dashboard/types";
-import { fetchOwnerProfileAndFirstWeight } from "@/lib/data/queries";
+import { fetchMoodLogs, fetchOwnerProfileAndFirstWeight } from "@/lib/data/queries";
+import { addDays } from "@/lib/dates/calendar";
 import { parseRangeParams, parseTabParam, type UrlRange } from "@/lib/range/url";
 import { parseSportParam } from "@/lib/sport";
 
@@ -53,8 +55,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     tab: parsedTab ?? DEFAULT_TAB,
     sport: parseSportParam(firstOf(rawParams.sport)),
   });
-  // Started here, awaited inside the Suspense below, so the header doesn't wait on it.
-  const data = loadDashboardData(shell);
+  // Started here, awaited inside the Suspense below, so the header doesn't wait on it. The mood
+  // logs feed both the tab (charts, markers) and the header's Log feel button.
+  const moodLogs = fetchMoodLogs(owner.profile.id);
+  const data = loadDashboardData(shell, moodLogs);
+  const yesterday = addDays(shell.today, -1);
+  const recentMoodLogs = moodLogs.then((logs) => logs.filter((l) => l.local_date >= yesterday));
 
   return (
     <NavStatusProvider>
@@ -66,7 +72,18 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
           sport={shell.sport}
           tabExplicit={parsedTab !== null}
         />
-        <AppHeader data={shell} canEdit={canEdit} urlRange={parsedRange} />
+        <AppHeader
+          data={shell}
+          canEdit={canEdit}
+          urlRange={parsedRange}
+          moodButton={
+            canEdit && (
+              <Suspense fallback={<MoodButton />}>
+                <MoodLogButton recent={recentMoodLogs} today={shell.today} />
+              </Suspense>
+            )
+          }
+        />
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-12 px-4 pt-8 pb-20 md:px-8 md:pt-9">
           <TabBodyFrame current={shell.tab}>
             <Suspense fallback={<TabSkeleton tab={shell.tab} />}>

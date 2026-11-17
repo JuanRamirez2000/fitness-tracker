@@ -1,6 +1,7 @@
 import { TAB_KPIS } from "@/dashboard.config";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { BodyBatteryChart } from "@/components/charts/body-battery-chart";
+import { MoodChart } from "@/components/charts/mood-chart";
 import { ReadinessChart } from "@/components/charts/readiness-chart";
 import { SleepTimingChart } from "@/components/charts/sleep-timing-chart";
 import { RecoveryHeatmap } from "@/components/heatmap/heatmaps";
@@ -47,6 +48,9 @@ export function TodayTab({ data }: { data: DashboardData }) {
         <CardGrid>
           <Cell span={12}>
             <ReadinessChart data={data} />
+          </Cell>
+          <Cell span={12}>
+            <MoodChart data={data} />
           </Cell>
           <Cell span={6}>
             <SleepChart data={data} />

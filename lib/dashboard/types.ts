@@ -7,6 +7,7 @@ import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
 import type { BodyCompositionDay, WeighIn } from "@/lib/data/weigh-ins";
 import type { Injection } from "@/lib/data/injections";
+import type { MoodLog } from "@/lib/data/mood";
 import type { DailyWeight, WeightTrendRow } from "@/lib/data/weight-trend";
 import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
@@ -56,6 +57,9 @@ export interface DashboardData {
   /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
    * window to place a late or early star correctly at its edge. */
   injections: Injection[];
+  /** Every mood log, oldest first, on every tab: one short row a day, read by the Daily feel
+   * chart and the sick/injured markers on the recovery and training charts. */
+  moodLogs: MoodLog[];
   /** Every run's best efforts, oldest first (Training tab only; empty elsewhere). */
   runEfforts: RunEfforts[];
   /** Every Garmin activity, oldest first, unbounded like weightTrend: the running KPIs compare
