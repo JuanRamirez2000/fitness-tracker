@@ -4,7 +4,7 @@
  * change that adds one.
  *
  *   npm run db:migrate                                   # .env.local's DATABASE_URL
- *   DATABASE_URL='<neon unpooled url>' npx tsx scripts/db-migrate.ts
+ *   npm run db:migrate:prod                              # production Neon (scripts/db-migrate-prod.sh)
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

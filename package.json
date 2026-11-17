@@ -12,6 +12,7 @@
     "db:local": "pglite-server --db=./.pglite --port=5433 --max-connections=10",
     "db:import": "tsx --env-file=.env.local scripts/db-import.ts",
     "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
+    "db:migrate:prod": "bash scripts/db-migrate-prod.sh",
     "garmin:import": "tsx --env-file=.env.local scripts/garmin-import.ts",
     "summary:generate": "tsx --env-file=.env.local scripts/summary-generate.ts",
     "efforts:backfill": "tsx --env-file=.env.local scripts/backfill-efforts.ts",
