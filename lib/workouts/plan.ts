@@ -4,17 +4,18 @@ import type { WorkoutSettings } from "./settings";
 import type { Effort, WorkoutRequest } from "./types";
 
 /**
- * The week around a planned workout: which sport the Garmin Coach plan owns, what's on each
- * day, the training phase toward the A race, and suggested sessions for the sports nobody is
- * coaching. One Coach plan owns one sport at a time (cycling now); the tracker supplements the
- * rest, inside the athlete's weekly hour limit. Pure, so the modal and the CLI share it.
+ * The week around a planned workout: which sport a training plan owns, what's on each day, the
+ * training phase toward the A race, and suggested sessions for the sports nobody is coaching.
+ * One plan owns one sport at a time: Runna's running plan since Nov 17 2026 (a Garmin Coach
+ * cycling plan before that), both arriving through the Garmin calendar. The tracker supplements
+ * the rest, inside the athlete's weekly hour limit. Pure, so the modal and the CLI share it.
  */
 
 /** A planned_workouts row, as much of it as planning needs. */
 export interface PlannedSession {
   workout_uuid: string;
   local_date: LocalDate;
-  sport: string | null; // Garmin's sportTypeKey for Coach rows; ride | run | swim for own rows
+  sport: string | null; // Garmin's sportTypeKey for plan rows; ride | run | swim for own rows
   name: string | null;
   duration_s: number | null;
   rest_day: boolean;
@@ -57,7 +58,7 @@ export function phaseOn(today: LocalDate, race: WorkoutSettings["race"]): Phase 
   return { key: "base", label: "Base", weeksToRace: weeks, race };
 }
 
-/** The tracker's sport for a planned row (Coach rows carry Garmin's key, own rows ours). */
+/** The tracker's sport for a planned row (plan rows carry Garmin's key, own rows ours). */
 export function sessionSport(s: PlannedSession): ActiveSport | null {
   if (!s.sport) return null;
   if ((SPORTS as readonly string[]).includes(s.sport)) return s.sport as ActiveSport;
@@ -65,7 +66,15 @@ export function sessionSport(s: PlannedSession): ActiveSport | null {
   return sport === "other" ? null : sport;
 }
 
-/** Sports a Garmin Coach plan has sessions for from today on. */
+/** Who planned a session, in a word: "Runna", "Coach" (a Garmin Coach plan), "Calendar" (any
+ * other workout on the Garmin calendar) or "Yours" (the tracker's own). */
+export function planLabel(s: Pick<PlannedSession, "source" | "plan_name">): string {
+  if (s.source === "self") return "Yours";
+  if (s.plan_name === "Runna") return "Runna";
+  return s.plan_name ? "Coach" : "Calendar";
+}
+
+/** Sports a training plan (Runna or Garmin Coach) has sessions for from today on. */
 export function coachedSports(planned: PlannedSession[], today: LocalDate): ActiveSport[] {
   const set = new Set<ActiveSport>();
   for (const s of planned) {
@@ -113,7 +122,7 @@ export interface WeekPlan {
   days: DayInfo[];
   coached: ActiveSport[];
   phase: Phase;
-  /** Planned minutes over the next 7 days: Coach sessions plus own workouts. */
+  /** Planned minutes over the next 7 days: plan sessions plus own workouts. */
   weekMinutes: number;
   budgetMinutes: number;
   /** Minutes per week by sport over the last 28 days. */
@@ -182,7 +191,7 @@ export function weekPlan(input: {
     taken.add(`${s.sport}:${s.date}`);
     plan.suggestions.push(s);
   };
-  // One Coach rest day a week stays completely off; the first one may carry an easy session.
+  // One plan rest day a week stays completely off; the first one may carry an easy session.
   const restDays = days.filter((d) => d.restDay && d.own.length === 0);
   const usableRest = restDays.length > 1 ? restDays.slice(0, restDays.length - 1) : [];
   const longRideDay = days.find(
@@ -219,8 +228,8 @@ export function weekPlan(input: {
         suggest({
           sport, date: easyDay.date, kind: "easy", effort: 2, minutes: easyMinutes,
           why: easyDay.restDay
-            ? "An easy run on a Coach rest day keeps running in the week without adding bike fatigue. The other rest day stays fully off."
-            : "An easy run alongside a lighter Coach ride: keeps your legs used to running.",
+            ? "An easy run on a plan rest day keeps running in the week without adding bike fatigue. The other rest day stays fully off."
+            : "An easy run alongside a lighter planned ride: keeps your legs used to running.",
         });
         left -= 1;
       }
@@ -270,16 +279,20 @@ export function warningsFor(request: Pick<WorkoutRequest, "sport" | "date" | "ef
   const day = plan.days.find((d) => d.date === request.date);
   const next = plan.days.find((d) => d.date === addDays(request.date, 1));
   const hard = request.effort >= 4;
-  if (day?.keyDay && hard) out.push(`That day already has a key Coach session (${day.coach.find((s) => s.key_workout)?.name ?? "key workout"}). Keep this one easy.`);
-  else if (next?.keyDay && hard) out.push(`The next day has a key Coach session (${next.coach.find((s) => s.key_workout)?.name ?? "key workout"}). A hard effort today will blunt it.`);
-  if (day?.restDay) out.push("That's a Coach rest day. Fine for something easy, but keep at least one day a week fully off.");
+  const key = (d: DayInfo) => {
+    const s = d.coach.find((x) => x.key_workout);
+    return `a key ${s ? planLabel(s) : "plan"} session (${s?.name ?? "key workout"})`;
+  };
+  if (day?.keyDay && hard) out.push(`That day already has ${key(day)}. Keep this one easy.`);
+  else if (next?.keyDay && hard) out.push(`The next day has ${key(next)}. A hard effort today will blunt it.`);
+  if (day?.restDay) out.push("That's a plan rest day. Fine for something easy, but keep at least one day a week fully off.");
   if (day && day.own.some((s) => sessionSport(s) === request.sport)) out.push(`You already have a ${request.sport} planned that day.`);
   if (day) {
     const total = plan.weekMinutes + request.minutes;
     if (total > plan.budgetMinutes) {
       // Rounded up, so a few minutes over never reads as "7.0 h, over your 7 h limit".
       const hours = (Math.ceil(total / 6) / 10).toFixed(1);
-      out.push(`This puts the next 7 days at ${hours} h, over your ${(plan.budgetMinutes / 60).toFixed(0)} h limit. Consider swapping it for part of a Coach session.`);
+      out.push(`This puts the next 7 days at ${hours} h, over your ${(plan.budgetMinutes / 60).toFixed(0)} h limit. Consider shortening it or another session.`);
     }
   }
   const longest = plan.longestRecent[request.sport];

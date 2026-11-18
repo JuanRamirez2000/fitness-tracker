@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import chunks, ftp_rows, plan_rows, race_rows, readiness_row, training_row, vo2_rows, window
+from import_unofficial import chunks, distance_seconds, ftp_rows, plan_rows, runna_session, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -154,3 +154,28 @@ class PlanRowsTest(unittest.TestCase):
         ]
         rows = plan_rows(None, calendar, "2026-11-04", {99})
         self.assertEqual([r["name"] for r in rows], ["Tempo", "Other", "Long Ride"])
+
+    def test_runna_runs_become_a_plan_with_names_keys_and_estimated_time(self):
+        calendar = [
+            {"itemType": "workout", "date": "2026-11-18", "title": "W1 Wed Easy Run - 3mi Easy Run (3mi)", "sportTypeKey": "running", "workoutId": 1},
+            {"itemType": "workout", "date": "2026-11-22", "title": "W1 Sun Long Run - 4.5mi Long Run (4.5mi)", "sportTypeKey": "running", "workoutId": 2},
+            {"itemType": "workout", "date": "2026-11-27", "title": "W2 Fri Easy Run #2 - 2.75mi Easy Run (2.75mi)", "sportTypeKey": "running", "workoutId": 3},
+        ]
+        easy, long_run, easy2 = plan_rows(None, calendar, "2026-11-11", run_pace_s_per_mile=600)
+        self.assertEqual((easy["name"], easy["description"], easy["plan_name"]), ("Easy Run", "3mi Easy Run (3mi)", "Runna"))
+        self.assertFalse(easy["key_workout"])
+        self.assertEqual(easy["duration_s"], 1800)
+        self.assertTrue(long_run["key_workout"])
+        self.assertEqual(long_run["duration_s"], 2700)
+        self.assertEqual(easy2["name"], "Easy Run")
+
+
+class RunnaTest(unittest.TestCase):
+    def test_titles(self):
+        self.assertEqual(runna_session("W2 Thu Intervals - Drop Set (3.4mi)"), {"name": "Intervals", "description": "Drop Set (3.4mi)", "key_workout": True})
+        self.assertIsNone(runna_session("Easy run"))
+        self.assertIsNone(runna_session(None))
+
+    def test_distance(self):
+        self.assertEqual(distance_seconds("Tempo (5 km)", 600), round(5 / 1.609344 * 600))
+        self.assertIsNone(distance_seconds("Tempo", 600))

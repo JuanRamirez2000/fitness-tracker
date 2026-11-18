@@ -23,6 +23,7 @@ import { db } from "../db";
 import { countdownCard, loadCard, planVsDone, weekMood, weekRecovery, WEEKLY_HOURS_MIN } from "../progress/build";
 import { progressWeek, type ProgressWeek } from "../progress/week";
 import { sportOf } from "../sport";
+import { planLabel } from "../workouts/plan";
 import { callGemini, SUMMARY_MODEL } from "./generate";
 import { summaryUserMessage } from "./prompt";
 
@@ -86,7 +87,7 @@ export function weeklyFacts(input: WeeklyInput): Record<string, unknown> {
     const named = (status: string) =>
       items.filter((i) => i.status === status).map((i) => `${weekdayName(i.session.local_date)} ${i.session.name ?? "workout"}`);
     facts.plan = {
-      source: "Garmin Coach cycling plan, plus their own run and swim workouts",
+      source: planSource(items.map((i) => i.session)),
       sessions_due: plan.due,
       done: plan.done,
       ...(named("moved").length ? { done_on_another_day: named("moved") } : {}),
@@ -147,11 +148,19 @@ export function weeklyFacts(input: WeeklyInput): Record<string, unknown> {
       day: weekdayName(s.local_date),
       what: s.name ?? "workout",
       ...(s.duration_s ? { minutes: Math.round(s.duration_s / 60) } : {}),
-      from: s.source === "self" ? "their own workout" : "Garmin Coach",
+      from: s.source === "self" ? "their own workout" : planLabel(s) === "Runna" ? "Runna" : planLabel(s) === "Coach" ? "Garmin Coach" : "Garmin calendar",
       ...(s.key_workout ? { key_session: true } : {}),
     }));
   }
   return facts;
+}
+
+/** Where the week's plan came from, in words: "Runna running plan, plus their own ride and swim workouts". */
+function planSource(sessions: PlannedWorkout[]): string {
+  const plans = [...new Set(sessions.filter((s) => s.source !== "self").map((s) => (planLabel(s) === "Runna" ? "Runna running plan" : planLabel(s) === "Coach" ? "Garmin Coach plan" : "Garmin calendar workouts")))];
+  const own = [...new Set(sessions.filter((s) => s.source === "self").map((s) => s.sport ?? "workout"))];
+  const parts = [plans.join(" and "), own.length ? `their own ${own.join(" and ")} workouts` : ""].filter(Boolean);
+  return parts.join(", plus ");
 }
 
 /** Enough to review: any training, any planned session, or a morning's readiness. */
@@ -160,7 +169,7 @@ export function hasEnoughForWeekly(facts: Record<string, unknown>): boolean {
   return Boolean(training?.sessions?.length) || "plan" in facts || "recovery" in facts;
 }
 
-export const WEEKLY_SYSTEM = `You write the weekly review at the top of the Progress tab of one person's fitness dashboard. They're training toward a sprint triathlon in April 2027: mostly cycling on a Garmin Coach plan (indoors on a Wahoo Kickr and outdoors), plus their own runs and pool swims, 4 to 7 hours a week. They read this once to know how the week went and what to do about it, not to re-read the numbers.
+export const WEEKLY_SYSTEM = `You write the weekly review at the top of the Progress tab of one person's fitness dashboard. They're training toward a sprint triathlon in April 2027: running on a Runna plan, plus rides (indoors on a Wahoo Kickr and outdoors) and pool swims they plan around it, 4 to 7 hours a week. They read this once to know how the week went and what to do about it, not to re-read the numbers.
 
 Answer as JSON:
 - "headline": one plain sentence, at most 15 words, that sums up the week (it is also the subject of an email).

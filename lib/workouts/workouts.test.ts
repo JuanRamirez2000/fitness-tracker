@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildWorkout, kindsFor, resolveKind } from "./build";
 import { stepLine, workoutLines } from "./describe";
 import { toGarminWorkout } from "./garmin";
-import { coachedSports, phaseOn, warningsFor, weekPlan, type PlannedSession } from "./plan";
+import { coachedSports, phaseOn, planLabel, warningsFor, weekPlan, type PlannedSession } from "./plan";
 import { effectiveFtp, parseWorkoutSettings } from "./settings";
 import { bestFit } from "./steps";
 import type { Block, Step } from "./types";
@@ -206,5 +206,24 @@ describe("weekPlan", () => {
     expect(p.coached).toEqual(["run"]);
     expect(p.suggestions.some((s) => s.sport === "ride")).toBe(true);
     expect(p.suggestions.some((s) => s.sport === "run")).toBe(false);
+  });
+
+  it("plans rides and a swim around a Runna running week", () => {
+    // The Runna week imported on 2026-11-17: easy Wed, tempo Fri, long run Sun, no rest rows.
+    const runna: PlannedSession[] = [
+      ["2026-11-18", "Easy Run", 2160, false],
+      ["2026-11-20", "Tempo", 2160, true],
+      ["2026-11-22", "Long Run", 3240, true],
+    ].map(([local_date, name, duration_s, key_workout], i) => ({
+      workout_uuid: `r${i}`, local_date: local_date as string, sport: "running", name: name as string, duration_s: duration_s as number,
+      key_workout: key_workout as boolean, rest_day: false, plan_name: "Runna", source: "garmin" as const,
+    }));
+    const p = weekPlan({ today: "2026-11-17", planned: runna, recent: RECENT, settings: parseWorkoutSettings(null) });
+    expect(p.coached).toEqual(["run"]);
+    expect(planLabel(runna[0])).toBe("Runna");
+    const byKey = p.suggestions.map((s) => `${s.date} ${s.sport} ${s.kind}`);
+    expect(byKey).toEqual(["2026-11-17 ride endurance", "2026-11-21 ride outdoor", "2026-11-22 swim auto"]);
+    // Nothing hard the day before the tempo.
+    expect(warningsFor({ sport: "ride", date: "2026-11-19", effort: 4, minutes: 45 }, p).join(" ")).toMatch(/next day has a key Runna session \(Tempo\)/);
   });
 });

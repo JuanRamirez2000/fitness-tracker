@@ -8,14 +8,14 @@ import { SportBadge } from "@/components/ui/sport-badge";
 import type { PlannedWorkout, PushStatus } from "@/lib/data/planned";
 import { fmtDate } from "@/lib/dates/format";
 import { SPORT_STYLE } from "@/lib/sport";
-import { sessionSport, type Suggestion } from "@/lib/workouts/plan";
+import { planLabel, sessionSport, type Suggestion } from "@/lib/workouts/plan";
 import type { PlannerData } from "@/lib/workouts/service";
 import { toPlannedSession } from "@/lib/workouts/session";
 import { actionErrorMessage } from "./action-error";
 import { PlanWorkoutDialog, type DialogStart } from "./plan-workout-dialog";
 
 /**
- * The Training tab's week: Garmin Coach sessions and the tracker's own workouts for the next 7
+ * The Training tab's week: the training plan's sessions (Runna, Garmin Coach) and the tracker's own workouts for the next 7
  * days, suggested sessions for the sports nobody is coaching, and "Plan a workout". Own workouts
  * show whether they've reached the Garmin calendar; while one is on its way the card polls
  * /api/workouts/status and refreshes when it lands.
@@ -87,7 +87,7 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
           <span className="text-[12.5px] text-muted-1">
             {plan.phase.label}
             {plan.phase.race && plan.phase.weeksToRace !== null ? ` · ${plan.phase.weeksToRace} weeks to ${plan.phase.race.name}` : ""}
-            {plan.coached.length > 0 && <> · Garmin Coach: {plan.coached.map((s) => SPORT_STYLE[s].label.toLowerCase()).join(", ")}</>}
+            {plan.coached.length > 0 && <> · {planOwner(plan)}: {plan.coached.map((s) => SPORT_STYLE[s].label.toLowerCase()).join(", ")}</>}
           </span>
           <span className={`font-mono text-[10.5px] ${over ? "text-warn" : "text-muted-2"}`}>
             {hours} h planned of your {Math.round(plan.budgetMinutes / 60)} h a week
@@ -107,7 +107,7 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
               </span>
               {d.restDay && <span className="text-[12px] text-muted-2">Rest day</span>}
               {d.coach.map((c) => (
-                <CoachSession key={c.workout_uuid} name={c.name} sport={sessionSport(c)} minutes={minutesLabel(c.duration_s)} keySession={c.key_workout} />
+                <CoachSession key={c.workout_uuid} name={c.name} sport={sessionSport(c)} minutes={`${c.plan_name === "Runna" && c.duration_s ? "~" : ""}${minutesLabel(c.duration_s)}`} keySession={c.key_workout} label={planLabel(c)} />
               ))}
               {ownToday.map((w) => (
                 <OwnWorkout
@@ -152,7 +152,13 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
   );
 }
 
-function CoachSession({ name, sport, minutes, keySession }: { name: string | null; sport: ReturnType<typeof sessionSport>; minutes: string; keySession: boolean }) {
+/** Whose plan the coached sports follow: "Runna", "Garmin Coach" or "Plan". */
+function planOwner(plan: PlannerData["plan"]): string {
+  const labels = new Set(plan.days.flatMap((d) => d.coach.map(planLabel)));
+  return labels.has("Runna") ? "Runna" : labels.has("Coach") ? "Garmin Coach" : "Plan";
+}
+
+function CoachSession({ name, sport, minutes, keySession, label }: { name: string | null; sport: ReturnType<typeof sessionSport>; minutes: string; keySession: boolean; label: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="flex flex-wrap items-center gap-1.5">
@@ -160,7 +166,10 @@ function CoachSession({ name, sport, minutes, keySession }: { name: string | nul
         {keySession && <span className="font-mono text-[9px] uppercase text-warn">Key</span>}
       </span>
       <span className="text-[12.5px] leading-tight text-ink">{name ?? "Workout"}</span>
-      <span className="font-mono text-[9.5px] text-muted-2">Coach · {minutes}</span>
+      <span className="font-mono text-[9.5px] text-muted-2">
+        {label}
+        {minutes && ` · ${minutes}`}
+      </span>
     </div>
   );
 }

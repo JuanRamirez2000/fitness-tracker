@@ -136,11 +136,11 @@ export function PlanWorkoutDialog({
               onChange={pickSport}
               options={SPORTS.map((s) => ({
                 value: s,
-                label: `${SPORT_STYLE[s].glyph} ${SPORT_STYLE[s].label}${planner.plan.coached.includes(s) ? " · Coach" : ""}`,
+                label: `${SPORT_STYLE[s].glyph} ${SPORT_STYLE[s].label}${planner.plan.coached.includes(s) ? " · plan" : ""}`,
               }))}
             />
             {planner.plan.coached.includes(sport) && (
-              <p className="text-[11.5px] text-muted-2">Your Garmin Coach plan covers this sport. An extra session here adds to its load.</p>
+              <p className="text-[11.5px] text-muted-2">Your training plan covers this sport. An extra session here adds to its load.</p>
             )}
           </div>
 
@@ -167,7 +167,7 @@ export function PlanWorkoutDialog({
                       {star && <span className="text-accent" title="Suggested day"> ★</span>}
                     </span>
                     <span className={`max-w-full truncate font-mono text-[9px] ${d.keyDay ? "text-warn" : "text-muted-2"}`} title={coach?.name ?? undefined}>
-                      {d.restDay ? "Rest" : coach ? `${d.keyDay ? "Key · " : ""}${coach.name ?? "Coach"}` : "Free"}
+                      {d.restDay ? "Rest" : coach ? `${d.keyDay ? "Key · " : ""}${coach.name ?? "Plan"}` : "Free"}
                     </span>
                   </button>
                 );

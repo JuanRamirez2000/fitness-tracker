@@ -69,7 +69,7 @@ async function main() {
   const { buildContext, buildWorkout, resolveKind, zonesFor } = await import("../lib/workouts/build");
   const { SPORTS } = await import("../lib/sport");
   const { workoutLines, fmtDuration } = await import("../lib/workouts/describe");
-  const { warningsFor } = await import("../lib/workouts/plan");
+  const { planLabel, warningsFor } = await import("../lib/workouts/plan");
   const { loadPlanner, saveWorkout, workoutRequestSchema } = await import("../lib/workouts/service");
   const { SWIM_STAGES, workoutSettingsPatchSchema } = await import("../lib/workouts/settings");
   const store = await import("../lib/workouts/store");
@@ -123,7 +123,7 @@ async function main() {
         typical_session_minutes: planner.plan.typicalRecent,
         days: planner.plan.days.map((d) => ({
           date: d.date,
-          coach: d.restDay ? "rest day" : d.coach.map((c) => `${c.name}${c.key_workout ? " (key)" : ""} ${Math.round((c.duration_s ?? 0) / 60)} min`),
+          plan: d.restDay ? "rest day" : d.coach.map((c) => `${planLabel(c)}: ${c.name}${c.key_workout ? " (key)" : ""} ${c.plan_name === "Runna" ? "~" : ""}${Math.round((c.duration_s ?? 0) / 60)} min`),
           own: planner.planned
             .filter((w) => w.source === "self" && w.local_date === d.date)
             .map((w) => ({ id: w.workout_uuid, name: w.name, status: w.push_status })),
@@ -133,9 +133,9 @@ async function main() {
       if (values.json) console.log(JSON.stringify(out, null, 2));
       else {
         log(`${out.phase.label}${out.phase.race ? ` · ${out.phase.weeksToRace} weeks to ${out.phase.race.name}` : ""}`);
-        log(`Coached by Garmin: ${out.coached_sports.join(", ") || "nothing"} · ${out.planned_hours_next_7_days} h planned of ${out.weekly_hour_limit} h`);
+        log(`Coached by a plan: ${out.coached_sports.join(", ") || "nothing"} · ${out.planned_hours_next_7_days} h planned of ${out.weekly_hour_limit} h`);
         for (const d of out.days) {
-          log(`${d.date}  ${Array.isArray(d.coach) ? d.coach.join("; ") || "-" : d.coach}${d.own.map((o) => `  + ${o.name} [${o.status}] ${o.id}`).join("")}`);
+          log(`${d.date}  ${Array.isArray(d.plan) ? d.plan.join("; ") || "-" : d.plan}${d.own.map((o) => `  + ${o.name} [${o.status}] ${o.id}`).join("")}`);
         }
         log("\nSuggested:");
         for (const s of out.suggestions) log(`  ${s.date} ${s.sport} ${s.kind} effort ${s.effort} ${s.minutes} min: ${s.why}`);

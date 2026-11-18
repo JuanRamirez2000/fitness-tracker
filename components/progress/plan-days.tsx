@@ -9,7 +9,7 @@ export interface PlanLine {
   key: string;
   sport: ActiveSport | null;
   title: string;
-  /** "Coach · 62 min", "Extra · 32 min". */
+  /** "Runna · ~36 min", "Extra · 32 min". */
   meta: string;
   /** The verdict ("Done · 58 min", "Missed"), with its color. */
   status: { text: string; className: string } | null;

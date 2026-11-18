@@ -15,7 +15,7 @@ function dayLabel(date: string, today: string): string {
   return `${WEEKDAYS[new Date(`${date}T12:00:00Z`).getUTCDay()]}, ${fmtDate(date)}`;
 }
 
-/** The Training summary's next sessions: Garmin Coach's plan, explained, or suggestions. */
+/** The Training summary's next sessions: the training plan (Runna, Garmin Coach), explained, or suggestions. */
 function NextUp({ sessions, today }: { sessions: NextSession[]; today: string }) {
   const upcoming = sessions.filter((s) => s.date >= today);
   if (upcoming.length === 0) return null;
@@ -30,7 +30,7 @@ function NextUp({ sessions, today }: { sessions: NextSession[]; today: string })
               <span className="font-mono text-[10px] text-muted-2">{dayLabel(s.date, today)}</span>
             </div>
             <p className="text-[12.5px] leading-[1.5] text-muted-1">{s.details}</p>
-            <span className="font-mono text-[9.5px] text-muted-2">{s.source === "garmin" ? "From your Garmin Coach plan" : s.source === "self" ? "Your own workout" : "Suggested"}</span>
+            <span className="font-mono text-[9.5px] text-muted-2">{s.source === "garmin" ? "From your training plan" : s.source === "self" ? "Your own workout" : "Suggested"}</span>
           </li>
         ))}
       </ol>
