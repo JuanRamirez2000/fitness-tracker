@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildWorkout, kindsFor, resolveKind } from "./build";
 import { stepLine, workoutLines } from "./describe";
 import { toGarminWorkout } from "./garmin";
-import { coachedSports, phaseOn, planLabel, warningsFor, weekPlan, type PlannedSession } from "./plan";
+import { coachedBy, coachedSports, phaseOn, planLabel, plannedMinutes, warningsFor, weekPlan, type PlannedSession } from "./plan";
 import { effectiveFtp, parseWorkoutSettings } from "./settings";
 import { bestFit } from "./steps";
 import type { Block, Step } from "./types";
@@ -216,14 +216,37 @@ describe("weekPlan", () => {
       ["2026-11-22", "Long Run", 3240, true],
     ].map(([local_date, name, duration_s, key_workout], i) => ({
       workout_uuid: `r${i}`, local_date: local_date as string, sport: "running", name: name as string, duration_s: duration_s as number,
-      key_workout: key_workout as boolean, rest_day: false, plan_name: "Runna", source: "garmin" as const,
+      key_workout: key_workout as boolean, rest_day: false, plan_name: "10k Plan", provider: "Runna", duration_estimated: true, source: "garmin" as const,
     }));
     const p = weekPlan({ today: "2026-11-17", planned: runna, recent: RECENT, settings: parseWorkoutSettings(null) });
     expect(p.coached).toEqual(["run"]);
     expect(planLabel(runna[0])).toBe("Runna");
+    expect(plannedMinutes(runna[0])).toBe("~36 min");
+    expect(coachedBy(runna, "2026-11-17")).toEqual({ run: "Runna (10k Plan)" });
     const byKey = p.suggestions.map((s) => `${s.date} ${s.sport} ${s.kind}`);
     expect(byKey).toEqual(["2026-11-17 ride endurance", "2026-11-21 ride outdoor", "2026-11-22 swim auto"]);
     // Nothing hard the day before the tempo.
     expect(warningsFor({ sport: "ride", date: "2026-11-19", effort: 4, minutes: 45 }, p).join(" ")).toMatch(/next day has a key Runna session \(Tempo\)/);
+  });
+
+  it("lets each plan own its sport, and counts workouts made in Garmin Connect from two on", () => {
+    const session = (local_date: string, sport: string, over: Partial<PlannedSession> = {}): PlannedSession => ({
+      workout_uuid: `${local_date}-${sport}`, local_date, sport, name: "Workout", duration_s: 3600, key_workout: false, rest_day: false,
+      plan_name: null, provider: null, source: "garmin", ...over,
+    });
+    const runna = session("2026-11-18", "running", { provider: "Runna", plan_name: "10k Plan" });
+    const coach = session("2026-11-19", "cycling", { provider: "Garmin Coach", plan_name: "Getting into cycling" });
+    const both = weekPlan({ today: "2026-11-17", planned: [runna, coach], recent: RECENT, settings: parseWorkoutSettings(null) });
+    expect(both.coached).toEqual(["ride", "run"]);
+    expect(new Set(both.suggestions.map((s) => s.sport))).toEqual(new Set(["swim"]));
+    expect(coachedBy([runna, coach], "2026-11-17")).toEqual({ run: "Runna (10k Plan)", ride: "Garmin Coach (Getting into cycling)" });
+
+    // One swim made in Garmin Connect is a one-off; two in the next two weeks are a plan.
+    const swim1 = session("2026-11-20", "lap_swimming");
+    expect(coachedSports([swim1], "2026-11-17")).toEqual([]);
+    expect(planLabel(swim1)).toBe("Calendar");
+    expect(coachedSports([swim1, session("2026-11-27", "lap_swimming")], "2026-11-17")).toEqual(["swim"]);
+    // The tracker's own workouts never make a sport coached.
+    expect(coachedSports([session("2026-11-20", "ride", { source: "self" }), session("2026-11-21", "ride", { source: "self" })], "2026-11-17")).toEqual([]);
   });
 });

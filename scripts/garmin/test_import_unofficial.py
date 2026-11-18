@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import chunks, distance_seconds, ftp_rows, plan_rows, runna_session, race_rows, readiness_row, training_row, vo2_rows, window
+from import_unofficial import calendar_row, chunks, clean_name, ftp_rows, is_key, plan_rows, workout_seconds, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -155,27 +155,69 @@ class PlanRowsTest(unittest.TestCase):
         rows = plan_rows(None, calendar, "2026-11-04", {99})
         self.assertEqual([r["name"] for r in rows], ["Tempo", "Other", "Long Ride"])
 
-    def test_runna_runs_become_a_plan_with_names_keys_and_estimated_time(self):
-        calendar = [
-            {"itemType": "workout", "date": "2026-11-18", "title": "W1 Wed Easy Run - 3mi Easy Run (3mi)", "sportTypeKey": "running", "workoutId": 1},
-            {"itemType": "workout", "date": "2026-11-22", "title": "W1 Sun Long Run - 4.5mi Long Run (4.5mi)", "sportTypeKey": "running", "workoutId": 2},
-            {"itemType": "workout", "date": "2026-11-27", "title": "W2 Fri Easy Run #2 - 2.75mi Easy Run (2.75mi)", "sportTypeKey": "running", "workoutId": 3},
-        ]
-        easy, long_run, easy2 = plan_rows(None, calendar, "2026-11-11", run_pace_s_per_mile=600)
-        self.assertEqual((easy["name"], easy["description"], easy["plan_name"]), ("Easy Run", "3mi Easy Run (3mi)", "Runna"))
-        self.assertFalse(easy["key_workout"])
-        self.assertEqual(easy["duration_s"], 1800)
-        self.assertTrue(long_run["key_workout"])
-        self.assertEqual(long_run["duration_s"], 2700)
-        self.assertEqual(easy2["name"], "Easy Run")
+    def test_coach_rows_name_their_provider(self):
+        rows = plan_rows(self.PLAN, self.CALENDAR, "2026-11-04")
+        self.assertEqual({r["provider"] for r in rows}, {"Garmin Coach"})
 
 
-class RunnaTest(unittest.TestCase):
-    def test_titles(self):
-        self.assertEqual(runna_session("W2 Thu Intervals - Drop Set (3.4mi)"), {"name": "Intervals", "description": "Drop Set (3.4mi)", "key_workout": True})
-        self.assertIsNone(runna_session("Easy run"))
-        self.assertIsNone(runna_session(None))
+def step(kind, cond, value=None, target=None, lo=None, hi=None, text=None):
+    return {"type": "ExecutableStepDTO", "stepType": {"stepTypeKey": kind}, "endCondition": {"conditionTypeKey": cond},
+            "endConditionValue": value, "targetType": {"workoutTargetTypeKey": target or "no.target"},
+            "targetValueOne": lo, "targetValueTwo": hi, "description": text}
 
-    def test_distance(self):
-        self.assertEqual(distance_seconds("Tempo (5 km)", 600), round(5 / 1.609344 * 600))
-        self.assertIsNone(distance_seconds("Tempo", 600))
+
+# Runna's "W1 Fri Tempo - Progression Run (3mi)" as Garmin returned it on 2026-11-17.
+RUNNA_TEMPO = {
+    "workoutName": "W1 Fri Tempo - Progression Run (3mi)",
+    "description": "10k Plan (Week 1/12)\n\n0.75mi warm up at a conversational pace",
+    "estimatedDurationInSecs": None,
+    "workoutProvider": "Runna",
+    "sportType": {"sportTypeKey": "running"},
+    "workoutSegments": [{"workoutSteps": [
+        step("warmup", "lap.button", text="OWU: 0.75mi warm up"),
+        step("interval", "distance", 804.67, "pace.zone", 2.3494015, 2.1601879),
+        step("interval", "distance", 804.67, "pace.zone", 2.4759077, 2.3323768),
+        step("interval", "distance", 804.67, "pace.zone", 2.5145938, 2.3666765),
+        step("rest", "time", 90.0),
+        step("cooldown", "distance", 1207.005),
+    ]}],
+}
+
+
+class CalendarRowTest(unittest.TestCase):
+    PACES = {"run": 0.4, "ride": 0.15, "swim": 3.0}  # seconds per meter
+
+    def test_a_plan_app_workout_names_its_app_plan_time_and_key(self):
+        item = {"itemType": "workout", "date": "2026-11-20", "title": RUNNA_TEMPO["workoutName"], "sportTypeKey": "running", "workoutId": 5}
+        row = calendar_row(item, RUNNA_TEMPO, self.PACES)
+        self.assertEqual((row["name"], row["provider"], row["plan_name"]), ("Tempo", "Runna", "10k Plan"))
+        self.assertTrue(row["key_workout"])
+        self.assertTrue(row["duration_estimated"])
+        # Warm-up 0.75 mi and cool-down at 0.4 s/m, the three half-miles at their target speeds, 90 s rest.
+        expected = 1207.005 * 0.4 + 804.67 / 2.25479 + 804.67 / 2.40414 + 804.67 / 2.44064 + 90 + 1207.005 * 0.4
+        self.assertAlmostEqual(row["duration_s"], round(expected), delta=2)
+        self.assertTrue(row["description"].startswith("10k Plan (Week 1/12)"))
+
+    def test_a_workout_made_in_garmin_connect_has_no_provider(self):
+        item = {"itemType": "workout", "date": "2026-11-21", "title": "Sweet spot 2x15", "sportTypeKey": "cycling", "workoutId": 6}
+        detail = {"estimatedDurationInSecs": 3600, "workoutSegments": [], "description": None}
+        row = calendar_row(item, detail, self.PACES)
+        self.assertEqual((row["provider"], row["plan_name"], row["duration_s"], row["duration_estimated"]), (None, None, 3600, False))
+        self.assertTrue(row["key_workout"])
+
+    def test_without_a_detail_the_title_distance_still_gives_a_time(self):
+        item = {"itemType": "workout", "date": "2026-11-18", "title": "W1 Wed Easy Run #2 - 3mi Easy Run (3mi)", "sportTypeKey": "running", "workoutId": 7}
+        row = calendar_row(item, None, self.PACES)
+        self.assertEqual((row["name"], row["description"]), ("Easy Run", "3mi Easy Run (3mi)"))
+        self.assertEqual(row["duration_s"], round(3 * 1609.344 * 0.4))
+        self.assertFalse(row["key_workout"])
+
+    def test_names_steps_and_keys(self):
+        self.assertEqual(clean_name("Long Run"), ("Long Run", None))
+        self.assertIsNone(workout_seconds({"workoutSegments": [{"workoutSteps": [step("interval", "lap.button")]}]}, 0.4))
+        repeats = {"workoutSegments": [{"workoutSteps": [{"type": "RepeatGroupDTO", "numberOfIterations": 4, "workoutSteps": [
+            step("interval", "time", 60, "power.zone", 200, 220), step("recovery", "time", 120)]}]}]}
+        self.assertEqual(workout_seconds(repeats, 0.4), 720)
+        self.assertTrue(is_key("Bike session", repeats, 720))
+        self.assertFalse(is_key("Easy spin", repeats, 720))
+        self.assertTrue(is_key("Saturday", None, 80 * 60))

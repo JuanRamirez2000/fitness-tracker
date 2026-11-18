@@ -12,8 +12,8 @@ Datasets:
              backfills), running and cycling -> daily_training.vo2max, vo2max_cycling.
   ftp        the cycling FTP set in Garmin, on each day it changed -> daily_training.ftp_w.
   plan       planned sessions: a Garmin Coach plan's tasks (name, workout, estimated time,
-             benefit, rest days) plus any other workouts on the Garmin calendar (Runna's runs
-             among them, recognised by their titles), from a week
+             benefit, rest days) plus every other workout on the Garmin calendar, read with its
+             detail (the app that sent it, e.g. Runna; its text; a time from its steps), from a week
              back to about two months ahead -> planned_workouts (future Garmin rows replaced;
              the tracker's own workouts, source = 'self', are left alone: push_workout.py).
 
@@ -58,17 +58,24 @@ LIVE_PLAN_STATUSES = {"Scheduled", "Active", "InProgress", "In_Progress"}
 # Calendar item types that are planned sessions (not done activities, badges or plan banners).
 PLANNED_ITEM_TYPES = {"fbtAdaptiveWorkout", "workout"}
 PLAN_LOOKBACK_DAYS = 7
-# Runna pushes its runs to the Garmin calendar as plain workouts titled
-# "W1 Wed Easy Run - 3mi Easy Run (3mi)": plan week, weekday, session type, then the detail.
-RUNNA_TITLE = re.compile(r"^W\d+\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(?P<kind>.+?)\s+-\s+(?P<detail>.+)$")
-RUNNA_PLAN = "Runna"
-# Session types that aren't the week's hard or long ones.
-EASY_KINDS = re.compile(r"easy|recovery|shake ?out", re.IGNORECASE)
-# A distance at the end of a title, "(3mi)" or "(5 km)", for workouts with no time on them.
-TITLE_DISTANCE = re.compile(r"\((?P<n>\d+(?:\.\d+)?)\s*(?P<unit>mi|km)\)\s*$", re.IGNORECASE)
-KM_PER_MILE = 1.609344
-# Seconds per mile for a distance-only run when there are no recent runs to go by.
-DEFAULT_RUN_PACE_S = 12 * 60
+# Plan apps put the plan week and weekday first: Runna's "W1 Wed Easy Run - 3mi Easy Run (3mi)".
+WEEK_PREFIX = re.compile(r"^W\d+\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+")
+# "Kind - detail" after that prefix; "#2" on a repeated kind is dropped.
+KIND_DETAIL = re.compile(r"^(?P<kind>.+?)\s+-\s+(?P<detail>.+)$")
+COACH_PROVIDER = "Garmin Coach"
+# Session names that mark the week's hard or long sessions, and the easy ones (checked first).
+EASY_KINDS = re.compile(r"easy|recovery|shake ?out|base|endurance|skills|technique|drill", re.IGNORECASE)
+KEY_KINDS = re.compile(r"long|tempo|interval|threshold|vo2|hill|fartlek|progress|race|speed|sweet ?spot|anaerobic|repeat|drop set|time trial", re.IGNORECASE)
+# A distance in a title or a step's text: "(3mi)", "0.75mi warm up", "400 yd", "5 km".
+DISTANCE = re.compile(r"(?P<n>\d+(?:\.\d+)?)\s*(?P<unit>mi|km|m|yd)\b", re.IGNORECASE)
+METERS = {"mi": 1609.344, "km": 1000.0, "m": 1.0, "yd": 0.9144}
+# Workout targets given as a speed range (m/s), so a distance step's time can be worked out.
+SPEED_TARGETS = {"pace.zone", "speed.zone"}
+# Seconds per meter for each sport when there are no recent sessions to go by.
+DEFAULT_PACES = {"run": 12 * 60 / 1609.344, "ride": 3600 / (15 * 1609.344), "swim": 3.0 / 0.9144}
+# A planned session at least this long counts as a key (long) one when its name doesn't say.
+LONG_SESSION_S = 75 * 60
+PAUSE_PER_WORKOUT_S = 0.3
 # Days per request for the range endpoints (race predictions allow up to a year).
 RANGE_CHUNK_DAYS = 90
 PER_DAY_PAUSE_S = 0.4
@@ -233,23 +240,132 @@ def ftp_rows(payload: list[dict[str, Any]] | dict[str, Any] | None, today: str) 
     return [{"local_date": d, "ftp_w": by_day[d]} for d in sorted(by_day)]
 
 
-def runna_session(title: str | None) -> dict[str, Any] | None:
-    """A Runna title -> its session type as the name ("Easy Run", "Long Run"; Runna's "#2"
-    dropped), the rest as the description, and whether it's a key (not easy) session."""
-    m = RUNNA_TITLE.match(title or "")
-    if not m:
-        return None
-    kind = re.sub(r"\s*#\d+$", "", m["kind"]).strip()
-    return {"name": kind, "description": m["detail"].strip(), "key_workout": not EASY_KINDS.search(kind)}
+def tracker_sport(sport_key: str | None) -> str | None:
+    """Garmin's sportTypeKey -> run | ride | swim (the tracker's sports), or None."""
+    k = (sport_key or "").lower()
+    if k.endswith("running") or k == "running":
+        return "run"
+    if "cycl" in k or "bik" in k or k.endswith("_ride"):
+        return "ride"
+    if "swim" in k:
+        return "swim"
+    return None
 
 
-def distance_seconds(title: str | None, pace_s_per_mile: float) -> int | None:
-    """An estimated duration for a distance-only workout ("(3mi)" at the end of its title)."""
-    m = TITLE_DISTANCE.search(title or "")
+def first_distance_m(text: str | None) -> float | None:
+    m = DISTANCE.search(text or "")
+    return float(m["n"]) * METERS[m["unit"].lower()] if m else None
+
+
+def clean_name(title: str | None) -> tuple[str | None, str | None]:
+    """A calendar title -> (name, detail): the plan week prefix dropped and "Kind - detail" split,
+    so "W1 Wed Easy Run #2 - 3mi Easy Run (3mi)" is ("Easy Run", "3mi Easy Run (3mi)")."""
+    if not title:
+        return None, None
+    rest = WEEK_PREFIX.sub("", title).strip()
+    m = KIND_DETAIL.match(rest) if rest != title.strip() else None
     if not m:
+        return rest, None
+    return re.sub(r"\s*#\d+$", "", m["kind"]).strip(), m["detail"].strip()
+
+
+def step_seconds(step: dict[str, Any], pace: float) -> float | None:
+    """One workout step's time: as given for a time step; for a distance step, at the middle of
+    its speed target, else at `pace` (s/m); a lap-button step by the distance in its text. None
+    when it can't be told (an open-ended step with no distance)."""
+    if step.get("type") == "RepeatGroupDTO" or step.get("workoutSteps"):
+        inner = [step_seconds(x, pace) for x in step.get("workoutSteps") or []]
+        if not inner or any(t is None for t in inner):
+            return None
+        return (step.get("numberOfIterations") or 1) * sum(inner)
+    cond = ((step.get("endCondition") or {}).get("conditionTypeKey")) or ""
+    value = step.get("endConditionValue")
+    if cond == "time" and value:
+        return float(value)
+    meters = float(value) if cond == "distance" and value else first_distance_m(step.get("description"))
+    if not meters:
         return None
-    miles = float(m["n"]) / (KM_PER_MILE if m["unit"].lower() == "km" else 1)
-    return round(miles * pace_s_per_mile)
+    target = ((step.get("targetType") or {}).get("workoutTargetTypeKey")) or ""
+    lo, hi = step.get("targetValueOne"), step.get("targetValueTwo")
+    if target in SPEED_TARGETS and lo and hi:
+        return meters / ((float(lo) + float(hi)) / 2)
+    return meters * pace
+
+
+def workout_seconds(detail: dict[str, Any], pace: float) -> float | None:
+    """A whole workout's time from its steps, or None when any step's time can't be told."""
+    steps = [x for seg in detail.get("workoutSegments") or [] for x in seg.get("workoutSteps") or []]
+    times = [step_seconds(x, pace) for x in steps]
+    return sum(times) if times and all(t is not None for t in times) else None  # type: ignore[arg-type]
+
+
+def is_key(name: str | None, detail: dict[str, Any] | None, seconds: float | None) -> bool:
+    """A hard or long session: by its name first (easy names never are), then by its structure
+    (two or more targeted work steps), then by length."""
+    if name and EASY_KINDS.search(name):
+        return False
+    if name and KEY_KINDS.search(name):
+        return True
+    def work_steps(steps: list[dict[str, Any]]) -> int:
+        n = 0
+        for x in steps:
+            if x.get("type") == "RepeatGroupDTO" or x.get("workoutSteps"):
+                n += (x.get("numberOfIterations") or 1) * work_steps(x.get("workoutSteps") or [])
+            elif ((x.get("stepType") or {}).get("stepTypeKey")) == "interval" and ((x.get("targetType") or {}).get("workoutTargetTypeKey") or "no.target") != "no.target":
+                n += 1
+        return n
+
+    work = sum(work_steps(seg.get("workoutSteps") or []) for seg in (detail or {}).get("workoutSegments") or [])
+    return work >= 2 or (seconds or 0) >= LONG_SESSION_S
+
+
+def plan_name_of(description: str | None, provider: str | None) -> str | None:
+    """The plan a workout belongs to: its text's first line when that names one ("10k Plan
+    (Week 1/12)" -> "10k Plan"), else the provider."""
+    first = (description or "").strip().split("\n")[0].strip()
+    if first and len(first) <= 60 and re.search(r"\bplan\b", first, re.IGNORECASE):
+        return re.sub(r"\s*\(week[^)]*\)\s*$", "", first, flags=re.IGNORECASE).strip()
+    return provider
+
+
+def calendar_row(item: dict[str, Any], detail: dict[str, Any] | None, paces: dict[str, float]) -> dict[str, Any]:
+    """One planned_workouts row from a calendar workout and, when it could be fetched, its detail:
+    who planned it (the workout's provider app; None when made in Garmin Connect), the plan,
+    the session text, a time (Garmin's, else worked out from the steps or the distance), and
+    whether it's a key session."""
+    title = item.get("title") or (detail or {}).get("workoutName")
+    name, title_detail = clean_name(title)
+    sport_key = item.get("sportTypeKey") or ((detail or {}).get("sportType") or {}).get("sportTypeKey")
+    pace = paces.get(tracker_sport(sport_key) or "", DEFAULT_PACES["run"])
+    provider = (detail or {}).get("workoutProvider") or (detail or {}).get("consumerName") or None
+    text = ((detail or {}).get("description") or "").strip() or None
+
+    duration: float | None = float(item["duration"]) if item.get("duration") else None
+    if duration is None and detail and detail.get("estimatedDurationInSecs"):
+        duration = float(detail["estimatedDurationInSecs"])
+    desc = text or title_detail
+    estimated = False
+    if duration is None:
+        worked = workout_seconds(detail, pace) if detail else None
+        if worked is None:
+            meters = first_distance_m(title_detail or title)
+            worked = meters * pace if meters else None
+        duration, estimated = worked, worked is not None
+    return {
+        "workout_uuid": item.get("workoutUuid") or f"workout-{item['workoutId']}-{item['date']}",
+        "local_date": item["date"],
+        "sport": sport_key,
+        "name": name,
+        "description": desc[:800] if desc else None,
+        "duration_s": round(duration) if duration else None,
+        "benefit": None,
+        "rest_day": False,
+        "key_workout": is_key(name, detail, duration),
+        "status": None,
+        "plan_name": plan_name_of(text, provider),
+        "provider": provider,
+        "duration_estimated": estimated,
+    }
 
 
 def plan_rows(
@@ -257,16 +373,18 @@ def plan_rows(
     calendar_items: list[dict[str, Any]],
     earliest: str,
     own_workout_ids: set[int] | frozenset[int] = frozenset(),
-    run_pace_s_per_mile: float = DEFAULT_RUN_PACE_S,
+    details: dict[int, dict[str, Any]] | None = None,
+    paces: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """planned_workouts rows from an adaptive Coach plan (its taskList carries the detail: the
-    workout shorthand, estimated time, benefit, rest days) and the Garmin calendar's planned
-    items (names only, but weeks further ahead). The plan's version of a session wins; days
-    before `earliest` are dropped, and so are calendar items for the tracker's own workouts
-    (`own_workout_ids`), which already have a richer row. Runna's runs are calendar items too:
-    they get plan_name "Runna", a clean name, key flags, and a time estimated from their
-    distance at `run_pace_s_per_mile`."""
+    workout shorthand, estimated time, benefit, rest days) and every other planned workout on the
+    Garmin calendar, whichever app put it there (Runna, TrainingPeaks...) or made in Garmin
+    Connect, read with its workout detail (`details`, by workoutId) where available. The Coach
+    plan's version of a session wins; days before `earliest` are dropped, and so are calendar
+    items for the tracker's own workouts (`own_workout_ids`), which already have a richer row."""
     rows: dict[str, dict[str, Any]] = {}
+    details = details or {}
+    paces = {**DEFAULT_PACES, **(paces or {})}
     plan_name = (plan or {}).get("name")
     for task in (plan or {}).get("taskList") or []:
         workout = task.get("taskWorkout") or {}
@@ -286,33 +404,23 @@ def plan_rows(
             "key_workout": bool(task.get("keyWorkout")),
             "status": workout.get("adaptiveCoachingWorkoutStatus"),
             "plan_name": plan_name,
+            "provider": COACH_PROVIDER,
+            "duration_estimated": False,
         }
     for item in calendar_items:
         if item.get("itemType") not in PLANNED_ITEM_TYPES or not item.get("date") or item["date"] < earliest:
             continue
         if item.get("workoutId") in own_workout_ids:
             continue
-        uuid = item.get("workoutUuid") or (f"workout-{item['workoutId']}-{item['date']}" if item.get("workoutId") else None)
-        if not uuid or uuid in rows:
+        if not item.get("workoutUuid") and not item.get("workoutId"):
             continue
-        title = item.get("title")
-        runna = runna_session(title)
-        duration = int(item["duration"]) if item.get("duration") else None
-        if duration is None and (item.get("sportTypeKey") or "").endswith("running"):
-            duration = distance_seconds(title, run_pace_s_per_mile)
-        rows[uuid] = {
-            "workout_uuid": uuid,
-            "local_date": item["date"],
-            "sport": item.get("sportTypeKey"),
-            "name": runna["name"] if runna else title,
-            "description": runna["description"] if runna else None,
-            "duration_s": duration,
-            "benefit": None,
-            "rest_day": False,
-            "key_workout": runna["key_workout"] if runna else False,
-            "status": None,
-            "plan_name": RUNNA_PLAN if runna else plan_name if item.get("itemType") == "fbtAdaptiveWorkout" else None,
-        }
+        row = calendar_row(item, details.get(item.get("workoutId")), paces)
+        if row["workout_uuid"] in rows:
+            continue
+        if item.get("itemType") == "fbtAdaptiveWorkout":
+            # A Coach session beyond the week the plan's taskList covers.
+            row.update(plan_name=plan_name, provider=COACH_PROVIDER)
+        rows[row["workout_uuid"]] = row
     return sorted(rows.values(), key=lambda r: (r["local_date"], r["workout_uuid"]))
 
 
@@ -477,7 +585,10 @@ def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: boo
     print(f"  {label}: upserted {len(rows)} row(s)")
 
 
-PLAN_COLUMNS = ("local_date", "sport", "name", "description", "duration_s", "benefit", "rest_day", "key_workout", "status", "plan_name")
+PLAN_COLUMNS = (
+    "local_date", "sport", "name", "description", "duration_s", "benefit", "rest_day", "key_workout", "status", "plan_name",
+    "provider", "duration_estimated",
+)
 
 
 def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry_run: bool) -> None:
@@ -515,20 +626,24 @@ def own_workout_ids(conn, user_id: str) -> set[int]:
     return {int(r[0]) for r in rows}
 
 
-def recent_run_pace(conn, user_id: str, today: date) -> float:
-    """Seconds per mile over the last 60 days of runs, for estimating distance-only planned runs."""
-    row = conn.execute(
-        """select sum(coalesce(moving_duration_s, duration_s)), sum(distance_m) from activities
-           where user_id = %s and activity_type like '%%running' and distance_m > 0 and local_date >= %s""",
+def recent_paces(conn, user_id: str, today: date) -> dict[str, float]:
+    """Seconds per meter for each sport over the last 60 days, for distance-only planned steps."""
+    rows = conn.execute(
+        """select case when activity_type like '%%running' then 'run'
+                       when activity_type like '%%swimming' then 'swim'
+                       when activity_type like '%%cycling' or activity_type like '%%biking' or activity_type like '%%ride' then 'ride' end as sport,
+                  sum(coalesce(moving_duration_s, duration_s)), sum(distance_m)
+           from activities where user_id = %s and distance_m > 0 and local_date >= %s
+           group by 1""",
         (user_id, (today - timedelta(days=60)).isoformat()),
-    ).fetchone()
-    if not row or not row[0] or not row[1]:
-        return DEFAULT_RUN_PACE_S
-    return float(row[0]) / float(row[1]) * 1609.344
+    ).fetchall()
+    return {sport: float(secs) / float(meters) for sport, secs, meters in rows if sport and secs and meters}
 
 
-def fetch_plan(garmin, today: date, own_ids: set[int], run_pace_s_per_mile: float = DEFAULT_RUN_PACE_S) -> list[dict[str, Any]]:
-    """The live Coach plan (if any) and three months of the Garmin calendar."""
+def fetch_plan(garmin, today: date, own_ids: set[int], paces: dict[str, float] | None = None) -> list[dict[str, Any]]:
+    """The live Coach plan (if any), three months of the Garmin calendar, and the detail of each
+    calendar workout ahead (who sent it, its text and steps). A detail that fails to load leaves
+    that workout with its calendar title only."""
     plan = None
     listing = garmin.get_training_plans() or {}
     for p in listing.get("trainingPlanList") or []:
@@ -543,7 +658,18 @@ def fetch_plan(garmin, today: date, own_ids: set[int], run_pace_s_per_mile: floa
         items += cal.get("calendarItems") or []
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
         time.sleep(PER_DAY_PAUSE_S)
-    return plan_rows(plan, items, (today - timedelta(days=PLAN_LOOKBACK_DAYS)).isoformat(), own_ids, run_pace_s_per_mile)
+    earliest = (today - timedelta(days=PLAN_LOOKBACK_DAYS)).isoformat()
+    details: dict[int, dict[str, Any]] = {}
+    for item in items:
+        wid = item.get("workoutId")
+        if item.get("itemType") != "workout" or not wid or wid in own_ids or wid in details or (item.get("date") or "") < today.isoformat():
+            continue
+        try:
+            details[wid] = garmin.get_workout_by_id(wid) or {}
+        except Exception as err:  # noqa: BLE001
+            print(f"  plan: no detail for workout {wid} ({err})")
+        time.sleep(PAUSE_PER_WORKOUT_S)
+    return plan_rows(plan, items, earliest, own_ids, details, paces)
 
 
 def main() -> None:
@@ -626,7 +752,7 @@ def main() -> None:
             # Extra, never fatal: a failed fetch leaves the planned sessions as they were.
             today = datetime.now(ZoneInfo(tz)).date()
             try:
-                rows = fetch_plan(garmin, today, own_workout_ids(conn, user_id), recent_run_pace(conn, user_id, today))
+                rows = fetch_plan(garmin, today, own_workout_ids(conn, user_id), recent_paces(conn, user_id, today))
             except Exception as err:  # noqa: BLE001
                 print(f"  plan: skipped ({err})")
                 rows = None

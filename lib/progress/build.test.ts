@@ -29,6 +29,8 @@ function plan(date: string, sport: string | null, over: Partial<PlannedWorkout> 
     push_status: null,
     push_error: null,
     pushed_at: null,
+    provider: null,
+    duration_estimated: false,
     ...over,
   };
 }

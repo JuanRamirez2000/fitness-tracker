@@ -9,11 +9,11 @@ import { db } from "@/lib/db";
  * app reaches it only through server actions and server components.
  */
 
-/** Coach sessions and own workouts between two days, soonest first (without the Garmin JSON). */
+/** Plan sessions and own workouts between two days, soonest first (without the Garmin JSON). */
 export async function fetchPlannedWorkouts(userId: string, range: DayWindow): Promise<PlannedWorkout[]> {
   const rows = await db()`
     select workout_uuid, local_date, sport, name, description, duration_s, benefit, rest_day, key_workout,
-           status, plan_name, source, settings, steps, push_status, push_error, pushed_at
+           status, plan_name, source, settings, steps, push_status, push_error, pushed_at, provider, duration_estimated
     from planned_workouts
     where user_id = ${userId} and local_date between ${range.from} and ${range.to}
     order by local_date, source, workout_uuid`;

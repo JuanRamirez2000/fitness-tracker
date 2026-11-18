@@ -6,9 +6,9 @@ import type { Effort, WorkoutRequest } from "./types";
 /**
  * The week around a planned workout: which sport a training plan owns, what's on each day, the
  * training phase toward the A race, and suggested sessions for the sports nobody is coaching.
- * One plan owns one sport at a time: Runna's running plan since Nov 17 2026 (a Garmin Coach
- * cycling plan before that), both arriving through the Garmin calendar. The tracker supplements
- * the rest, inside the athlete's weekly hour limit. Pure, so the modal and the CLI share it.
+ * Whatever is on the Garmin calendar decides it (coachedSports): a Garmin Coach plan, an app's
+ * plan such as Runna (running since Nov 17 2026), or workouts made in Garmin Connect, each owning
+ * its sport. The tracker supplements the rest, inside the athlete's weekly hour limit. Pure, so the modal and the CLI share it.
  */
 
 /** A planned_workouts row, as much of it as planning needs. */
@@ -22,6 +22,11 @@ export interface PlannedSession {
   key_workout: boolean;
   plan_name: string | null;
   source: "garmin" | "self";
+  /** Who planned it: "Garmin Coach", the app that pushed it ("Runna"...), or null for a workout
+   * made in Garmin Connect (migration 019; older rows have none). */
+  provider?: string | null;
+  /** duration_s was worked out by the import (steps or distance), not given by Garmin. */
+  duration_estimated?: boolean;
 }
 
 export interface RecentActivity {
@@ -66,23 +71,57 @@ export function sessionSport(s: PlannedSession): ActiveSport | null {
   return sport === "other" ? null : sport;
 }
 
-/** Who planned a session, in a word: "Runna", "Coach" (a Garmin Coach plan), "Calendar" (any
- * other workout on the Garmin calendar) or "Yours" (the tracker's own). */
-export function planLabel(s: Pick<PlannedSession, "source" | "plan_name">): string {
+export const COACH_PROVIDER = "Garmin Coach";
+
+/** Who planned a session, in a word: the app that pushed it ("Runna"), "Coach" (a Garmin Coach
+ * plan), "Calendar" (a workout made in Garmin Connect) or "Yours" (the tracker's own). */
+export function planLabel(s: Pick<PlannedSession, "source" | "plan_name" | "provider">): string {
   if (s.source === "self") return "Yours";
-  if (s.plan_name === "Runna") return "Runna";
+  if (s.provider) return s.provider === COACH_PROVIDER ? "Coach" : s.provider;
+  // Rows from before migration 019: only Garmin Coach rows had a plan name.
   return s.plan_name ? "Coach" : "Calendar";
 }
 
-/** Sports a training plan (Runna or Garmin Coach) has sessions for from today on. */
+/** A planned time for display: "~39 min" when the import worked it out, "" without one. */
+export function plannedMinutes(s: Pick<PlannedSession, "duration_s" | "duration_estimated">): string {
+  return s.duration_s ? `${s.duration_estimated ? "~" : ""}${Math.round(s.duration_s / 60)} min` : "";
+}
+
+/** How many of a sport's own Garmin Connect workouts ahead make it a planned sport. */
+const CALENDAR_PLAN_MIN = 2;
+const PLAN_LOOKAHEAD_DAYS = 14;
+
+/**
+ * Sports something else is planning, from today on: any sport with a session from a plan
+ * (Garmin Coach, or an app such as Runna pushing to the Garmin calendar), or with at least two
+ * workouts made in Garmin Connect in the next two weeks. Several plans can each own a sport;
+ * the tracker suggests sessions only for the rest.
+ */
 export function coachedSports(planned: PlannedSession[], today: LocalDate): ActiveSport[] {
-  const set = new Set<ActiveSport>();
+  const fromPlan = new Set<ActiveSport>();
+  const calendar = new Map<ActiveSport, number>();
+  const until = addDays(today, PLAN_LOOKAHEAD_DAYS - 1);
   for (const s of planned) {
-    if (s.source !== "garmin" || !s.plan_name || s.local_date < today || s.rest_day) continue;
+    if (s.source !== "garmin" || s.local_date < today || s.rest_day) continue;
     const sport = sessionSport(s);
-    if (sport) set.add(sport);
+    if (!sport) continue;
+    if (planLabel(s) !== "Calendar") fromPlan.add(sport);
+    else if (s.local_date <= until) calendar.set(sport, (calendar.get(sport) ?? 0) + 1);
   }
-  return SPORTS.filter((s) => set.has(s));
+  return SPORTS.filter((s) => fromPlan.has(s) || (calendar.get(s) ?? 0) >= CALENDAR_PLAN_MIN);
+}
+
+/** Who plans each coached sport, in words: { run: "Runna (10k Plan)" }. */
+export function coachedBy(planned: PlannedSession[], today: LocalDate): Partial<Record<ActiveSport, string>> {
+  const out: Partial<Record<ActiveSport, string>> = {};
+  for (const sport of coachedSports(planned, today)) {
+    const s = planned.find((x) => x.source === "garmin" && !x.rest_day && x.local_date >= today && sessionSport(x) === sport);
+    if (!s) continue;
+    const label = planLabel(s);
+    const who = label === "Coach" ? "Garmin Coach" : label === "Calendar" ? "workouts they made in Garmin Connect" : label;
+    out[sport] = s.plan_name && s.plan_name !== s.provider && label !== "Calendar" ? `${who} (${s.plan_name})` : who;
+  }
+  return out;
 }
 
 export interface DayInfo {

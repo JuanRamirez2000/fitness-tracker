@@ -248,6 +248,8 @@ create table planned_workouts (
   key_workout boolean not null default false,
   status text,
   plan_name text,
+  provider text,                                  -- migration 019: Garmin Coach, Runna..., null = made in Garmin Connect
+  duration_estimated boolean not null default false, -- migration 019: no time from Garmin, worked out by the import
   -- Self-made workouts (migration 016, lib/workouts/, scripts/garmin/push_workout.py)
   source text not null default 'garmin',  -- garmin (Coach plan / Garmin calendar) | self
   settings jsonb,                         -- the builder's inputs: sport, kind, effort, minutes

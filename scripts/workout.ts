@@ -69,7 +69,7 @@ async function main() {
   const { buildContext, buildWorkout, resolveKind, zonesFor } = await import("../lib/workouts/build");
   const { SPORTS } = await import("../lib/sport");
   const { workoutLines, fmtDuration } = await import("../lib/workouts/describe");
-  const { planLabel, warningsFor } = await import("../lib/workouts/plan");
+  const { planLabel, plannedMinutes, warningsFor } = await import("../lib/workouts/plan");
   const { loadPlanner, saveWorkout, workoutRequestSchema } = await import("../lib/workouts/service");
   const { SWIM_STAGES, workoutSettingsPatchSchema } = await import("../lib/workouts/settings");
   const store = await import("../lib/workouts/store");
@@ -123,7 +123,7 @@ async function main() {
         typical_session_minutes: planner.plan.typicalRecent,
         days: planner.plan.days.map((d) => ({
           date: d.date,
-          plan: d.restDay ? "rest day" : d.coach.map((c) => `${planLabel(c)}: ${c.name}${c.key_workout ? " (key)" : ""} ${c.plan_name === "Runna" ? "~" : ""}${Math.round((c.duration_s ?? 0) / 60)} min`),
+          plan: d.restDay ? "rest day" : d.coach.map((c) => `${planLabel(c)}: ${c.name}${c.key_workout ? " (key)" : ""} ${plannedMinutes(c) || "time unknown"}`),
           own: planner.planned
             .filter((w) => w.source === "self" && w.local_date === d.date)
             .map((w) => ({ id: w.workout_uuid, name: w.name, status: w.push_status })),

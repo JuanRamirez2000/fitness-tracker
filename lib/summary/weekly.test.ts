@@ -27,6 +27,8 @@ const plan = (date: string, name: string, over: Partial<PlannedWorkout> = {}): P
   push_status: null,
   push_error: null,
   pushed_at: null,
+  provider: null,
+  duration_estimated: false,
   ...over,
 });
 

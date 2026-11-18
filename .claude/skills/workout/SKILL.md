@@ -1,6 +1,6 @@
 ---
 name: workout
-description: Plan a run, ride or swim (or the week's supplemental sessions) around the athlete's training plan (Runna for running since Nov 17 2026) and send it to their Garmin watch. Use when they say "/workout", "plan a run/swim/ride", "give me a workout", "what should I do Sunday", "plan my week", or ask for a session for the triathlon.
+description: Plan a run, ride or swim (or the week's supplemental sessions) around whatever plan is on the athlete's Garmin calendar (Runna for running since Nov 17 2026) and send it to their Garmin watch. Use when they say "/workout", "plan a run/swim/ride", "give me a workout", "what should I do Sunday", "plan my week", or ask for a session for the triathlon.
 ---
 
 # /workout: plan a workout and send it to the watch
@@ -18,10 +18,12 @@ unless asked. Don't print database URLs or tokens.
 
 - A race: Cal Tri Lake Perris Sprint, Sun 2027-04-11 (400 yd open-water swim, 9.2 mi bike,
   3.1 mi run). The planner counts phases from it: base, build (last 14 weeks), taper (last 13 days).
-- One plan owns one sport at a time. Since Nov 17 2026 that's a **Runna** running plan (a Garmin
-  Coach cycling plan before). Runna pushes its runs to the Garmin calendar; the morning import
-  brings them in as plan "Runna" ("Easy Run", "Tempo", "Long Run"...), with tempo, intervals and
-  long runs marked key and times estimated from distance (shown as "~36 min"). The tracker
+- Whatever is on their Garmin calendar decides which sports are planned (`coached_sports`): an
+  app's plan pushed to Garmin (**Runna** for running since Nov 17 2026; any app works, named by
+  the workout's provider), a Garmin Coach plan, or two or more workouts they made in Garmin
+  Connect in the next two weeks. The import (twice a day) reads each workout's detail: who sent
+  it, its plan ("10k Plan"), its full text, a time worked out from its steps when Garmin has none
+  (shown "~39 min"), and whether it's a key session (tempo, intervals, long). The tracker
   supplements the other sports, within a 7 h/week limit that includes the plan's sessions.
 - Swimming: 25-yard pool, Sundays for now; they couldn't swim a length in Nov 2026. The swim
   templates unlock by "swim stage" (0–4), which they set; ask before raising it.
@@ -31,13 +33,13 @@ unless asked. Don't print database URLs or tokens.
 ## Steps
 
 1. **Read the week.** `npm run -s workout -- week --json`. Note `coached_sports`, each day's plan
-   sessions (`plan`, labelled Runna / Coach / Calendar) and own workouts, `suggestions` (each has sport, date, kind, effort, minutes, why),
+   sessions (`plan`, labelled by who planned them: the app, Coach, or Calendar) and own workouts, `suggestions` (each has sport, date, kind, effort, minutes, why),
    `planned_hours_next_7_days` against `weekly_hour_limit`, and the phase.
 
 2. **Ask at most two questions** with AskUserQuestion, skipping any they already answered:
    - **When** (and which sport, if they didn't say): options are the suggested days first
      ("Sun Nov 15: swim, the suggested day"), then other free or easy days. Mention key plan
-     days (Runna's tempo, intervals, long run) and rest days in the option descriptions.
+     days (tempo, intervals, long sessions) and rest days in the option descriptions.
    - **How hard**: Easy (effort 2), Steady (3), Hard (4). Recovery (1) and Very hard (5) only if
      they ask. Put the suggestion's effort first, marked (Recommended).
    For "plan my week", ask one multi-select question instead: which of the suggestions to add.
@@ -69,6 +71,6 @@ unless asked. Don't print database URLs or tokens.
 
 - Don't plan anything hard on, or the day before, a key plan session, and keep at least one
   day a week fully off. The warnings catch these; take them seriously.
-- Coached sports: only add a session there if they ask (it adds to the plan's load; with Runna,
-  extra runs also throw off Runna's own progression).
-- Never edit or delete Runna or Garmin Coach sessions; this only manages the tracker's own workouts.
+- Coached sports: only add a session there if they ask (it adds to the plan's load, and an
+  app like Runna adapts its plan to what you actually ran).
+- Never edit or delete the plan's sessions (Runna, Garmin Coach, any app); this only manages the tracker's own workouts.

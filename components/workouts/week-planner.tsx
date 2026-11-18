@@ -8,14 +8,14 @@ import { SportBadge } from "@/components/ui/sport-badge";
 import type { PlannedWorkout, PushStatus } from "@/lib/data/planned";
 import { fmtDate } from "@/lib/dates/format";
 import { SPORT_STYLE } from "@/lib/sport";
-import { planLabel, sessionSport, type Suggestion } from "@/lib/workouts/plan";
+import { planLabel, plannedMinutes, sessionSport, type Suggestion } from "@/lib/workouts/plan";
 import type { PlannerData } from "@/lib/workouts/service";
 import { toPlannedSession } from "@/lib/workouts/session";
 import { actionErrorMessage } from "./action-error";
 import { PlanWorkoutDialog, type DialogStart } from "./plan-workout-dialog";
 
 /**
- * The Training tab's week: the training plan's sessions (Runna, Garmin Coach) and the tracker's own workouts for the next 7
+ * The Training tab's week: the Garmin calendar's planned sessions (an app's plan such as Runna, Garmin Coach, workouts made in Garmin Connect) and the tracker's own workouts for the next 7
  * days, suggested sessions for the sports nobody is coaching, and "Plan a workout". Own workouts
  * show whether they've reached the Garmin calendar; while one is on its way the card polls
  * /api/workouts/status and refreshes when it lands.
@@ -107,7 +107,7 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
               </span>
               {d.restDay && <span className="text-[12px] text-muted-2">Rest day</span>}
               {d.coach.map((c) => (
-                <CoachSession key={c.workout_uuid} name={c.name} sport={sessionSport(c)} minutes={`${c.plan_name === "Runna" && c.duration_s ? "~" : ""}${minutesLabel(c.duration_s)}`} keySession={c.key_workout} label={planLabel(c)} />
+                <CoachSession key={c.workout_uuid} name={c.name} sport={sessionSport(c)} minutes={plannedMinutes(c)} keySession={c.key_workout} label={planLabel(c)} />
               ))}
               {ownToday.map((w) => (
                 <OwnWorkout
@@ -152,10 +152,10 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
   );
 }
 
-/** Whose plan the coached sports follow: "Runna", "Garmin Coach" or "Plan". */
+/** Whose plans the coached sports follow: "Runna", "Runna + Garmin Coach", "Plan". */
 function planOwner(plan: PlannerData["plan"]): string {
-  const labels = new Set(plan.days.flatMap((d) => d.coach.map(planLabel)));
-  return labels.has("Runna") ? "Runna" : labels.has("Coach") ? "Garmin Coach" : "Plan";
+  const labels = [...new Set(plan.days.flatMap((d) => d.coach.map(planLabel)))].map((l) => (l === "Coach" ? "Garmin Coach" : l === "Calendar" ? "Garmin" : l));
+  return labels.join(" + ") || "Plan";
 }
 
 function CoachSession({ name, sport, minutes, keySession, label }: { name: string | null; sport: ReturnType<typeof sessionSport>; minutes: string; keySession: boolean; label: string }) {

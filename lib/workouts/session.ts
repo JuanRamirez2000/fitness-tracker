@@ -13,5 +13,7 @@ export function toPlannedSession(w: PlannedWorkout): PlannedSession {
     key_workout: w.key_workout,
     plan_name: w.plan_name,
     source: w.source,
+    provider: w.provider,
+    duration_estimated: w.duration_estimated,
   };
 }

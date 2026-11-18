@@ -5,7 +5,7 @@ export const PUSH_STATUSES = ["draft", "queued", "sent", "failed", "removing"] a
 export type PushStatus = (typeof PUSH_STATUSES)[number];
 
 /** One planned session (db/schema.sql planned_workouts): from a Garmin Coach plan or the Garmin
- * calendar (scripts/garmin/import_unofficial.py's "plan" dataset, source 'garmin'), or one of
+ * calendar (any app's plan, e.g. Runna, or a workout made in Garmin Connect) (scripts/garmin/import_unofficial.py's "plan" dataset, source 'garmin'), or one of
  * the tracker's own workouts (lib/workouts/, source 'self', sent by push_workout.py). */
 export const plannedWorkoutRowSchema = z.object({
   workout_uuid: z.string(),
@@ -26,6 +26,10 @@ export const plannedWorkoutRowSchema = z.object({
   push_status: z.enum(PUSH_STATUSES).nullable().default(null),
   push_error: z.string().nullable().default(null),
   pushed_at: z.string().nullable().default(null),
+  // Migration 019: who planned it ("Garmin Coach", "Runna"..., null = made in Garmin Connect),
+  // and whether duration_s was worked out by the import rather than given by Garmin.
+  provider: z.string().nullable().default(null),
+  duration_estimated: z.boolean().default(false),
 });
 
 export type PlannedWorkout = z.infer<typeof plannedWorkoutRowSchema>;

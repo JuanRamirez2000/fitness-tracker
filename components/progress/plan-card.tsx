@@ -6,11 +6,11 @@ import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
 import type { DayPlan, PlanItem, PlanVsDone } from "@/lib/progress/build";
 import type { ProgressWeek } from "@/lib/progress/week";
 import { sportOf } from "@/lib/sport";
-import { planLabel } from "@/lib/workouts/plan";
+import { planLabel, plannedMinutes } from "@/lib/workouts/plan";
 import { PlanDays, type PlanDayView, type PlanLine } from "./plan-days";
 
 const HELP =
-  "Each day's planned sessions (your Runna or Garmin Coach plan and the workouts you built here) against what you actually did. Done: that sport that day. Done another day: the same sport within two days. Swapped: something else that day. Missed: nothing that day. Activities that weren't on the plan show as extras, dashed. Click any activity to open it.";
+  "Each day's planned sessions (whatever is on your Garmin calendar: an app's plan such as Runna, a Garmin Coach plan, workouts you made in Garmin Connect, and the workouts you built here) against what you actually did. Done: that sport that day. Done another day: the same sport within two days. Swapped: something else that day. Missed: nothing that day. Activities that weren't on the plan show as extras, dashed. Click any activity to open it.";
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const minutes = (a: Activity) => Math.round((a.moving_duration_s ?? a.duration_s) / 60);
@@ -53,7 +53,7 @@ function dayView(d: DayPlan, week: ProgressWeek, hasPlan: boolean): PlanDayView 
       key: item.session.workout_uuid,
       sport: item.sport,
       title: item.session.name ?? "Workout",
-      meta: `${planLabel(item.session)}${item.session.duration_s ? ` · ${item.session.plan_name === "Runna" ? "~" : ""}${Math.round(item.session.duration_s / 60)} min` : ""}`,
+      meta: [planLabel(item.session), plannedMinutes(item.session)].filter(Boolean).join(" · "),
       status: status(item),
       // A moved session opens from the day it was done.
       activityId: item.status === "moved" ? null : (item.activity?.id ?? null),
