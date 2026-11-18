@@ -1,5 +1,5 @@
 import { isLocalDate } from "@/lib/dates/calendar";
-import { DEFAULT_TAB, RANGE_KEYS, TAB_KEYS, type RangeKey, type TabKey } from "@/lib/dashboard/types";
+import { DEFAULT_TAB, RANGE_KEYS, toTabKey, type RangeKey, type TabKey } from "@/lib/dashboard/types";
 import { DEFAULT_SPORT, type SportFilter } from "@/lib/sport";
 
 export interface UrlRange {
@@ -18,7 +18,7 @@ export interface RangeSearchParams {
 /** Reads `?tab=...`, or null when it's missing or not one of TAB_KEYS (the caller then falls
  * back to localStorage, then to DEFAULT_TAB). Never throws. */
 export function parseTabParam(tab: string | undefined): TabKey | null {
-  return tab && (TAB_KEYS as readonly string[]).includes(tab) ? (tab as TabKey) : null;
+  return toTabKey(tab);
 }
 
 /**
@@ -40,9 +40,9 @@ export function parseRangeParams(params: RangeSearchParams): UrlRange | null {
 }
 
 /** The query string RangeControl pushes when the user picks a range (no leading "?"). A tab
- * (and, on Training, a sport) other than the default rides along, so changing the range never
- * changes either. */
-export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, sport: SportFilter = DEFAULT_SPORT): string {
+ * (and, on Training, a sport and a picked week) other than the default rides along, so changing
+ * the range never changes them. */
+export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, sport: SportFilter = DEFAULT_SPORT, week: string | null = null): string {
   const params = new URLSearchParams({ range: range.key });
   if (range.key === "custom" && range.custom) {
     params.set("from", range.custom.from);
@@ -50,6 +50,7 @@ export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, 
   }
   if (tab !== DEFAULT_TAB) params.set("tab", tab);
   if (tab === "training" && sport !== DEFAULT_SPORT) params.set("sport", sport);
+  if (tab === "training" && week) params.set("week", week);
   return params.toString();
 }
 
@@ -64,18 +65,18 @@ export function tabToSearchParams(tab: TabKey, range: UrlRange | null): string {
   return params.toString();
 }
 
-/** The query string for the Training tab's sport toggle: the range rides along like a tab link's. */
-export function sportToSearchParams(sport: SportFilter, range: UrlRange | null): string {
+/** The query string for the Training tab's sport toggle: the range and a picked week ride along
+ * like a tab link's. */
+export function sportToSearchParams(sport: SportFilter, range: UrlRange | null, week: string | null = null): string {
   const params = new URLSearchParams(range ? rangeToSearchParams(range) : "");
   params.set("tab", "training");
   if (sport !== DEFAULT_SPORT) params.set("sport", sport);
+  if (week) params.set("week", week);
   return params.toString();
 }
 
-/** The query string for the Progress tab's week picker: the week's Monday, the range riding along
- * like a tab link's (the range doesn't drive Progress, but switching back to another tab keeps it). */
-export function weekToSearchParams(week: string, range: UrlRange | null): string {
-  const params = new URLSearchParams(tabToSearchParams("progress", range));
-  params.set("week", week);
-  return params.toString();
+/** The query string for the Training tab's week picker: the week's Monday (none for the current
+ * week), with the range and the sport riding along. */
+export function weekToSearchParams(week: string | null, range: UrlRange | null, sport: SportFilter = DEFAULT_SPORT): string {
+  return sportToSearchParams(sport, range, week);
 }

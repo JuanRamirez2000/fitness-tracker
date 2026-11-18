@@ -1,10 +1,9 @@
 import { GoalProjectionChart } from "@/components/charts/goal-projection-chart";
 import { WeeklyLossChart } from "@/components/charts/weekly-loss-chart";
 import { TAB_KPIS } from "@/dashboard.config";
-import { BodyMassChart } from "@/components/charts/body-mass-chart";
-import { CompositionCard } from "@/components/charts/composition-card";
 import { WeightTrendChart } from "@/components/charts/weight-trend-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
+import { QuickLook } from "@/components/dashboard/quick-look";
 import { InsightCard, ShowTheNumbers } from "@/components/insights/insight-card";
 import { DailySummary } from "@/components/today/daily-summary";
 import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
@@ -13,13 +12,14 @@ import { WeightHeatmap } from "@/components/heatmap/heatmaps";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { buildWeightInsights } from "@/lib/insights/weight";
 
-/** Weight: is the weight coming off the right way? The summary, then what the pace, the loss and
- * the muscle mean for riding (insight cards) and the trend; the body composition charts and the
- * weigh-in log are folded behind "Show the numbers". */
+/** Weight: is the weight coming off the right way? The quick-look strip and the summary, then
+ * what the pace and the muscle mean (insight cards) and the trend; the weigh-in log is folded
+ * behind "Show the numbers". */
 export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
   const insights = buildWeightInsights(data);
   return (
     <>
+      <QuickLook data={data} />
       <DailySummary data={data} />
       <KpiCards data={data} ids={TAB_KPIS.weight} />
       <Section>
@@ -46,12 +46,6 @@ export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boo
       </Section>
       <ShowTheNumbers>
         <CardGrid>
-          <Cell span={7}>
-            <BodyMassChart data={data} />
-          </Cell>
-          <Cell span={5}>
-            <CompositionCard data={data} />
-          </Cell>
           <Cell span={12}>
             <WeighInTable data={data} canEdit={canEdit} />
           </Cell>

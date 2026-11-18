@@ -52,13 +52,14 @@ export const KPIS: KpiDefinition[] = [
   swimHours,
 ];
 
-// Which KPI cards each tab shows, by id. Each tab fills one row of six units (a wide card,
-// span 2, takes two), so keep a tab's spans adding up to 6.
-// Training's are per sport (below); Progress builds its own for the chosen week (lib/progress/).
-export const TAB_KPIS: Record<Exclude<TabKey, "training" | "progress">, readonly string[]> = {
-  today: ["sleep-score", "sleep-debt", "hrv", "resting-hr", "steps-today"],
+// Which KPI cards each tab shows, by id. Each row fills six units (a wide card, span 2, takes
+// two), so keep a row's spans adding up to 6. Training's are per sport (below).
+export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = {
   weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"],
 };
+
+// The Training tab's recovery row, under the readiness hero.
+export const RECOVERY_KPIS: readonly string[] = ["sleep-score", "sleep-debt", "steps-today"];
 
 // The Training tab's cards under each sport filter (lib/sport.ts), the same six units a row.
 export const TRAINING_KPIS: Record<SportFilter, readonly string[]> = {

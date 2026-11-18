@@ -47,7 +47,7 @@ export function GarminRefreshButton({ tab }: { tab: TabKey }) {
     setWriting(true);
     let summaryFailed = true;
     try {
-      const res = await fetch(`/api/summary/refresh${tab === "progress" ? "?scope=weekly" : ""}`, { method: "POST" });
+      const res = await fetch(`/api/summary/refresh?scope=${tab}`, { method: "POST" });
       const body = (await res.json()) as { ok?: boolean; summaryFailed?: boolean };
       summaryFailed = !body.ok || body.summaryFailed === true;
     } catch {
@@ -59,7 +59,7 @@ export function GarminRefreshButton({ tab }: { tab: TabKey }) {
       router.refresh();
       setWriting(false);
       setStatus("idle");
-      setMessage(summaryFailed ? (tab === "progress" ? "Review didn’t update" : "Summary didn’t update") : null);
+      setMessage(summaryFailed ? (tab === "training" ? "Summary or review didn’t update" : "Summary didn’t update") : null);
     });
   }
 
@@ -73,7 +73,7 @@ export function GarminRefreshButton({ tab }: { tab: TabKey }) {
         aria-label="Refresh today's data from Garmin"
         className="rounded-lg border border-border-strong px-3 py-[7px] text-[12.5px] text-muted-1 disabled:opacity-50"
       >
-        {status === "importing" ? "Refreshing…" : status === "writing" ? (tab === "progress" ? "Writing review…" : "Writing summary…") : "↻ Refresh"}
+        {status === "importing" ? "Refreshing…" : status === "writing" ? (tab === "training" ? "Writing summaries…" : "Writing summary…") : "↻ Refresh"}
       </button>
       {status === "error" && (
         <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>

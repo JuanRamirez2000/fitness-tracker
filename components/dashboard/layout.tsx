@@ -36,7 +36,25 @@ export function SectionLabel({ children }: { children: ReactNode }) {
   return <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">{children}</span>;
 }
 
-/** A section: heading, then its cards, 18px apart. */
-export function Section({ children }: { children: ReactNode }) {
-  return <section className="flex flex-col gap-[18px]">{children}</section>;
+/** A section: heading, then its cards, 18px apart. An `id` makes it a link target (the
+ * quick-look strip), landing clear of the sticky header. */
+export function Section({ children, id }: { children: ReactNode; id?: string }) {
+  return (
+    <section id={id} className="flex scroll-mt-28 flex-col gap-[18px]">
+      {children}
+    </section>
+  );
+}
+
+/** A section heading with a control on its right (the week picker, the range control),
+ * wrapping under the heading on a phone. */
+export function SectionHeadingRow({ n, children, control }: { n: string; children: ReactNode; control: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-divider pt-7">
+      <SectionHeading n={n} rule={false}>
+        {children}
+      </SectionHeading>
+      <div className="min-w-0 max-w-full">{control}</div>
+    </div>
+  );
 }

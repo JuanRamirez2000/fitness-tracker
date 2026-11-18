@@ -184,5 +184,6 @@ export function muscleInsight(data: Data): Insight | null {
 
 /** Every Weight insight that has data, in reading order. */
 export function buildWeightInsights(data: Data): Insight[] {
-  return [paceInsight(data), powerToWeightInsight(data), muscleInsight(data)].filter((i): i is Insight => i !== null);
+  // Watts per kilo (powerToWeightInsight) left the tab with the 2026-11-17 layout (docs/plan-layout.md).
+  return [paceInsight(data), muscleInsight(data)].filter((i): i is Insight => i !== null);
 }

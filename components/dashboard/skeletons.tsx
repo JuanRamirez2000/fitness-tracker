@@ -1,6 +1,6 @@
 import { TAB_KEYS, TAB_LABELS, type TabKey } from "@/lib/dashboard/types";
 import { APP_NAME } from "@/lib/app";
-import { CardGrid, Cell, Section, SectionHeading, SectionLabel, type Span } from "./layout";
+import { CardGrid, Cell, Section, SectionHeading, type Span } from "./layout";
 
 /**
  * Placeholders shaped like the real page, shown while a tab's rows load (app/page.tsx's
@@ -56,32 +56,21 @@ function KpiRowSkeleton({ spans, height }: { spans: readonly (1 | 2)[]; height: 
   );
 }
 
-function TodaySkeleton() {
+/** The quick-look strip: a row of small cards. */
+function QuickLookSkeleton() {
   return (
-    <>
-      <Section>
-        <SectionHeading n="01" rule={false}>
-          How am I doing today?
-        </SectionHeading>
-        <SummarySkeleton />
-        <div className="h-[307px] animate-pulse rounded-xl border border-border bg-card" />
-        <KpiRowSkeleton spans={[1, 1, 2, 1, 1]} height={149} />
-      </Section>
-      <Section>
-        <SectionLabel>Recovery and sleep detail</SectionLabel>
-        <CardGrid>
-          <CardBone span={12} height={446} />
-          <CardBone span={6} height={505} />
-          <CardBone span={6} height={505} />
-        </CardGrid>
-      </Section>
-    </>
+    <div className="-mx-4 flex gap-2.5 overflow-hidden px-4 md:mx-0 md:px-0 lg:grid lg:grid-cols-6">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className={`h-[74px] shrink-0 animate-pulse rounded-lg border border-border bg-card ${i === 2 ? "w-[240px] lg:col-span-2 lg:w-auto" : "w-[150px] lg:w-auto"}`} />
+      ))}
+    </div>
   );
 }
 
 function WeightSkeleton() {
   return (
     <>
+      <QuickLookSkeleton />
       <SummarySkeleton />
       <KpiRowSkeleton spans={[1, 1, 1, 1, 1, 1]} height={135} />
       <Section>
@@ -99,29 +88,15 @@ function WeightSkeleton() {
 function TrainingSkeleton() {
   return (
     <>
-      <SummarySkeleton />
-      <KpiRowSkeleton spans={[1, 1, 1, 2, 1]} height={159} />
+      <QuickLookSkeleton />
       <Section>
-        <SectionHeading n="01">Am I getting fitter and faster?</SectionHeading>
-        <CardGrid>
-          <CardBone span={6} height={457} />
-          <CardBone span={6} height={457} />
-        </CardGrid>
-      </Section>
-    </>
-  );
-}
-
-function ProgressSkeleton() {
-  return (
-    <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-[135px] animate-pulse rounded-[10px] border border-border bg-card" />
-        ))}
-      </div>
-      <Section>
-        <SectionHeading n="01">Did I do the plan?</SectionHeading>
+        <SectionHeading n="01">How&apos;s my week going?</SectionHeading>
+        <SummarySkeleton />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-[135px] animate-pulse rounded-[10px] border border-border bg-card" />
+          ))}
+        </div>
         <CardGrid>
           <CardBone span={12} height={330} />
         </CardGrid>
@@ -133,10 +108,7 @@ function ProgressSkeleton() {
 /** The active tab's body while its rows load. Only the top of the page: below the fold
  * nothing shows before the content does. */
 export function TabSkeleton({ tab }: { tab: TabKey }) {
-  if (tab === "weight") return <WeightSkeleton />;
-  if (tab === "training") return <TrainingSkeleton />;
-  if (tab === "progress") return <ProgressSkeleton />;
-  return <TodaySkeleton />;
+  return tab === "weight" ? <WeightSkeleton /> : <TrainingSkeleton />;
 }
 
 /** The sticky header before the profile is in: the brand and the real tab row, with the

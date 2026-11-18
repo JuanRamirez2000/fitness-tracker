@@ -11,7 +11,7 @@ import { SPORT_LABELS, type ActiveSport, type SportFilter } from "@/lib/sport";
  * activity (`sports`). Plain links (`?sport=`), like the tab row, so each sport is a server
  * render that works without JS; the clicked one lights up at once.
  */
-export function SportToggle({ current, range, sports }: { current: SportFilter; range: UrlRange | null; sports: readonly ActiveSport[] }) {
+export function SportToggle({ current, range, sports, week = null }: { current: SportFilter; range: UrlRange | null; sports: readonly ActiveSport[]; week?: string | null }) {
   const pathname = usePathname();
   // The clicked sport, and the sport on screen when it was clicked: once the server render for
   // it arrives, `current` moves on and the optimistic highlight no longer applies.
@@ -25,7 +25,7 @@ export function SportToggle({ current, range, sports }: { current: SportFilter; 
         return (
           <Link
             key={sport}
-            href={`${pathname}?${sportToSearchParams(sport, range)}`}
+            href={`${pathname}?${sportToSearchParams(sport, range, week)}`}
             scroll={false}
             aria-current={on ? "page" : undefined}
             onClick={() => sport !== current && setPending({ sport, from: current })}

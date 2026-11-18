@@ -33,6 +33,9 @@ import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 const PLAN_HISTORY_BACK_DAYS = 26 * 7;
 const PLAN_HISTORY_AHEAD_DAYS = 8 * 7;
 
+/** The strip's mornings (readiness, sleep) on the Weight tab. */
+const QUICK_LOOK_DAYS = 8;
+
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
 const RECOVERY_HISTORY_DAYS = 35;
 
@@ -55,7 +58,9 @@ export interface LoadDashboardDataOptions {
 }
 
 /** Which of the optional loads each tab renders. weightTrend and injections are always
- * loaded: every tab's heatmap reads them (its caption and shot stars). */
+ * loaded: every tab's heatmap reads them (its caption and shot stars). Both tabs carry the
+ * quick-look strip (components/dashboard/quick-look.tsx), which reads activities, recovery,
+ * sleep and training. */
 export function tabNeeds(tab: TabKey): {
   activities: boolean;
   steps: boolean;
@@ -65,12 +70,12 @@ export function tabNeeds(tab: TabKey): {
   training: boolean;
 } {
   return {
-    activities: tab === "weight" || tab === "training" || tab === "progress", // run ticks on the weight trend; every running view; Progress's load and hours
-    steps: tab === "today" || tab === "training", // the Steps card (Daily feel); the steps heatmap (Training)
+    activities: true, // every training view, the strip's week; run ticks on the weight trend
+    steps: tab === "training", // the Steps card and the steps heatmap
     weighIns: tab === "weight",
-    recovery: tab === "today" || tab === "progress", // daily_recovery and sleep_nights
+    recovery: true, // daily_recovery and sleep_nights: the readiness hero and the week (Training); the strip
     bodyComposition: tab === "weight",
-    training: tab === "training" || tab === "weight" || tab === "progress", // daily_training (Weight: Garmin's FTP, for watts per kilo; Progress: the plan cards and records)
+    training: true, // daily_training: VO2 max, load, the plan cards and records; the strip's load ratio
   };
 }
 
@@ -112,17 +117,22 @@ export async function loadDashboardData(
   const historyFrom = addDays(today, -RECOVERY_HISTORY_DAYS);
   // And the heatmap's year, for the recovery calendar.
   const earliest = [dateRange.from, historyFrom, window.from].sort()[0];
-  // Progress needs only its week and the week before (its readiness comparison).
+  // Training: that, plus the picked week and the week before it (its readiness comparison).
+  // Weight: only the strip's last few mornings.
+  const weekFrom = addDays(shell.week, -7);
+  const weekTo = addDays(shell.week, 6);
+  const rangeTo = dateRange.to > today ? dateRange.to : today;
   const recoverySpan =
-    shell.tab === "progress"
-      ? { from: addDays(shell.week, -7), to: addDays(shell.week, 6) }
-      : { from: earliest, to: dateRange.to > today ? dateRange.to : today };
+    shell.tab === "training"
+      ? { from: weekFrom < earliest ? weekFrom : earliest, to: weekTo > rangeTo ? weekTo : rangeTo }
+      : { from: addDays(today, -QUICK_LOOK_DAYS), to: today };
   const activityRows = needs.activities ? fetchActivities(profile.id) : Promise.resolve([]);
   // The brick runs' detail waits on the activities (the pairing is by start and end times).
   const brickRunRows =
     shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
-  const planFrom = addDays(shell.tab === "progress" && shell.week < today ? shell.week : today, -PLAN_HISTORY_BACK_DAYS);
-  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned, weeklySummary, planHistory] =
+  const planFrom = addDays(shell.week < today ? shell.week : today, -PLAN_HISTORY_BACK_DAYS);
+  const training = shell.tab === "training";
+  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, trainingRows, summary, runEfforts, planner, planned, weeklySummary, planHistory] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
@@ -131,19 +141,16 @@ export async function loadDashboardData(
       brickRunRows,
       needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
       needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
-      needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
-      needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
+      fetchRecovery(profile.id, recoverySpan),
+      fetchSleepNights(profile.id, recoverySpan),
       needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
-      needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
-      // Progress's own weekly review comes later (docs/plan-progress-tab.md, step 4).
-      shell.tab === "progress" ? null : fetchDailySummary(profile.id, today, shell.tab),
-      needs.training ? fetchRunEfforts(profile.id) : [],
-      shell.tab === "training" ? loadPlanner(profile, today) : null,
-      shell.tab === "progress" ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: addDays(shell.week, 6) }) : [],
-      shell.tab === "progress" ? fetchWeeklySummary(profile.id, shell.week) : null,
-      shell.tab === "progress" || shell.tab === "training"
-        ? fetchPlannedWorkouts(profile.id, { from: planFrom, to: addDays(today, PLAN_HISTORY_AHEAD_DAYS) })
-        : [],
+      fetchTraining(profile.id, recoverySpan.to > today ? recoverySpan.to : today),
+      fetchDailySummary(profile.id, today, shell.tab),
+      training ? fetchRunEfforts(profile.id) : [],
+      training ? loadPlanner(profile, today) : null,
+      training ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: weekTo }) : [],
+      training ? fetchWeeklySummary(profile.id, shell.week) : null,
+      fetchPlannedWorkouts(profile.id, { from: planFrom, to: addDays(today, PLAN_HISTORY_AHEAD_DAYS) }),
     ]);
 
   return {
@@ -158,7 +165,7 @@ export async function loadDashboardData(
     recovery,
     sleep,
     bodyComposition,
-    training,
+    training: trainingRows,
     summary,
     runEfforts,
     brickRuns,

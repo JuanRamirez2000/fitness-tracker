@@ -1,4 +1,4 @@
-import { RANGE_KEYS, TAB_KEYS, type RangeKey, type TabKey } from "@/lib/dashboard/types";
+import { RANGE_KEYS, toTabKey, type RangeKey, type TabKey } from "@/lib/dashboard/types";
 
 const STORAGE_KEY = "tracker.range";
 const TAB_STORAGE_KEY = "tracker.tab";
@@ -34,8 +34,7 @@ export function storeRange(key: RangeKey): void {
 export function loadStoredTab(): TabKey | null {
   if (typeof window === "undefined") return null;
   try {
-    const value = window.localStorage.getItem(TAB_STORAGE_KEY);
-    return value && (TAB_KEYS as readonly string[]).includes(value) ? (value as TabKey) : null;
+    return toTabKey(window.localStorage.getItem(TAB_STORAGE_KEY));
   } catch {
     return null;
   }

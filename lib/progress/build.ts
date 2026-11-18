@@ -386,3 +386,31 @@ export function intensitySplit(data: Pick<DashboardData, "activities">, week: Pr
   const prior = totals(weeks.slice(-5, -1));
   return { weeks, share: weeks.at(-1)!.easyShare, priorShare: prior.all > 0 ? prior.easy / prior.all : null };
 }
+
+// ---------- Weight ----------
+
+const WEIGHT_WEEKS = 8;
+
+/** The week's weight: the 7-day average at its last day against the end of the week before
+ * (down is good: the goal is losing), with the last 8 weeks' ends as the sparkline. */
+export function weekWeightCard(data: Pick<DashboardData, "weightTrend">, week: ProgressWeek): KpiValue | null {
+  const at = (date: LocalDate) => [...data.weightTrend].reverse().find((r) => r.local_date <= date) ?? null;
+  const now = at(week.through);
+  if (!now || now.local_date < week.monday) return null;
+  const before = at(addDays(week.monday, -1));
+  const delta = before ? Math.round((now.avg7_lb - before.avg7_lb) * 10) / 10 : undefined;
+  const points = Array.from({ length: WEIGHT_WEEKS }, (_, i) => {
+    const end = i === WEIGHT_WEEKS - 1 ? week.through : addDays(week.monday, -1 - 7 * (WEIGHT_WEEKS - 2 - i));
+    const row = at(end);
+    return row ? [{ date: end, value: row.avg7_lb, text: `${row.avg7_lb.toFixed(1)} lb`, title: fmtPointTitle(mondayOf(end), true) }] : [];
+  }).flat();
+  return {
+    value: Math.round(now.avg7_lb * 10) / 10,
+    unit: "lb",
+    delta,
+    deltaUnit: "lb",
+    tone: delta === undefined ? "neutral" : delta < 0 ? "good" : delta > 0.5 ? "warn" : "neutral",
+    sub: before ? `7-day average, vs ${before.avg7_lb.toFixed(1)} at the end of last week` : "7-day average",
+    points,
+  };
+}

@@ -15,7 +15,7 @@ export const maxDuration = 180;
  * The morning job, called by Vercel Cron (vercel.json) after the athlete has woken: imports
  * today's sleep, recovery, weigh-in and fitness age from the Personal API (the 1 AM nightly
  * run is too early for last night's sleep), then writes the AI summaries, one per tab, the
- * Progress tab's weekly review (the week so far; on Monday, last week's final one), and one for
+ * Training tab's weekly review (the week so far; on Monday, last week's final one), and one for
  * each of yesterday's and today's activities. Readiness comes
  * from the unofficial import, scheduled shortly before this (.github/workflows/garmin-unofficial.yml).
  *

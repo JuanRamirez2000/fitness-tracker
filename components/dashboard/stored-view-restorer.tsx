@@ -37,11 +37,9 @@ export function StoredViewRestorer({
     const nextRange: UrlRange = range ?? { key: storedRange ?? rangeKey };
     const nextTab = storedTab ?? tab;
     if (nextRange.key === rangeKey && nextTab === tab) return;
-    const params = new URLSearchParams(rangeToSearchParams(nextRange, nextTab, sport));
-    // Progress's week isn't part of the stored view; keep the URL's.
+    // The picked week isn't part of the stored view; keep the URL's.
     const week = new URLSearchParams(window.location.search).get("week");
-    if (week && nextTab === "progress") params.set("week", week);
-    router.replace(`${pathname}?${params}`);
+    router.replace(`${pathname}?${rangeToSearchParams(nextRange, nextTab, sport, week)}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
   }, []);
 

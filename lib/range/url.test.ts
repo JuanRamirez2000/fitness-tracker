@@ -57,7 +57,8 @@ describe("rangeToSearchParams", () => {
 
 describe("parseTabParam", () => {
   it("reads each known tab", () => {
-    expect(parseTabParam("today")).toBe("today");
+    expect(parseTabParam("today")).toBe("training");
+    expect(parseTabParam("progress")).toBe("training");
     expect(parseTabParam("weight")).toBe("weight");
     expect(parseTabParam("training")).toBe("training");
   });
@@ -71,11 +72,12 @@ describe("parseTabParam", () => {
 
 describe("rangeToSearchParams with a tab", () => {
   it("keeps a non-default tab when the range changes", () => {
-    expect(rangeToSearchParams({ key: "year" }, "training")).toBe("range=year&tab=training");
+    expect(rangeToSearchParams({ key: "year" }, "weight")).toBe("range=year&tab=weight");
   });
 
-  it("leaves the default tab out", () => {
-    expect(rangeToSearchParams({ key: "year" }, "today")).toBe("range=year");
+  it("leaves the default tab out, and keeps Training's sport and picked week", () => {
+    expect(rangeToSearchParams({ key: "year" }, "training")).toBe("range=year");
+    expect(rangeToSearchParams({ key: "year" }, "training", "run", "2026-11-09")).toBe("range=year&sport=run&week=2026-11-09");
   });
 });
 
@@ -92,6 +94,6 @@ describe("tabToSearchParams", () => {
   });
 
   it("always names the tab, even the default, so the link is explicit", () => {
-    expect(tabToSearchParams("today", { key: "week" })).toBe("range=week&tab=today");
+    expect(tabToSearchParams("training", { key: "week" })).toBe("range=week&tab=training");
   });
 });

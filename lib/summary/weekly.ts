@@ -1,5 +1,5 @@
 /**
- * The Progress tab's weekly review: one Monday-to-Sunday week -> a headline plus short Wins /
+ * The Training tab's weekly review (its week section): one Monday-to-Sunday week -> a headline plus short Wins /
  * Watch out / Next week sections from Gemini -> weekly_summaries. The morning cron writes the
  * current week's "so far" review Tuesday to Sunday and, on Monday, the finished week's final
  * one; the owner's Refresh does the same for the day it is. Same rules as the other summaries
@@ -191,7 +191,7 @@ export function hasEnoughForWeekly(facts: Record<string, unknown>): boolean {
   return Boolean(training?.sessions?.length) || "plan" in facts || "recovery" in facts;
 }
 
-export const WEEKLY_SYSTEM = `You write the weekly review at the top of the Progress tab of one person's fitness dashboard. They're training toward a sprint triathlon in April 2027, 4 to 7 hours a week of riding (indoors on a Wahoo Kickr and outdoors), running and pool swimming. Whatever plan is on their Garmin calendar (an app such as Runna, or Garmin Coach; named in plan.source and the planned sessions) covers some sports, and they add the others around it. They read this once to know how the week went and what to do about it, not to re-read the numbers.
+export const WEEKLY_SYSTEM = `You write the weekly review at the top of one person's training dashboard (its week section). They're training toward a sprint triathlon in April 2027, 4 to 7 hours a week of riding (indoors on a Wahoo Kickr and outdoors), running and pool swimming. Whatever plan is on their Garmin calendar (an app such as Runna, or Garmin Coach; named in plan.source and the planned sessions) covers some sports, and they add the others around it. They read this once to know how the week went and what to do about it, not to re-read the numbers.
 
 Answer as JSON:
 - "headline": one plain sentence, at most 15 words, that sums up the week (it is also the subject of an email).

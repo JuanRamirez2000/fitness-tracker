@@ -6,8 +6,6 @@ import { TabSkeleton } from "@/components/dashboard/skeletons";
 import { NavStatusProvider, TabBodyFrame } from "@/components/dashboard/nav-status";
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
 import { SummaryStatusProvider } from "@/components/dashboard/summary-status";
-import { TodayTab } from "@/components/tabs/today-tab";
-import { ProgressTab } from "@/components/tabs/progress-tab";
 import { TrainingTab } from "@/components/tabs/training-tab";
 import { WeightTab } from "@/components/tabs/weight-tab";
 import { getRole } from "@/lib/auth/session";
@@ -19,7 +17,7 @@ import { parseRangeParams, parseTabParam, type UrlRange } from "@/lib/range/url"
 import { parseSportParam } from "@/lib/sport";
 
 // "The last-used range is remembered in localStorage and used when the URL has none.
-// Default: month." The same goes for the tab (default: Daily feel). StoredViewRestorer
+// Default: month." The same goes for the tab (default: Training). StoredViewRestorer
 // applies the localStorage part client-side after mount.
 const DEFAULT_RANGE_KEY = "month" as const;
 
@@ -106,10 +104,8 @@ async function TabBody({ data: pending, canEdit, urlRange }: { data: Promise<Das
   const data = await pending;
   return (
     <>
-      {data.tab === "today" && <TodayTab data={data} />}
       {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
       {data.tab === "training" && <TrainingTab data={data} urlRange={urlRange} canEdit={canEdit} />}
-      {data.tab === "progress" && <ProgressTab data={data} urlRange={urlRange} />}
     </>
   );
 }

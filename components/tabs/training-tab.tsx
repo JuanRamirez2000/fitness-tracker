@@ -1,49 +1,69 @@
 import type { ReactNode } from "react";
 import { BestEffortsCard } from "@/components/charts/best-efforts-card";
+import { BodyBatteryChart } from "@/components/charts/body-battery-chart";
 import { BrickCard } from "@/components/charts/brick-card";
-import { EngineTrendChart } from "@/components/charts/engine-trend-chart";
 import { FitnessChart } from "@/components/charts/fitness-chart";
 import { LoadFocusCard } from "@/components/charts/load-focus-card";
+import { MoodChart } from "@/components/charts/mood-chart";
 import { PowerCurveCard } from "@/components/charts/power-curve-card";
 import { PowerZonesCard } from "@/components/charts/power-zones-card";
 import { RaceChart } from "@/components/charts/race-chart";
 import { RideEfficiencyChart } from "@/components/charts/ride-efficiency-chart";
 import { RunEfficiencyChart } from "@/components/charts/run-efficiency-chart";
-import { SessionCostChart } from "@/components/charts/session-cost-chart";
 import { SessionMixCard } from "@/components/charts/session-mix-card";
+import { SleepChart } from "@/components/charts/sleep-chart";
 import { TrainingLoadChart } from "@/components/charts/training-load-chart";
 import { WeeklyVolumeChart } from "@/components/charts/weekly-volume-chart";
 import { ZonesChart } from "@/components/charts/zones-chart";
 import { ActivitiesTable } from "@/components/dashboard/activities-table";
+import { KpiCard } from "@/components/dashboard/kpi-card";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
-import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
+import { CardGrid, Cell, Section, SectionHeading, SectionHeadingRow } from "@/components/dashboard/layout";
+import { QuickLook } from "@/components/dashboard/quick-look";
+import { RangeControl } from "@/components/dashboard/range-control";
 import { SportSwitch } from "@/components/dashboard/sport-switch";
 import { SportToggle } from "@/components/dashboard/sport-toggle";
+import { WeekPicker } from "@/components/dashboard/week-picker";
 import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
-import { DailySummary } from "@/components/today/daily-summary";
-import { SportBadge } from "@/components/ui/sport-badge";
-import { WeekPlanner } from "@/components/workouts/week-planner";
+import { InsightCard, ShowTheNumbers } from "@/components/insights/insight-card";
+import { HoursChart } from "@/components/progress/hours-chart";
+import { IntensityCard } from "@/components/progress/intensity-card";
+import { MoodCard } from "@/components/progress/mood-card";
+import { PlanCard } from "@/components/progress/plan-card";
 import { PlanProgressCard } from "@/components/progress/plan-progress-card";
 import { RampNotice } from "@/components/progress/ramp-notice";
-import { planProgress } from "@/lib/progress/plans";
-import { buildRecords } from "@/lib/progress/records";
 import { RecordsCard } from "@/components/progress/records-card";
-import { runRamp } from "@/lib/running/ramp";
-import { TRAINING_KPIS } from "@/dashboard.config";
+import { RecoveryCard } from "@/components/progress/recovery-card";
+import { WeeklyReview } from "@/components/progress/weekly-review";
+import { DailySummary } from "@/components/today/daily-summary";
+import { TodayHero } from "@/components/today/today-hero";
+import { SportBadge } from "@/components/ui/sport-badge";
+import { WeekPlanner } from "@/components/workouts/week-planner";
+import { RECOVERY_KPIS, TRAINING_KPIS } from "@/dashboard.config";
 import { sportsInRange } from "@/lib/charts/all-sports";
 import { buildBricks } from "@/lib/charts/bricks";
-import type { DashboardData } from "@/lib/dashboard/types";
+import type { DashboardData, KpiValue } from "@/lib/dashboard/types";
+import { buildDailyInsights } from "@/lib/insights/daily";
+import { hoursBySport, intensitySplit, loadCard, planVsDone, readinessCard, weekMood, weekRecovery, weekWeightCard } from "@/lib/progress/build";
+import { planProgress } from "@/lib/progress/plans";
+import { buildRecords } from "@/lib/progress/records";
+import { progressWeek, type ProgressWeek } from "@/lib/progress/week";
 import type { UrlRange } from "@/lib/range/url";
+import { runRamp } from "@/lib/running/ramp";
 import { SPORT_NOUN, SPORT_STYLE, sportsIn, type ActiveSport, type SportFilter } from "@/lib/sport";
 
+const signed = (n: number, unit = "") => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}${unit}`;
+
 /**
- * Training under the All | Ride | Run (| Swim) filter. A Shared section first (the cards every
- * sport feeds), then one section per sport. Under All, each shared card carries its own sport
- * switch and every sport with activities gets its section; under one sport, the shared cards are
- * locked to it and only its section follows. Sections come from SPORT_SECTIONS, so a new sport
- * is one more entry there.
+ * The one training dashboard (docs/plan-layout.md): the quick-look strip, then the picked week
+ * (`?week=`: the review, the plans, plan vs done, records, recovery, mood and weight), what's
+ * next (the summary and the planner), today's recovery, and then everything the range control
+ * drives: fitness under the All | Ride | Run (| Swim) filter, one section per sport, and the log.
+ * Under All, each shared card carries its own sport switch; under one sport, the shared cards
+ * are locked to it and only its section follows.
  */
 export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; urlRange: UrlRange | null; canEdit: boolean }) {
+  const week = progressWeek(data.week, data.today);
   // The filter offers sports trained since the program began (old swims from before it stay out).
   const filterSports = sportsIn(data.activities.filter((a) => a.local_date >= data.programStart));
   const rangeSports = sportsInRange(data);
@@ -51,46 +71,42 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
   const share = (render: (d: DashboardData) => ReactNode) => <Shared data={data} sports={rangeSports} render={render} />;
   // Ride-then-run sessions: hidden until the first brick, and under the swim filter.
   const bricks = data.sport === "swim" ? null : buildBricks(data);
-  // The plans on the Garmin calendar, under the filter's sport; a run plan's card carries the
-  // mileage check, so the notice shows only without one.
-  const plans = planProgress(data, data.today).filter((p) => data.sport === "all" || p.sport === data.sport);
-  const ramp = data.sport === "all" || data.sport === "run" ? runRamp(data.activities, data.today) : null;
-  const showRamp = ramp?.warn && !plans.some((p) => p.sport === "run");
+  const weekParam = week.current ? null : week.monday;
+  let n = 0;
+  const next = () => String(++n).padStart(2, "0");
 
   return (
     <>
-      <DailySummary data={data} />
-      {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
-      {plans.length > 0 && (
-        <CardGrid>
-          {plans.map((p) => (
-            <Cell key={p.key} span={12}>
-              <PlanProgressCard plan={p} />
-            </Cell>
-          ))}
-        </CardGrid>
-      )}
-      {showRamp && ramp && <RampNotice ramp={ramp} />}
-      <SportToggle current={data.sport} range={urlRange} sports={filterSports} />
-      <KpiCards data={data} ids={TRAINING_KPIS[data.sport]} />
-      <Section>
-        <SectionHeading n="01">{data.sport === "all" ? "Am I getting fitter overall?" : "Am I getting fitter?"}</SectionHeading>
+      <QuickLook data={data} />
+      <WeekSection data={data} week={week} urlRange={urlRange} n={next()} />
+
+      <Section id="next">
+        <SectionHeading n={next()}>What&apos;s next?</SectionHeading>
+        <DailySummary data={data} />
+        {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
+      </Section>
+
+      <RecoverySection data={data} n={next()} />
+
+      <Section id="fitness">
+        <SectionHeadingRow
+          n={next()}
+          control={<RangeControl current={data.dateRange} tab="training" sport={data.sport} today={data.today} />}
+        >
+          {data.sport === "all" ? "Am I getting fitter overall?" : "Am I getting fitter?"}
+        </SectionHeadingRow>
+        <SportToggle current={data.sport} range={urlRange} sports={filterSports} week={weekParam} />
+        <KpiCards data={data} ids={TRAINING_KPIS[data.sport]} />
         <CardGrid>
           <Cell span={12}>
             <WeeklyVolumeChart data={data} />
           </Cell>
           <Cell span={6}>{share((d) => <FitnessChart data={d} />)}</Cell>
-          <Cell span={6}>
-            <EngineTrendChart data={data} />
-          </Cell>
           <Cell span={6}>{share((d) => <TrainingLoadChart data={d} />)}</Cell>
           <Cell span={6}>
             <LoadFocusCard data={data} />
           </Cell>
           <Cell span={6}>{share((d) => <ZonesChart data={d} />)}</Cell>
-          <Cell span={6}>
-            <SessionCostChart data={data} />
-          </Cell>
           <Cell span={12}>
             <SessionMixCard data={data} />
           </Cell>
@@ -100,19 +116,24 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
             </Cell>
           )}
           <Cell span={12}>
-            <ActivityHeatmap data={data} />
-          </Cell>
-          <Cell span={12}>
-            <RecordsFeed data={data} />
-          </Cell>
-          <Cell span={12}>
-            <ActivitiesTable data={data} />
+            <BodyBatteryChart data={data} />
           </Cell>
         </CardGrid>
+        <ShowTheNumbers label="Sleep and mood over the range">
+          <CardGrid>
+            <Cell span={12}>
+              <SleepChart data={data} />
+            </Cell>
+            <Cell span={12}>
+              <MoodChart data={data} />
+            </Cell>
+          </CardGrid>
+        </ShowTheNumbers>
       </Section>
-      {sections.map((sport, i) => (
+
+      {sections.map((sport) => (
         <Section key={sport}>
-          <SectionHeading n={String(i + 2).padStart(2, "0")}>
+          <SectionHeading n={next()}>
             <span className="inline-flex flex-wrap items-center gap-3">
               {SPORT_SECTIONS[sport].title}
               <SportBadge sport={sport} className="align-middle" />
@@ -129,8 +150,131 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
           </CardGrid>
         </Section>
       ))}
+
+      <Section id="log">
+        <SectionHeading n={next()}>What did I do?</SectionHeading>
+        <CardGrid>
+          <Cell span={12}>
+            <ActivityHeatmap data={data} />
+          </Cell>
+          <Cell span={12}>
+            <RecordsFeed data={data} />
+          </Cell>
+          <Cell span={12}>
+            <ActivitiesTable data={data} />
+          </Cell>
+        </CardGrid>
+      </Section>
     </>
   );
+}
+
+/** The picked week: its review, how much and how it went, the plans, the plan against what was
+ * done, records, the mornings and the mood, weight, and the hours and intensity behind it. */
+function WeekSection({ data, week, urlRange, n }: { data: DashboardData; week: ProgressWeek; urlRange: UrlRange | null; n: string }) {
+  const load = loadCard(data.activities, week);
+  const readiness = readinessCard(data, week);
+  const weight = weekWeightCard(data, week);
+  const plans = planProgress(data, week.through);
+  // A run plan's card carries the mileage check; without one it stands alone (this week only).
+  const ramp = week.current ? runRamp(data.activities, data.today) : null;
+  const records = buildRecords(data).filter((r) => r.date <= week.sunday);
+  const weekRecords = records.filter((r) => r.date >= week.monday);
+  return (
+    <Section id="week">
+      <SectionHeadingRow
+        n={n}
+        control={<WeekPicker week={data.week} today={data.today} programStart={data.programStart} range={urlRange} sport={data.sport} />}
+      >
+        {week.current ? "How's my week going?" : "How did that week go?"}
+      </SectionHeadingRow>
+      <WeeklyReview summary={data.weeklySummary} week={week} timezone={data.profile.timezone} range={urlRange} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard
+          label={week.current ? "Load so far" : "Training load"}
+          visual="sparkline"
+          value={load}
+          formatted={{ primary: String(load.value), delta: load.delta === undefined ? undefined : signed(load.delta, "%"), tone: load.tone }}
+        />
+        <KpiCard
+          label="Readiness and mood"
+          visual="sparkline"
+          emptyMessage="No readiness this week yet"
+          value={readiness}
+          formatted={readiness && fmt(readiness, readiness.delta === undefined ? undefined : `${signed(readiness.delta)} vs last week`)}
+        />
+        <KpiCard
+          label="Weight this week"
+          visual="sparkline"
+          emptyMessage="No weigh-in this week yet"
+          value={weight}
+          formatted={weight && fmt(weight, weight.delta === undefined ? undefined : `${signed(weight.delta, " lb")}`)}
+        />
+      </div>
+      <CardGrid>
+        {plans.map((p) => (
+          <Cell key={p.key} span={12}>
+            <PlanProgressCard plan={p} />
+          </Cell>
+        ))}
+        {ramp?.warn && !plans.some((p) => p.sport === "run") && (
+          <Cell span={12}>
+            <RampNotice ramp={ramp} />
+          </Cell>
+        )}
+        <Cell span={12}>
+          <PlanCard plan={planVsDone(data, week)} week={week} />
+        </Cell>
+        <Cell span={12}>
+          <RecordsCard
+            title={week.current ? "Records this week" : "Records that week"}
+            subtitle="Personal bests and milestones set in the week"
+            records={weekRecords}
+            latest={records[0] ?? null}
+            empty={week.current ? "No new records this week." : "No records that week."}
+          />
+        </Cell>
+        <Cell span={6}>
+          <RecoveryCard recovery={weekRecovery(data, week)} week={week} />
+        </Cell>
+        <Cell span={6}>
+          <MoodCard mood={weekMood(data, week)} week={week} />
+        </Cell>
+        <Cell span={12}>
+          <HoursChart hours={hoursBySport(data, week)} />
+        </Cell>
+        <Cell span={12}>
+          <IntensityCard split={intensitySplit(data, week)} />
+        </Cell>
+      </CardGrid>
+    </Section>
+  );
+}
+
+/** Today's readiness and what drove it, what each signal means (the insight cards), and sleep
+ * and steps. */
+function RecoverySection({ data, n }: { data: DashboardData; n: string }) {
+  const insights = buildDailyInsights(data);
+  return (
+    <Section id="recovery">
+      <SectionHeading n={n}>How am I recovering today?</SectionHeading>
+      <TodayHero data={data} />
+      {insights.length > 0 && (
+        <CardGrid>
+          {insights.map((insight) => (
+            <Cell key={insight.id} span={6}>
+              <InsightCard insight={insight} />
+            </Cell>
+          ))}
+        </CardGrid>
+      )}
+      <KpiCards data={data} ids={RECOVERY_KPIS} columns={3} />
+    </Section>
+  );
+}
+
+function fmt(value: KpiValue, delta: string | undefined) {
+  return { primary: String(value.value), delta, tone: value.tone };
 }
 
 /**

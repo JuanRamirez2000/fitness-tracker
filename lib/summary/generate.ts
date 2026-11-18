@@ -1,7 +1,8 @@
 /**
  * The AI summaries, one per dashboard tab: each tab's rows -> 4 sentences from Gemini (plus the
- * Training tab's "Next up" sessions) (Google's free API tier) -> daily_summaries. Daily feel (lib/summary/prompt.ts), Weight
- * (weight.ts) and Training (training.ts) each have their own facts and instructions. Run once
+ * Training tab's "Next up" sessions) (Google's free API tier) -> daily_summaries. Weight
+ * (weight.ts) and Training (training.ts) each have their own facts and instructions (the old
+ * Daily feel summary, lib/summary/prompt.ts, left with its tab in the 2026-11-17 layout). Run once
  * each morning by the summary cron (app/api/summary/cron/route.ts) after that morning's import,
  * again after each press of the owner's Refresh button (app/api/summary/refresh/route.ts), or by
  * hand (`npm run summary:generate`). Never per page view.
@@ -24,7 +25,7 @@ import { weightTrendRowSchema } from "../data/weight-trend";
 import { addDays, type LocalDate } from "../dates/calendar";
 import { todayIn } from "../dates/timezone";
 import { db } from "../db";
-import { SUMMARY_SYSTEM, hasEnoughForSummary, summaryFacts, summaryUserMessage } from "./prompt";
+import { summaryUserMessage } from "./prompt";
 import { TRAINING_SYSTEM, hasEnoughForTrainingSummary, trainingFacts } from "./training";
 import { WEIGHT_SYSTEM, hasEnoughForWeightSummary, weightFacts } from "./weight";
 
@@ -191,16 +192,10 @@ export function parseTrainingAnswer(text: string): { text: string; nextSessions:
   }
 }
 
-/** The tabs with a daily summary. Progress gets a weekly review instead (lib/summary/weekly.ts, to come). */
-export type SummaryTab = Exclude<TabKey, "progress">;
+/** The tabs with a daily summary (the Training tab's weekly review is lib/summary/weekly.ts). */
+export type SummaryTab = TabKey;
 
 const TABS: Record<SummaryTab, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string; schema?: Record<string, unknown> }> = {
-  today: {
-    system: SUMMARY_SYSTEM,
-    facts: (rows, _profile, today) => summaryFacts({ today, ...rows }),
-    enough: hasEnoughForSummary,
-    missing: "no readiness or sleep for today yet",
-  },
   weight: {
     system: WEIGHT_SYSTEM,
     facts: (rows, profile, today) => weightFacts({ today, profile, weightTrend: rows.weightTrend, bodyComposition: rows.bodyComposition }),

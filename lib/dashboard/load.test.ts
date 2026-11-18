@@ -22,16 +22,12 @@ describe("resolveProgramStart", () => {
 });
 
 describe("tabNeeds", () => {
-  it("loads weigh-ins, activities (run ticks) and training (Garmin's FTP, for watts per kilo) for the weight tab, not steps", () => {
-    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: false, bodyComposition: true, training: true });
+  it("loads weigh-ins and body composition for the weight tab, plus what its quick-look strip reads", () => {
+    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: true, bodyComposition: true, training: true });
   });
 
-  it("loads activities and steps for the training tab, not weigh-ins", () => {
-    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: false, bodyComposition: false, training: true });
-  });
-
-  it("loads recovery, sleep and steps (the Steps card) for the daily feel tab", () => {
-    expect(tabNeeds("today")).toEqual({ activities: false, steps: true, weighIns: false, recovery: true, bodyComposition: false, training: false });
+  it("loads everything but weigh-ins for the training tab (it holds recovery and the week too)", () => {
+    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: true, bodyComposition: false, training: true });
   });
 });
 

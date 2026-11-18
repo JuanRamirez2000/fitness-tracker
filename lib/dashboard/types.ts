@@ -20,16 +20,25 @@ import type { PlannerData } from "@/lib/workouts/service";
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
 
-/** The dashboard's tabs, in display order (`?tab=`). The first is the default. */
-export const TAB_KEYS = ["today", "weight", "training", "progress"] as const;
+/** The dashboard's tabs, in display order (`?tab=`). The first is the default. Training holds
+ * what used to be the Daily feel and Progress tabs too (docs/plan-layout.md); their old keys
+ * open it (LEGACY_TABS). */
+export const TAB_KEYS = ["training", "weight"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
-export const DEFAULT_TAB: TabKey = "today";
+export const DEFAULT_TAB: TabKey = "training";
 export const TAB_LABELS: Record<TabKey, string> = {
-  today: "Daily feel",
-  weight: "Weight",
   training: "Training",
-  progress: "Progress",
+  weight: "Weight",
 };
+/** Tabs that were merged away, and the tab that holds them now (old links and saved views). */
+export const LEGACY_TABS: Record<string, TabKey> = { today: "training", progress: "training" };
+
+/** `?tab=` or a saved tab -> a tab, or null when it's none (old keys map to where they went). */
+export function toTabKey(value: string | null | undefined): TabKey | null {
+  if (!value) return null;
+  if ((TAB_KEYS as readonly string[]).includes(value)) return value as TabKey;
+  return LEGACY_TABS[value] ?? null;
+}
 
 /** The window that drives the charts and the table. Both ends are inclusive local dates. */
 export interface DateRange extends DayWindow {

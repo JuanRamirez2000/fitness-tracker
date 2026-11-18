@@ -32,7 +32,9 @@ export function RangeControl({ current, tab, sport, today }: { current: DateRang
   const shown = pendingRange ?? current.key;
 
   function navigate(range: { key: RangeKey; custom?: { from: string; to: string } }) {
-    startRange(range.key, () => router.push(`${pathname}?${rangeToSearchParams(range, tab, sport)}`));
+    // A picked week rides along; the page stays where it is (the control sits mid-page on Training).
+    const week = new URLSearchParams(window.location.search).get("week");
+    startRange(range.key, () => router.push(`${pathname}?${rangeToSearchParams(range, tab, sport, week)}`, { scroll: false }));
   }
 
   function selectPreset(key: Exclude<RangeKey, "custom">) {
