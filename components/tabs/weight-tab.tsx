@@ -1,30 +1,50 @@
 import { GoalProjectionChart } from "@/components/charts/goal-projection-chart";
 import { WeeklyLossChart } from "@/components/charts/weekly-loss-chart";
-import { TAB_KPIS } from "@/dashboard.config";
 import { WeightTrendChart } from "@/components/charts/weight-trend-chart";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
-import { QuickLook } from "@/components/dashboard/quick-look";
-import { InsightCard } from "@/components/insights/insight-card";
-import { DailySummary } from "@/components/today/daily-summary";
-import { CardGrid, Cell, Section, SectionHeading } from "@/components/dashboard/layout";
+import { CardGrid, Cell, Section, SectionHeading, SectionHeadingRow } from "@/components/dashboard/layout";
+import { RangeControl } from "@/components/dashboard/range-control";
+import { WeekSoFar } from "@/components/dashboard/week-so-far";
 import { WeighInTable } from "@/components/dashboard/weigh-in-table";
 import { WeightHeatmap } from "@/components/heatmap/heatmaps";
+import { InsightCard } from "@/components/insights/insight-card";
+import { DailySummary } from "@/components/today/daily-summary";
+import { FocusCarousel, type FocusSlide } from "@/components/ui/focus-carousel";
+import { TAB_KPIS } from "@/dashboard.config";
+import { weightTiles } from "@/lib/dashboard/week-so-far";
 import type { DashboardData } from "@/lib/dashboard/types";
+import { addDays } from "@/lib/dates/calendar";
 import { buildWeightInsights } from "@/lib/insights/weight";
+import { progressWeek } from "@/lib/progress/week";
 
-/** Weight, in three sections the "On this page" list names: where things stand today (the
- * summary, the cards, what the pace and the muscle mean), whether the weight is coming off the
- * right way (trend, projection, weekly loss), and what was logged (the calendar, the weigh-in
- * log). The quick-look strip above. */
+/** The swipeable trend charts show this many weeks to the picked week's end, whatever the range. */
+const TREND_WEEKS = 12;
+
+/**
+ * Weight: is it coming off the right way? The week so far (7-day average, weigh-ins, rate
+ * against plan, progress to goal), then the trend, projection and weekly loss over the last 12
+ * weeks to swipe through, then where things stand (the summary, the cards, what the pace and
+ * the muscle mean) and what was logged, driven by the range control.
+ */
 export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
+  const week = progressWeek(data.week, data.today);
+  const trendData: DashboardData = { ...data, dateRange: { key: "custom", from: addDays(week.sunday, -7 * TREND_WEEKS + 1), to: week.sunday } };
   const insights = buildWeightInsights(data);
+  const slides: FocusSlide[] = [
+    { key: "trend", title: "Trend", node: <WeightTrendChart data={trendData} /> },
+    { key: "projection", title: "Projection", node: <GoalProjectionChart data={trendData} /> },
+    { key: "loss", title: "Weekly loss", node: <WeeklyLossChart data={trendData} /> },
+  ];
   return (
     <>
-      <QuickLook data={data} />
+      <WeekSoFar week={week} tiles={weightTiles(data, week)} />
+      <FocusCarousel slides={slides} />
       <Section id="today-weight">
-        <SectionHeading n="01">Where am I today?</SectionHeading>
+        <SectionHeadingRow n="01" control={<RangeControl current={data.dateRange} tab="weight" sport="all" today={data.today} />}>
+          Where am I today?
+        </SectionHeadingRow>
         <DailySummary data={data} />
-        <KpiCards data={data} ids={TAB_KPIS.weight} />
+        <KpiCards data={data} ids={TAB_KPIS.weight ?? []} />
         {insights.length > 0 && (
           <CardGrid>
             {insights.map((insight) => (
@@ -35,22 +55,8 @@ export function WeightTab({ data, canEdit }: { data: DashboardData; canEdit: boo
           </CardGrid>
         )}
       </Section>
-      <Section id="trend">
-        <SectionHeading n="02">Is the weight coming off the right way?</SectionHeading>
-        <CardGrid>
-          <Cell span={12}>
-            <WeightTrendChart data={data} />
-          </Cell>
-          <Cell span={6}>
-            <GoalProjectionChart data={data} />
-          </Cell>
-          <Cell span={6}>
-            <WeeklyLossChart data={data} />
-          </Cell>
-        </CardGrid>
-      </Section>
       <Section id="weigh-ins">
-        <SectionHeading n="03">What did I log?</SectionHeading>
+        <SectionHeading n="02">What did I log?</SectionHeading>
         <CardGrid>
           <Cell span={12}>
             <WeightHeatmap data={data} />

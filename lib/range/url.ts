@@ -40,8 +40,8 @@ export function parseRangeParams(params: RangeSearchParams): UrlRange | null {
 }
 
 /** The query string RangeControl pushes when the user picks a range (no leading "?"). A tab
- * (and, on Training, a sport and a picked week) other than the default rides along, so changing
- * the range never changes them. */
+ * other than the default, and a picked week, ride along, so changing the range never changes
+ * them. (`sport` stays for old links; no tab filters by sport any more.) */
 export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, sport: SportFilter = DEFAULT_SPORT, week: string | null = null): string {
   const params = new URLSearchParams({ range: range.key });
   if (range.key === "custom" && range.custom) {
@@ -50,18 +50,20 @@ export function rangeToSearchParams(range: UrlRange, tab: TabKey = DEFAULT_TAB, 
   }
   if (tab !== DEFAULT_TAB) params.set("tab", tab);
   if (tab === "training" && sport !== DEFAULT_SPORT) params.set("sport", sport);
-  if (tab === "training" && week) params.set("week", week);
+  if (week) params.set("week", week);
   return params.toString();
 }
 
 /**
  * The query string for a tab link. The range rides along only when the URL already named one
  * (`range` non-null): on a bare URL the range is still "whatever localStorage says", and
- * pinning the server's fallback here would override it.
+ * pinning the server's fallback here would override it. A picked week rides along too: one week
+ * for every tab.
  */
-export function tabToSearchParams(tab: TabKey, range: UrlRange | null): string {
+export function tabToSearchParams(tab: TabKey, range: UrlRange | null, week: string | null = null): string {
   const params = new URLSearchParams(range ? rangeToSearchParams(range) : "");
   params.set("tab", tab);
+  if (week) params.set("week", week);
   return params.toString();
 }
 
@@ -75,8 +77,8 @@ export function sportToSearchParams(sport: SportFilter, range: UrlRange | null, 
   return params.toString();
 }
 
-/** The query string for the Training tab's week picker: the week's Monday (none for the current
- * week), with the range and the sport riding along. */
-export function weekToSearchParams(week: string | null, range: UrlRange | null, sport: SportFilter = DEFAULT_SPORT): string {
-  return sportToSearchParams(sport, range, week);
+/** The query string for the header's week picker: the week's Monday (none for the current
+ * week), on the same tab, with the range riding along. */
+export function weekToSearchParams(week: string | null, range: UrlRange | null, tab: TabKey = DEFAULT_TAB): string {
+  return tabToSearchParams(tab, range, week);
 }

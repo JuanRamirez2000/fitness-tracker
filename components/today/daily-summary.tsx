@@ -5,7 +5,8 @@ import { addDays } from "@/lib/dates/calendar";
 import { fmtDate } from "@/lib/dates/format";
 import { clockTimeIn } from "@/lib/dates/timezone";
 
-const LABEL = { today: "Daily summary", weight: "Weight summary", training: "Training summary", progress: "Weekly review" } as const;
+/** The summary's own label, by its stored tab key ("training" shows on Home). */
+const LABEL: Record<string, string> = { today: "Daily summary", weight: "Weight summary", training: "Training summary", progress: "Weekly review" };
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** "Today", "Tomorrow" or "Fri, Nov 14". */
@@ -42,7 +43,7 @@ function NextUp({ sessions, today }: { sessions: NextSession[]; today: string })
  * nothing when none was written today, and a skeleton while the Refresh button is rewriting it. */
 export function DailySummary({ data }: { data: DashboardData }) {
   return (
-    <SummaryWriting label={LABEL[data.tab]}>
+    <SummaryWriting label={data.tab === "weight" ? LABEL.weight : LABEL.training}>
       {data.summary && (
         <div className="flex flex-col gap-2">
           <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">

@@ -20,18 +20,21 @@ import type { PlannerData } from "@/lib/workouts/service";
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
 
-/** The dashboard's tabs, in display order (`?tab=`). The first is the default. Training holds
- * what used to be the Daily feel and Progress tabs too (docs/plan-layout.md); their old keys
- * open it (LEGACY_TABS). */
-export const TAB_KEYS = ["training", "weight"] as const;
+/** The dashboard's tabs, in display order (`?tab=`). The first is the default. Each opens on
+ * its own week so far, then a swipeable section, then the rest (docs/plan-training-split.md).
+ * Older keys open where their content went (LEGACY_TABS). */
+export const TAB_KEYS = ["home", "training", "recovery", "weight", "log"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
-export const DEFAULT_TAB: TabKey = "training";
+export const DEFAULT_TAB: TabKey = "home";
 export const TAB_LABELS: Record<TabKey, string> = {
+  home: "Home",
   training: "Training",
+  recovery: "Recovery",
   weight: "Weight",
+  log: "Log",
 };
-/** Tabs that were merged away, and the tab that holds them now (old links and saved views). */
-export const LEGACY_TABS: Record<string, TabKey> = { today: "training", progress: "training" };
+/** Tabs that were renamed or merged away, and the tab that holds them now (old links and saved views). */
+export const LEGACY_TABS: Record<string, TabKey> = { today: "recovery", progress: "home" };
 
 /** `?tab=` or a saved tab -> a tab, or null when it's none (old keys map to where they went). */
 export function toTabKey(value: string | null | undefined): TabKey | null {

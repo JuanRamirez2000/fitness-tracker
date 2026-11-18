@@ -22,12 +22,16 @@ describe("resolveProgramStart", () => {
 });
 
 describe("tabNeeds", () => {
-  it("loads weigh-ins and body composition for the weight tab, plus what its quick-look strip reads", () => {
-    expect(tabNeeds("weight")).toEqual({ activities: true, steps: false, weighIns: true, recovery: true, bodyComposition: true, training: true });
+  it("loads weigh-ins and body composition only for the weight tab", () => {
+    expect(tabNeeds("weight")).toMatchObject({ weighIns: true, bodyComposition: true, recovery: false, plans: false });
+    expect(tabNeeds("training")).toMatchObject({ weighIns: false, bodyComposition: false });
   });
 
-  it("loads everything but weigh-ins for the training tab (it holds recovery and the week too)", () => {
-    expect(tabNeeds("training")).toEqual({ activities: true, steps: true, weighIns: false, recovery: true, bodyComposition: false, training: true });
+  it("loads recovery and steps for Recovery and Log, plans for Home and Log, best efforts where records or the card show", () => {
+    expect(tabNeeds("recovery")).toMatchObject({ recovery: true, steps: true, training: false, plans: false });
+    expect(tabNeeds("log")).toMatchObject({ recovery: true, steps: true, plans: true, runEfforts: true });
+    expect(tabNeeds("home")).toMatchObject({ recovery: false, plans: true, runEfforts: true, training: true });
+    expect(tabNeeds("training")).toMatchObject({ recovery: false, plans: false, runEfforts: true, training: true });
   });
 });
 

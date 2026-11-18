@@ -7,6 +7,7 @@ import { loadRatio } from "@/lib/kpis/load-ratio";
 import { loggingStreak } from "@/lib/kpis/logging-streak";
 import { progressToGoal } from "@/lib/kpis/progress-to-goal";
 import { race5k } from "@/lib/kpis/race-5k";
+import { race10k } from "@/lib/kpis/race-10k";
 import { restingHr } from "@/lib/kpis/resting-hr";
 import { rideHours, rideMiles, swimHours, trainingHours } from "@/lib/kpis/ride-volume";
 import { sevenDayAverage } from "@/lib/kpis/seven-day-average";
@@ -44,6 +45,7 @@ export const KPIS: KpiDefinition[] = [
   vo2max,
   loadRatio,
   race5k,
+  race10k,
   rideMiles,
   rideHours,
   trainingHours,
@@ -54,7 +56,7 @@ export const KPIS: KpiDefinition[] = [
 
 // Which KPI cards each tab shows, by id. Each row fills six units (a wide card, span 2, takes
 // two), so keep a row's spans adding up to 6. Training's are per sport (below).
-export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = {
+export const TAB_KPIS: Partial<Record<TabKey, readonly string[]>> = {
   weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"],
 };
 
@@ -68,3 +70,10 @@ export const TRAINING_KPIS: Record<SportFilter, readonly string[]> = {
   swim: ["swim-hours", "training-hours", "load-ratio"],
   all: ["training-hours", "load-ratio", "vo2max-cycling", "vo2max", "ftp"],
 };
+
+// The Training tab's group tiles, one row each (docs/plan-training-split.md).
+export const GROUP_KPIS = {
+  run: ["race-10k", "vo2max", "easy-pace", "weekly-miles"],
+  ride: ["ftp", "vo2max-cycling", "ride-hours", "ride-miles"],
+  load: ["load-ratio", "training-hours"],
+} as const;

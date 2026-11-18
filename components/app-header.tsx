@@ -5,14 +5,17 @@ import { signOut } from "@/lib/auth/actions";
 import type { DashboardShell } from "@/lib/dashboard/types";
 import type { UrlRange } from "@/lib/range/url";
 import { GarminRefreshButton } from "./dashboard/garmin-refresh-button";
-import { RangeControl } from "./dashboard/range-control";
+import { WeekPicker } from "./dashboard/week-picker";
 import { SettingsDialog } from "./dashboard/settings-dialog";
 import { TabRow } from "./dashboard/tab-row";
 import { ThemeToggle } from "./theme-toggle";
+import { mondayOf } from "@/lib/dates/calendar";
+
+
 
 /**
- * The sticky header: brand and owner actions, Weight's range control (beside the brand at lg,
- * on its own row below that), and the tab row.
+ * The sticky header: brand and owner actions, the week picker every tab shares (beside the
+ * brand at lg, on its own row below that), and the tab row.
  */
 export function AppHeader({
   data,
@@ -36,14 +39,12 @@ export function AppHeader({
           {data.profile.display_name}
         </span>
 
-        {/* Training carries its week picker and range control in its own sections. */}
-        {data.tab === "weight" && (
-          <div className="order-last w-full min-w-0 lg:order-none lg:ml-auto lg:w-auto">
-            <RangeControl current={data.dateRange} tab={data.tab} sport={data.sport} today={data.today} />
-          </div>
-        )}
+        {/* One week for every tab; each tab's range control sits above its charts. */}
+        <div className="order-last w-full min-w-0 lg:order-none lg:ml-auto lg:w-auto">
+          <WeekPicker week={data.week} today={data.today} programStart={data.programStart} range={urlRange} tab={data.tab} />
+        </div>
 
-        <div className={`ml-auto flex items-center gap-2.5 ${data.tab === "weight" ? "lg:ml-3" : ""}`}>
+        <div className="ml-auto flex items-center gap-2.5 lg:ml-3">
           {moodButton}
           {canEdit && <GarminRefreshButton tab={data.tab} />}
           {canEdit && <SettingsDialog profile={data.profile} />}
@@ -62,7 +63,7 @@ export function AppHeader({
         </div>
       </div>
       <div className="mx-auto w-full max-w-[1200px] px-4 md:px-8 xl:max-w-[1460px]">
-        <TabRow current={data.tab} range={urlRange} />
+        <TabRow current={data.tab} range={urlRange} week={data.week < mondayOf(data.today) ? data.week : null} />
       </div>
     </header>
   );

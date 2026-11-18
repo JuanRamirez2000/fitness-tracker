@@ -13,7 +13,7 @@ import { PendingTabReporter, useNavStatus } from "./nav-status";
  * rather than wrapping; each tab is at least 44px tall. A clicked tab underlines at once, before
  * its server render is back (nav-status.tsx).
  */
-export function TabRow({ current, range }: { current: TabKey; range: UrlRange | null }) {
+export function TabRow({ current, range, week = null }: { current: TabKey; range: UrlRange | null; week?: string | null }) {
   const pathname = usePathname();
   const shown = useNavStatus().pendingTab ?? current;
   return (
@@ -23,7 +23,7 @@ export function TabRow({ current, range }: { current: TabKey; range: UrlRange | 
         return (
           <Link
             key={tab}
-            href={`${pathname}?${tabToSearchParams(tab, range)}`}
+            href={`${pathname}?${tabToSearchParams(tab, range, week)}`}
             aria-current={on ? "page" : undefined}
             onClick={() => storeTab(tab)}
             className={`flex min-h-11 shrink-0 items-center border-b-2 pt-1 font-serif text-[18px] whitespace-nowrap transition-colors ${

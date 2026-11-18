@@ -192,8 +192,9 @@ export function parseTrainingAnswer(text: string): { text: string; nextSessions:
   }
 }
 
-/** The tabs with a daily summary (the Training tab's weekly review is lib/summary/weekly.ts). */
-export type SummaryTab = TabKey;
+/** The daily summaries, by their stored key: "training" (shown on Home, with the next sessions)
+ * and "weight". The weekly review on Home is lib/summary/weekly.ts. */
+export type SummaryTab = "training" | "weight";
 
 const TABS: Record<SummaryTab, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string; schema?: Record<string, unknown> }> = {
   weight: {

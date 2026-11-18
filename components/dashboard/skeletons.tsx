@@ -40,65 +40,26 @@ export function SummarySkeleton({ label }: { label?: string }) {
   );
 }
 
-/** The KPI row: six units on a desktop, three on a tablet, two on a phone. `spans` mirrors the
- * tab's cards in dashboard.config.ts (TAB_KPIS, a wide card's span 2). */
-function KpiRowSkeleton({ spans, height }: { spans: readonly (1 | 2)[]; height: number }) {
-  return (
-    <div className="grid grid-flow-dense grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-      {spans.map((span, i) => (
-        <div
-          key={i}
-          className={`animate-pulse rounded-[10px] border border-border bg-card ${span === 2 ? "col-span-2" : ""}`}
-          style={{ height }}
-        />
-      ))}
-    </div>
-  );
-}
 
-/** The quick-look strip: a row of small cards. */
-function QuickLookSkeleton() {
-  return (
-    <div className="-mx-4 flex gap-2.5 overflow-hidden px-4 md:mx-0 md:px-0 lg:grid lg:grid-cols-6">
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className={`h-[74px] shrink-0 animate-pulse rounded-lg border border-border bg-card ${i === 2 ? "w-[240px] lg:col-span-2 lg:w-auto" : "w-[150px] lg:w-auto"}`} />
-      ))}
-    </div>
-  );
-}
-
-function WeightSkeleton() {
+/** Every tab's shape while its rows load: the week-so-far tiles, the swipeable section, the
+ * first cards of the rest. */
+function TabShapeSkeleton() {
   return (
     <>
-      <QuickLookSkeleton />
-      <SummarySkeleton />
-      <KpiRowSkeleton spans={[1, 1, 1, 1, 1, 1]} height={135} />
-      <Section>
-        <SectionHeading n="01">Am I losing fat, not muscle?</SectionHeading>
-        <CardGrid>
-          <CardBone span={12} height={383} />
-          <CardBone span={6} height={414} />
-          <CardBone span={6} height={414} />
-        </CardGrid>
-      </Section>
-    </>
-  );
-}
-
-function TrainingSkeleton() {
-  return (
-    <>
-      <QuickLookSkeleton />
-      <Section>
-        <SectionHeading n="01">How&apos;s my week going?</SectionHeading>
-        <SummarySkeleton />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[135px] animate-pulse rounded-[10px] border border-border bg-card" />
+      <div className="flex flex-col gap-2.5">
+        <div className="h-3 w-48 animate-pulse rounded bg-card" />
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-[76px] animate-pulse rounded-lg border border-border bg-card" />
           ))}
         </div>
+      </div>
+      <div className="h-[360px] animate-pulse rounded-xl border border-border bg-card" />
+      <Section>
+        <SectionHeading n="01">{" "}</SectionHeading>
         <CardGrid>
-          <CardBone span={12} height={330} />
+          <CardBone span={6} height={300} />
+          <CardBone span={6} height={300} />
         </CardGrid>
       </Section>
     </>
@@ -108,7 +69,8 @@ function TrainingSkeleton() {
 /** The active tab's body while its rows load. Only the top of the page: below the fold
  * nothing shows before the content does. */
 export function TabSkeleton({ tab }: { tab: TabKey }) {
-  return tab === "weight" ? <WeightSkeleton /> : <TrainingSkeleton />;
+  void tab;
+  return <TabShapeSkeleton />;
 }
 
 /** The sticky header before the profile is in: the brand and the real tab row, with the

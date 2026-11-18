@@ -2,20 +2,21 @@ import Link from "next/link";
 import { addDays, mondayOf, type LocalDate } from "@/lib/dates/calendar";
 import { fmtDate } from "@/lib/dates/format";
 import { weekToSearchParams, type UrlRange } from "@/lib/range/url";
-import type { SportFilter } from "@/lib/sport";
+import type { TabKey } from "@/lib/dashboard/types";
 
 const ARROW = "flex h-9 w-9 items-center justify-center rounded-lg border border-border text-[15px]";
 
 /**
- * The Training tab's `← Week of Nov 10 →`, beside the "This week" heading. Plain links (`?week=`,
- * the Monday; none for the current week), so each week is a server render that keeps the page
- * where it is; stops at the current week and at the program's first.
+ * The header's `← Week of Nov 10 →`: one week for every tab (each tab's week so far and
+ * swipeable section). Plain links (`?week=`, the Monday; none for the current week), so each
+ * week is a server render that keeps the page where it is; stops at the current week and at the
+ * program's first.
  */
-export function WeekPicker({ week, today, programStart, range, sport }: { week: LocalDate; today: LocalDate; programStart: LocalDate; range: UrlRange | null; sport: SportFilter }) {
+export function WeekPicker({ week, today, programStart, range, tab }: { week: LocalDate; today: LocalDate; programStart: LocalDate; range: UrlRange | null; tab: TabKey }) {
   const current = mondayOf(today);
   const prev = week > mondayOf(programStart) ? addDays(week, -7) : null;
   const next = week < current ? addDays(week, 7) : null;
-  const href = (w: LocalDate) => `/?${weekToSearchParams(w === current ? null : w, range, sport)}`;
+  const href = (w: LocalDate) => `/?${weekToSearchParams(w === current ? null : w, range, tab)}`;
   const label = week === current ? "This week" : week === addDays(current, -7) ? "Last week" : `Week of ${fmtDate(week)}`;
   return (
     <nav aria-label="Week" className="flex items-center gap-2">

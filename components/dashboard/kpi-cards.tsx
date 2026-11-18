@@ -7,9 +7,11 @@ import { KpiCard } from "./kpi-card";
  * (three on a tablet, two on a phone), where a wide card takes two. Dense packing backfills the
  * gap a wide card would leave at the end of a narrower row.
  */
-export function KpiCards({ data, ids, columns = 6 }: { data: DashboardData; ids: readonly string[]; columns?: 3 | 6 }) {
+const LG_COLUMNS = { 3: "", 4: "md:grid-cols-4", 6: "lg:grid-cols-6" } as const;
+
+export function KpiCards({ data, ids, columns = 6 }: { data: DashboardData; ids: readonly string[]; columns?: 3 | 4 | 6 }) {
   return (
-    <div className={`grid grid-flow-dense grid-cols-2 gap-3 md:grid-cols-3 ${columns === 6 ? "lg:grid-cols-6" : ""}`}>
+    <div className={`grid grid-flow-dense grid-cols-2 gap-3 md:grid-cols-3 ${LG_COLUMNS[columns]}`}>
       {ids.flatMap((id) => KPIS.find((k) => k.id === id) ?? []).map((kpi) => {
         const value = kpi.compute(data);
         return (
