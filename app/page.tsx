@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/app-header";
 import { MoodButton, MoodLogButton } from "@/components/mood/mood-log-button";
 import { TabSkeleton } from "@/components/dashboard/skeletons";
 import { NavStatusProvider, TabBodyFrame } from "@/components/dashboard/nav-status";
+import { PageMinimap } from "@/components/dashboard/page-minimap";
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
 import { SummaryStatusProvider } from "@/components/dashboard/summary-status";
 import { TrainingTab } from "@/components/tabs/training-tab";
@@ -91,6 +92,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             </Suspense>
           </TabBodyFrame>
         </main>
+        <PageMinimap />
         {/* Reads ?activity= on the client (useSearchParams), so opening one needs no server render. */}
         <Suspense fallback={null}>
           <ActivityModal timezone={owner.profile.timezone} />

@@ -39,6 +39,7 @@ import { DailySummary } from "@/components/today/daily-summary";
 import { TodayHero } from "@/components/today/today-hero";
 import { SportBadge } from "@/components/ui/sport-badge";
 import { WeekPlanner } from "@/components/workouts/week-planner";
+import { FocusCarousel, type FocusSlide } from "@/components/ui/focus-carousel";
 import { RECOVERY_KPIS, TRAINING_KPIS } from "@/dashboard.config";
 import { sportsInRange } from "@/lib/charts/all-sports";
 import { buildBricks } from "@/lib/charts/bricks";
@@ -86,7 +87,7 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
         {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
       </Section>
 
-      <RecoverySection data={data} n={next()} />
+      <RecoverySection data={data} n={next()} showHero={!week.current} />
 
       <Section id="fitness">
         <SectionHeadingRow
@@ -180,6 +181,27 @@ function WeekSection({ data, week, urlRange, n }: { data: DashboardData; week: P
   const ramp = week.current ? runRamp(data.activities, data.today) : null;
   const records = buildRecords(data).filter((r) => r.date <= week.sunday);
   const weekRecords = records.filter((r) => r.date >= week.monday);
+  // In focus: today's readiness (this week only), each plan, then the week's views.
+  const slides: FocusSlide[] = [
+    ...(week.current ? [{ key: "today", title: "Today", node: <TodayHero data={data} /> }] : []),
+    ...plans.map((p) => ({ key: p.key, title: p.who, node: <PlanProgressCard plan={p} /> })),
+    { key: "plan", title: "Plan vs done", node: <PlanCard plan={planVsDone(data, week)} week={week} /> },
+    {
+      key: "records",
+      title: weekRecords.length ? `Records · ${weekRecords.length}` : "Records",
+      node: (
+        <RecordsCard
+          title={week.current ? "Records this week" : "Records that week"}
+          subtitle="Personal bests and milestones set in the week"
+          records={weekRecords}
+          latest={records[0] ?? null}
+          empty={week.current ? "No new records this week." : "No records that week."}
+        />
+      ),
+    },
+    { key: "hours", title: "Hours", node: <HoursChart hours={hoursBySport(data, week)} /> },
+    { key: "intensity", title: "Easy vs hard", node: <IntensityCard split={intensitySplit(data, week)} /> },
+  ];
   return (
     <Section id="week">
       <SectionHeadingRow
@@ -211,54 +233,28 @@ function WeekSection({ data, week, urlRange, n }: { data: DashboardData; week: P
           formatted={weight && fmt(weight, weight.delta === undefined ? undefined : `${signed(weight.delta, " lb")}`)}
         />
       </div>
+      {ramp?.warn && !plans.some((p) => p.sport === "run") && <RampNotice ramp={ramp} />}
+      <FocusCarousel slides={slides} />
       <CardGrid>
-        {plans.map((p) => (
-          <Cell key={p.key} span={12}>
-            <PlanProgressCard plan={p} />
-          </Cell>
-        ))}
-        {ramp?.warn && !plans.some((p) => p.sport === "run") && (
-          <Cell span={12}>
-            <RampNotice ramp={ramp} />
-          </Cell>
-        )}
-        <Cell span={12}>
-          <PlanCard plan={planVsDone(data, week)} week={week} />
-        </Cell>
-        <Cell span={12}>
-          <RecordsCard
-            title={week.current ? "Records this week" : "Records that week"}
-            subtitle="Personal bests and milestones set in the week"
-            records={weekRecords}
-            latest={records[0] ?? null}
-            empty={week.current ? "No new records this week." : "No records that week."}
-          />
-        </Cell>
         <Cell span={6}>
           <RecoveryCard recovery={weekRecovery(data, week)} week={week} />
         </Cell>
         <Cell span={6}>
           <MoodCard mood={weekMood(data, week)} week={week} />
         </Cell>
-        <Cell span={12}>
-          <HoursChart hours={hoursBySport(data, week)} />
-        </Cell>
-        <Cell span={12}>
-          <IntensityCard split={intensitySplit(data, week)} />
-        </Cell>
       </CardGrid>
     </Section>
   );
 }
 
-/** Today's readiness and what drove it, what each signal means (the insight cards), and sleep
- * and steps. */
-function RecoverySection({ data, n }: { data: DashboardData; n: string }) {
+/** Today's readiness and what drove it (in the week's carousel when the week is this one), what
+ * each signal means (the insight cards), and sleep and steps. */
+function RecoverySection({ data, n, showHero }: { data: DashboardData; n: string; showHero: boolean }) {
   const insights = buildDailyInsights(data);
   return (
     <Section id="recovery">
       <SectionHeading n={n}>How am I recovering today?</SectionHeading>
-      <TodayHero data={data} />
+      {showHero && <TodayHero data={data} />}
       {insights.length > 0 && (
         <CardGrid>
           {insights.map((insight) => (
