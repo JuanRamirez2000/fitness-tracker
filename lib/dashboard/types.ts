@@ -94,6 +94,9 @@ export interface DashboardData {
   weeklySummary: WeeklySummary | null;
   /** Planned sessions (Coach and own) for the Progress tab's week; empty elsewhere. */
   planned: PlannedWorkout[];
+  /** Every planned session from half a year back to two months ahead, for the plan progress
+   * cards (lib/progress/plans.ts): Training and Progress only; empty elsewhere. */
+  planHistory: PlannedWorkout[];
   /** The workout planner's week (lib/workouts/service.ts): Training tab only, null elsewhere. */
   planner: PlannerData | null;
   /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):

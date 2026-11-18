@@ -23,6 +23,12 @@ import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
 import { DailySummary } from "@/components/today/daily-summary";
 import { SportBadge } from "@/components/ui/sport-badge";
 import { WeekPlanner } from "@/components/workouts/week-planner";
+import { PlanProgressCard } from "@/components/progress/plan-progress-card";
+import { RampNotice } from "@/components/progress/ramp-notice";
+import { planProgress } from "@/lib/progress/plans";
+import { buildRecords } from "@/lib/progress/records";
+import { RecordsCard } from "@/components/progress/records-card";
+import { runRamp } from "@/lib/running/ramp";
 import { TRAINING_KPIS } from "@/dashboard.config";
 import { sportsInRange } from "@/lib/charts/all-sports";
 import { buildBricks } from "@/lib/charts/bricks";
@@ -45,11 +51,26 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
   const share = (render: (d: DashboardData) => ReactNode) => <Shared data={data} sports={rangeSports} render={render} />;
   // Ride-then-run sessions: hidden until the first brick, and under the swim filter.
   const bricks = data.sport === "swim" ? null : buildBricks(data);
+  // The plans on the Garmin calendar, under the filter's sport; a run plan's card carries the
+  // mileage check, so the notice shows only without one.
+  const plans = planProgress(data, data.today).filter((p) => data.sport === "all" || p.sport === data.sport);
+  const ramp = data.sport === "all" || data.sport === "run" ? runRamp(data.activities, data.today) : null;
+  const showRamp = ramp?.warn && !plans.some((p) => p.sport === "run");
 
   return (
     <>
       <DailySummary data={data} />
       {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
+      {plans.length > 0 && (
+        <CardGrid>
+          {plans.map((p) => (
+            <Cell key={p.key} span={12}>
+              <PlanProgressCard plan={p} />
+            </Cell>
+          ))}
+        </CardGrid>
+      )}
+      {showRamp && ramp && <RampNotice ramp={ramp} />}
       <SportToggle current={data.sport} range={urlRange} sports={filterSports} />
       <KpiCards data={data} ids={TRAINING_KPIS[data.sport]} />
       <Section>
@@ -80,6 +101,9 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
           )}
           <Cell span={12}>
             <ActivityHeatmap data={data} />
+          </Cell>
+          <Cell span={12}>
+            <RecordsFeed data={data} />
           </Cell>
           <Cell span={12}>
             <ActivitiesTable data={data} />
@@ -177,5 +201,21 @@ function QuietSport({ sport }: { sport: ActiveSport }) {
         No {SPORT_NOUN[sport].many} in this range, so the {SPORT_STYLE[sport].verb} charts are folded away.
       </span>
     </div>
+  );
+}
+
+/** Records and milestones in the selected range, under the sport filter, newest first. */
+const FEED_LENGTH = 10;
+function RecordsFeed({ data }: { data: DashboardData }) {
+  const all = buildRecords(data).filter((r) => data.sport === "all" || r.sport === data.sport || r.sport === null);
+  const inRange = all.filter((r) => r.date >= data.dateRange.from && r.date <= data.dateRange.to);
+  return (
+    <RecordsCard
+      title="Records"
+      subtitle={inRange.length > FEED_LENGTH ? `The latest ${FEED_LENGTH} of ${inRange.length} in this range` : "Personal bests and milestones in this range"}
+      records={inRange.slice(0, FEED_LENGTH)}
+      latest={all[0] ?? null}
+      empty="No records in this range."
+    />
   );
 }

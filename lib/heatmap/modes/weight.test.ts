@@ -45,6 +45,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     week: "2026-09-14",
     planned: [],
     weeklySummary: null,
+    planHistory: [],
     planner: null,
     summary: null,
     steps: [],

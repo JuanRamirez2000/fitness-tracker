@@ -1,3 +1,4 @@
+import { runRamp } from "@/lib/running/ramp";
 import type { Activity } from "@/lib/data/activities";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailyTraining } from "@/lib/data/training";
@@ -92,6 +93,9 @@ export function trainingFacts(input: TrainingSummaryInput): Record<string, unkno
         : {}),
     };
   }
+  // Running mileage climbing faster than about 15% on the 4-week average: worth a line.
+  const ramp = runRamp(input.activities, today);
+  if (ramp?.warn) facts.running_mileage_ramp_warning = ramp.text;
 
   // Swimming (from 2027): time rather than distance, like every cross-sport measure here.
   const swims = input.activities.filter(isSwim);
@@ -217,7 +221,7 @@ Write exactly 4 sentences of plain prose, speaking to them as "you": no greeting
 3. The fitness trend in words, with at most one number (VO2 max moving, race predictions getting faster, cycling fitness still settling in).
 4. One concrete thing to change or keep doing for the next few sessions, starting "The one thing to change:" when something needs changing.
 
-Use at most two or three rounded numbers in the whole summary, and only ones in the data. Explain what a number means for them rather than listing it. Lead with the sport their plan coaches (coached_by) when there is any. Garmin's load, status and load focus count every sport together. Garmin's FTP may be set wrong, so don't lean on it. Leave out anything that isn't in the data rather than guessing. This is a training log, not medical advice.
+Use at most two or three rounded numbers in the whole summary, and only ones in the data. Explain what a number means for them rather than listing it. Lead with the sport their plan coaches (coached_by) when there is any. Garmin's load, status and load focus count every sport together. Garmin's FTP may be set wrong, so don't lean on it. When running_mileage_ramp_warning is there, say so plainly in one sentence: running is climbing faster than is safe. Leave out anything that isn't in the data rather than guessing. This is a training log, not medical advice.
 
 Answer as JSON with two fields:
 - "summary": the 4 sentences.

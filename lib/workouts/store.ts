@@ -40,6 +40,26 @@ export async function fetchRecentActivities(userId: string, since: string): Prom
   return rows.map((r) => ({ local_date: String(r.local_date), activity_type: String(r.activity_type), duration_s: Number(r.duration_s) }));
 }
 
+/**
+ * Roughly where the athlete trains: the start of their latest activity with GPS, rounded to a
+ * tenth of a degree (about 10 km), which is all a weather forecast needs and all that leaves the
+ * server. Null without any GPS activity.
+ */
+export async function fetchTrainingArea(userId: string): Promise<{ lat: number; lon: number } | null> {
+  const rows = await db()`
+    select d.series->'lat' as lat, d.series->'lon' as lon
+    from activity_details d join activities a on a.id = d.activity_id
+    where d.user_id = ${userId} and jsonb_typeof(d.series->'lat') = 'array'
+    order by a.started_at desc limit 5`;
+  for (const row of rows) {
+    const lats = (row.lat ?? []) as (number | null)[];
+    const lons = (row.lon ?? []) as (number | null)[];
+    const i = lats.findIndex((v, k) => v !== null && lons[k] !== null);
+    if (i >= 0) return { lat: Math.round(lats[i]! * 10) / 10, lon: Math.round(lons[i]! * 10) / 10 };
+  }
+  return null;
+}
+
 export interface NewSelfWorkout {
   workout_uuid: string;
   local_date: string;

@@ -12,7 +12,7 @@ const WIDE_SPARKLINE_HEIGHT = 40;
  * The card's trend line with a hover: the day (or week) and the value it shows, plus the band
  * behind it when the KPI has one. Points are evenly spaced, newest at the right.
  */
-function Sparkline({ points, invert, height, bandLabel }: { points: KpiPoint[]; invert?: boolean; height: number; bandLabel?: string }) {
+export function Sparkline({ points, invert, height, bandLabel }: { points: KpiPoint[]; invert?: boolean; height: number; bandLabel?: string }) {
   const values = points.map((p) => p.value);
   const banded = points.every((p) => p.low !== undefined && p.high !== undefined);
   const all = banded ? values.concat(points.flatMap((p) => [p.low!, p.high!])) : values;

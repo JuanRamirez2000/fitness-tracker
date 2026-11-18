@@ -61,6 +61,7 @@ export function testDashboardData(over: Partial<DashboardData> = {}): DashboardD
     week: "2026-09-14",
     planned: [],
     weeklySummary: null,
+    planHistory: [],
     planner: null,
     summary: null,
     steps: [],

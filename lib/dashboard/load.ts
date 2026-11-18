@@ -29,6 +29,10 @@ import { loadPlanner } from "@/lib/workouts/service";
 import { fetchPlannedWorkouts } from "@/lib/workouts/store";
 import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 
+/** The plan progress cards look this far back for a plan's first weeks, and ahead for its end. */
+const PLAN_HISTORY_BACK_DAYS = 26 * 7;
+const PLAN_HISTORY_AHEAD_DAYS = 8 * 7;
+
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
 const RECOVERY_HISTORY_DAYS = 35;
 
@@ -66,7 +70,7 @@ export function tabNeeds(tab: TabKey): {
     weighIns: tab === "weight",
     recovery: tab === "today" || tab === "progress", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
-    training: tab === "training" || tab === "weight", // daily_training (Weight: Garmin's FTP, for watts per kilo)
+    training: tab === "training" || tab === "weight" || tab === "progress", // daily_training (Weight: Garmin's FTP, for watts per kilo; Progress: the plan cards and records)
   };
 }
 
@@ -117,7 +121,8 @@ export async function loadDashboardData(
   // The brick runs' detail waits on the activities (the pairing is by start and end times).
   const brickRunRows =
     shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
-  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned, weeklySummary] =
+  const planFrom = addDays(shell.tab === "progress" && shell.week < today ? shell.week : today, -PLAN_HISTORY_BACK_DAYS);
+  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned, weeklySummary, planHistory] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
@@ -136,6 +141,9 @@ export async function loadDashboardData(
       shell.tab === "training" ? loadPlanner(profile, today) : null,
       shell.tab === "progress" ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: addDays(shell.week, 6) }) : [],
       shell.tab === "progress" ? fetchWeeklySummary(profile.id, shell.week) : null,
+      shell.tab === "progress" || shell.tab === "training"
+        ? fetchPlannedWorkouts(profile.id, { from: planFrom, to: addDays(today, PLAN_HISTORY_AHEAD_DAYS) })
+        : [],
     ]);
 
   return {
@@ -157,5 +165,6 @@ export async function loadDashboardData(
     planner,
     planned,
     weeklySummary,
+    planHistory,
   };
 }

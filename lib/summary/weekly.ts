@@ -8,6 +8,7 @@
  *
  * No server-only guard: scripts/summary-generate.ts runs this from the command line too.
  */
+import { runRamp } from "../running/ramp";
 import { typeLabel } from "../activity/view";
 import { findBricks } from "../charts/bricks";
 import type { DashboardData } from "../dashboard/types";
@@ -80,6 +81,8 @@ export function weeklyFacts(input: WeeklyInput): Record<string, unknown> {
     ...(load.tone === "warn" ? { load_jump_flag: "up more than 15% on the week before, more than is usually safe to add" } : {}),
     ...(bricks ? { bricks_run_straight_off_a_ride: bricks } : {}),
   };
+  const ramp = runRamp(input.activities, week.through);
+  if (ramp?.warn) facts.running_mileage_ramp_warning = ramp.text;
 
   const by = coachedBy(input.planned, today);
   if (Object.keys(by).length) facts.coached_by = by;
@@ -193,7 +196,7 @@ export const WEEKLY_SYSTEM = `You write the weekly review at the top of the Prog
 Answer as JSON:
 - "headline": one plain sentence, at most 15 words, that sums up the week (it is also the subject of an email).
 - "wins": 1 or 2 short sentences, what went well (sessions done, consistency, recovery holding up, a brick, a good mood week).
-- "watch": 1 or 2 short sentences, what to keep an eye on and why it matters (missed or swapped sessions, a load jump, low readiness or sleep, low mood or energy, soreness, sickness). If nothing stands out, one sentence saying so.
+- "watch": 1 or 2 short sentences, what to keep an eye on and why it matters (missed or swapped sessions, a load jump, running_mileage_ramp_warning, low readiness or sleep, low mood or energy, soreness, sickness). If nothing stands out, one sentence saying so.
 - "next": 1 or 2 short sentences, what to do next: the key planned sessions by day and how to approach them given this week. When the week is "so far", this covers the rest of the week; when "finished", the week ahead.
 
 Speak to them as "you", no greeting, lists inside sentences, or emoji. Use at most three rounded numbers in the whole review, only ones in the data, and explain what they mean (hours against the 4 to 7 hour aim, a load jump, readiness). Never give HRV in milliseconds or anything about body weight. A session done on another day counts as done. When the week is "so far", judge it as unfinished: say what's left rather than calling sessions missed that are still to come. Leave out anything that isn't in the data. This is a training log, not medical advice.`;

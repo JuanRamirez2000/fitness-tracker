@@ -1,3 +1,4 @@
+import { parseForecast, rideProblem, type DayWeather } from "./weather";
 import { describe, expect, it } from "vitest";
 import { buildWorkout, kindsFor, resolveKind } from "./build";
 import { stepLine, workoutLines } from "./describe";
@@ -227,6 +228,38 @@ describe("weekPlan", () => {
     expect(byKey).toEqual(["2026-11-17 ride endurance", "2026-11-21 ride outdoor", "2026-11-22 swim auto"]);
     // Nothing hard the day before the tempo.
     expect(warningsFor({ sport: "ride", date: "2026-11-19", effort: 4, minutes: 45 }, p).join(" ")).toMatch(/next day has a key Runna session \(Tempo\)/);
+  });
+
+  it("moves the outdoor ride to a dry day, or inside when the whole weekend is bad", () => {
+    const runna: PlannedSession[] = [
+      { workout_uuid: "t", local_date: "2026-11-20", sport: "running", name: "Tempo", duration_s: 2160, key_workout: true, rest_day: false, plan_name: "10k Plan", provider: "Runna", source: "garmin" },
+    ];
+    const day = (date: string, over: Partial<DayWeather> = {}): DayWeather => {
+      const d = { highF: 70, lowF: 55, rainChance: 0, rainIn: 0, windMph: 8, ...over };
+      return { date, ...d, problem: rideProblem(d) };
+    };
+    const settings = parseWorkoutSettings(null);
+    const wetSaturday = weekPlan({ today: "2026-11-17", planned: runna, recent: RECENT, settings, weather: [day("2026-11-21", { rainChance: 80 }), day("2026-11-22")] });
+    const outdoor = wetSaturday.suggestions.find((s) => s.kind === "outdoor")!;
+    expect(outdoor.date).toBe("2026-11-22");
+    expect(outdoor.why).toContain("a high of 70°F, dry");
+    const badWeekend = weekPlan({ today: "2026-11-17", planned: runna, recent: RECENT, settings, weather: [day("2026-11-21", { windMph: 25 }), day("2026-11-22", { highF: 100 })] });
+    expect(badWeekend.suggestions.some((s) => s.kind === "outdoor")).toBe(false);
+    expect(badWeekend.suggestions.find((s) => s.date === "2026-11-21" && s.sport === "ride")!.why).toMatch(/wind to 25 mph, so the weekend ride moves inside/);
+  });
+
+  it("parses Open-Meteo's daily forecast", () => {
+    const days = parseForecast({
+      daily: {
+        time: ["2026-11-21", "2026-11-22"],
+        temperature_2m_max: [68.4, null],
+        temperature_2m_min: [51, null],
+        precipitation_probability_max: [65, null],
+        precipitation_sum: [0.2, null],
+        wind_speed_10m_max: [9.6, null],
+      },
+    });
+    expect(days).toEqual([{ date: "2026-11-21", highF: 68, lowF: 51, rainChance: 65, rainIn: 0.2, windMph: 10, problem: "65% chance of rain" }]);
   });
 
   it("lets each plan own its sport, and counts workouts made in Garmin Connect from two on", () => {

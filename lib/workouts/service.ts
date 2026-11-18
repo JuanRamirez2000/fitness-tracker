@@ -9,7 +9,8 @@ import { toGarminWorkout } from "./garmin";
 import { weekPlan, type WeekPlan } from "./plan";
 import { toPlannedSession } from "./session";
 import { effectiveFtp, type WorkoutSettings } from "./settings";
-import { fetchFtpInputs, fetchPlannedWorkouts, fetchRecentActivities, insertSelfWorkout } from "./store";
+import { fetchFtpInputs, fetchPlannedWorkouts, fetchRecentActivities, fetchTrainingArea, insertSelfWorkout } from "./store";
+import { fetchForecast } from "./weather";
 import type { Effort, Workout, WorkoutRequest } from "./types";
 
 /**
@@ -43,14 +44,15 @@ export const PLANNER_DAYS = 14;
 
 export async function loadPlanner(profile: Profile, today: LocalDate): Promise<PlannerData> {
   const settings = profile.workout_settings;
-  const [planned, recent, ftpInputs] = await Promise.all([
+  const [planned, recent, ftpInputs, weather] = await Promise.all([
     fetchPlannedWorkouts(profile.id, { from: today, to: addDays(today, PLANNER_DAYS - 1) }),
     fetchRecentActivities(profile.id, addDays(today, -28)),
     fetchFtpInputs(profile.id, addDays(today, -90)),
+    fetchTrainingArea(profile.id).then((area) => fetchForecast(area, profile.timezone)),
   ]);
   return {
     today,
-    plan: weekPlan({ today, planned: planned.map(toPlannedSession), recent, settings }),
+    plan: weekPlan({ today, planned: planned.map(toPlannedSession), recent, settings, weather }),
     planned,
     settings,
     ftp: effectiveFtp(settings, ftpInputs.best20MinW, ftpInputs.garminFtpW),

@@ -334,3 +334,55 @@ export function weekMood(data: Pick<DashboardData, "moodLogs" | "today">, week: 
     avgEnergy: mean(logs.flatMap((l) => (l.energy === null ? [] : [l.energy]))),
   };
 }
+
+// ---------- Easy vs hard ----------
+
+export interface IntensityWeek {
+  monday: LocalDate;
+  /** Minutes in heart-rate zones 1-2, 3, and 4-5, every sport together. */
+  easy: number;
+  moderate: number;
+  hard: number;
+  /** easy ÷ all, null without any zone data that week. */
+  easyShare: number | null;
+  /** The week holds the day asked about and isn't over. */
+  partial: boolean;
+}
+
+export interface IntensitySplit {
+  weeks: IntensityWeek[];
+  /** The picked week's share, and the 4 weeks before it on average. */
+  share: number | null;
+  priorShare: number | null;
+}
+
+const INTENSITY_WEEKS = 8;
+
+/** Time by heart-rate zone per Monday-to-Sunday week, every sport together, for the last
+ * INTENSITY_WEEKS through the picked one, against the 80% easy aim (EASY_SHARE_AIM). Garmin's
+ * own zones per sport (cycling has its own), from each activity's hr_zone_s. */
+export function intensitySplit(data: Pick<DashboardData, "activities">, week: ProgressWeek): IntensitySplit | null {
+  const weeks = Array.from({ length: INTENSITY_WEEKS }, (_, i): IntensityWeek => {
+    const monday = addDays(week.monday, -7 * (INTENSITY_WEEKS - 1 - i));
+    const end = monday === week.monday ? week.through : addDays(monday, 6);
+    const z = [0, 0, 0, 0, 0];
+    for (const a of data.activities) {
+      if (!a.hr_zone_s || !inDays(a.local_date, monday, end)) continue;
+      a.hr_zone_s.forEach((s, k) => (z[k] += s / 60));
+    }
+    const easy = z[0] + z[1];
+    const all = z.reduce((x, y) => x + y, 0);
+    return {
+      monday,
+      easy: Math.round(easy),
+      moderate: Math.round(z[2]),
+      hard: Math.round(z[3] + z[4]),
+      easyShare: all > 0 ? easy / all : null,
+      partial: monday === week.monday && week.current,
+    };
+  });
+  if (weeks.every((w) => w.easyShare === null)) return null;
+  const totals = (ws: IntensityWeek[]) => ws.reduce((t, w) => ({ easy: t.easy + w.easy, all: t.all + w.easy + w.moderate + w.hard }), { easy: 0, all: 0 });
+  const prior = totals(weeks.slice(-5, -1));
+  return { weeks, share: weeks.at(-1)!.easyShare, priorShare: prior.all > 0 ? prior.easy / prior.all : null };
+}

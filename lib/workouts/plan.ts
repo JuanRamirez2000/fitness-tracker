@@ -1,6 +1,7 @@
 import { addDays, diffDays, weekdayOf, type LocalDate } from "@/lib/dates/calendar";
 import { SPORTS, sportOf, type ActiveSport } from "@/lib/sport";
 import type { WorkoutSettings } from "./settings";
+import type { DayWeather } from "./weather";
 import type { Effort, WorkoutRequest } from "./types";
 
 /**
@@ -171,6 +172,8 @@ export interface WeekPlan {
   /** Typical (median) session length by sport over the last 28 days, in minutes. */
   typicalRecent: Record<ActiveSport, number>;
   suggestions: Suggestion[];
+  /** The forecast for the days ahead, when there is one (lib/workouts/weather.ts). */
+  weather: DayWeather[];
 }
 
 function zeroBySport(): Record<ActiveSport, number> {
@@ -194,8 +197,11 @@ export function weekPlan(input: {
   planned: PlannedSession[];
   recent: RecentActivity[];
   settings: WorkoutSettings;
+  /** The forecast: an outdoor ride goes to a dry, calm day, or inside when there's none. */
+  weather?: DayWeather[];
 }): WeekPlan {
   const { today, planned, recent, settings } = input;
+  const weather = input.weather ?? [];
   const days = daysFrom(today, 7, planned);
   const coached = coachedSports(planned, today);
   const phase = phaseOn(today, settings.race);
@@ -219,7 +225,7 @@ export function weekPlan(input: {
   }
 
   const plan: WeekPlan = {
-    today, days, coached, phase, weekMinutes, budgetMinutes, recentWeeklyMinutes, longestRecent, typicalRecent, suggestions: [],
+    today, days, coached, phase, weekMinutes, budgetMinutes, recentWeeklyMinutes, longestRecent, typicalRecent, suggestions: [], weather,
   };
   if (phase.key === "race" || phase.key === "recovery") return plan;
 
@@ -290,11 +296,22 @@ export function weekPlan(input: {
 
     if (sport === "ride") {
       let left = 2 - ownCount("ride");
-      const weekend = days.find((d) => settings.long_days.includes(d.weekday) && free("ride", d) && !d.keyDay);
-      if (left > 0 && weekend) {
+      const weekends = days.filter((d) => settings.long_days.includes(d.weekday) && free("ride", d) && !d.keyDay);
+      const forecast = (d: DayInfo) => weather.find((w) => w.date === d.date) ?? null;
+      const outside = weekends.find((d) => !forecast(d)?.problem);
+      if (left > 0 && outside) {
+        const w = forecast(outside);
         suggest({
-          sport, date: weekend.date, kind: "outdoor", effort: 2, minutes: 60,
-          why: "An easy outdoor ride on the bike you'll race: handling, shifting and drinking on the move.",
+          sport, date: outside.date, kind: "outdoor", effort: 2, minutes: 60,
+          why: `An easy outdoor ride on the bike you'll race: handling, shifting and drinking on the move.${w ? ` Forecast: a high of ${w.highF}°F, ${w.rainChance < 20 ? "dry" : `${w.rainChance}% chance of rain`}, wind to ${w.windMph} mph.` : ""}`,
+        });
+        left -= 1;
+      } else if (left > 0 && weekends.length) {
+        // Every long day looks wet, windy, hot or cold: the long ride moves inside.
+        const d = weekends[0];
+        suggest({
+          sport, date: d.date, kind: "endurance", effort: 2, minutes: 60,
+          why: `${DAY_NAMES[d.weekday]}'s forecast has ${forecast(d)!.problem}, so the weekend ride moves inside: an hour steady on the Kickr.`,
         });
         left -= 1;
       }

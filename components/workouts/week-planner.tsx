@@ -100,11 +100,17 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
         {plan.days.map((d) => {
           const ownToday = own.filter((w) => w.local_date === d.date);
           const suggestions = plan.suggestions.filter((s) => s.date === d.date);
+          const w = (plan.weather ?? []).find((x) => x.date === d.date);
           return (
             <li key={d.date} className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-raised px-2.5 py-2">
               <span className="font-mono text-[10px] text-muted-2">
                 {d.date === planner.today ? "Today" : WEEKDAYS[d.weekday]} · {fmtDate(d.date)}
               </span>
+              {w && (
+                <span className={`font-mono text-[9.5px] ${w.problem ? "text-warn" : "text-muted-2"}`} title={w.problem ? `Not a great day to ride outside: ${w.problem}` : "Forecast"}>
+                  {w.highF}°/{w.lowF}° · {w.rainChance}% rain · {w.windMph} mph
+                </span>
+              )}
               {d.restDay && <span className="text-[12px] text-muted-2">Rest day</span>}
               {d.coach.map((c) => (
                 <CoachSession key={c.workout_uuid} name={c.name} sport={sessionSport(c)} minutes={plannedMinutes(c)} keySession={c.key_workout} label={planLabel(c)} />
