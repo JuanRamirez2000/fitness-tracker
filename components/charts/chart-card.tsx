@@ -36,7 +36,7 @@ export function ChartCard({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-w-0 flex-col gap-3.5 rounded-xl border border-border bg-card px-4 py-4 md:px-[22px] md:py-5">
+    <div data-toc={title} className="flex h-full min-w-0 scroll-mt-28 flex-col gap-3.5 rounded-xl border border-border bg-card px-4 py-4 md:px-[22px] md:py-5">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
         <div className="flex min-w-0 flex-col gap-[3px]">
           <span className="font-serif text-[16px] md:text-[18px]">{title}</span>

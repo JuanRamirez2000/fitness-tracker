@@ -37,7 +37,7 @@ export function HeatmapCard({
   const ctx: ModeContext = { range: data.dateRange, palette, weightSubMode: "avg7", sport: data.sport, ...ctxOverrides };
 
   return (
-    <div className="relative flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card px-4 py-4 md:px-5 md:py-5">
+    <div data-toc={title} className="relative flex min-w-0 scroll-mt-28 flex-col gap-4 rounded-xl border border-border bg-card px-4 py-4 md:px-5 md:py-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="font-serif text-[16px] md:text-[17px]">{title}</span>

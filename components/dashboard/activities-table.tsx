@@ -52,7 +52,7 @@ export function ActivitiesTable({ data }: { data: DashboardData }) {
   const shown = rows.slice(0, visible);
 
   return (
-    <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card">
+    <div data-toc="Activities" className="flex h-full min-w-0 scroll-mt-28 flex-col rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-4 pb-2 md:px-6">
         <span className="font-serif text-[16px]">{title}</span>
         <div className="flex items-center gap-3">

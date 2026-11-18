@@ -13,9 +13,12 @@ export default function DashboardLoading() {
       fallback={
         <>
           <HeaderSkeleton tab={DEFAULT_TAB} />
-          <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-12 px-4 pt-8 pb-20 md:px-8 md:pt-9">
-            <TabSkeleton tab={DEFAULT_TAB} />
-          </main>
+          <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-10 px-4 md:px-8 xl:max-w-[1460px]">
+            <aside className="hidden w-[210px] shrink-0 xl:block" />
+            <main className="flex min-w-0 flex-1 flex-col gap-12 pt-8 pb-20 md:pt-9">
+              <TabSkeleton tab={DEFAULT_TAB} />
+            </main>
+          </div>
         </>
       }
     >

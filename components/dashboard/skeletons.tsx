@@ -116,12 +116,12 @@ export function TabSkeleton({ tab }: { tab: TabKey }) {
 export function HeaderSkeleton({ tab }: { tab: TabKey }) {
   return (
     <header className="sticky top-0 z-20 border-b border-divider bg-bg">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-x-3 gap-y-2.5 px-4 pt-3 pb-2 md:px-8 md:pt-4">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center xl:max-w-[1460px] gap-x-3 gap-y-2.5 px-4 pt-3 pb-2 md:px-8 md:pt-4">
         <span className="font-serif text-[19px] md:text-[21px]">{APP_NAME}</span>
         <div className="order-last h-[34px] w-full animate-pulse rounded-lg bg-raised lg:order-none lg:ml-auto lg:w-[420px]" />
         <div className="ml-auto h-[30px] w-[120px] animate-pulse rounded-lg bg-raised lg:ml-3" />
       </div>
-      <div className="mx-auto w-full max-w-[1200px] px-4 md:px-8">
+      <div className="mx-auto w-full max-w-[1200px] px-4 md:px-8 xl:max-w-[1460px]">
         <nav aria-label="Dashboard sections" className="-mb-px flex gap-[clamp(18px,4vw,36px)] overflow-x-auto">
           {TAB_KEYS.map((key) => (
             <span

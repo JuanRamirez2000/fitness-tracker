@@ -80,7 +80,7 @@ export function WeekPlanner({ planner, canEdit }: { planner: PlannerData; canEdi
   const over = plan.weekMinutes > plan.budgetMinutes;
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-xl border border-border bg-card px-4 py-4 md:px-6">
+    <div data-toc="Next 7 days" className="flex scroll-mt-28 flex-col gap-3.5 rounded-xl border border-border bg-card px-4 py-4 md:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">Next 7 days</span>
