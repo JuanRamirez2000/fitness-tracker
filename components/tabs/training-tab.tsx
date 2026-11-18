@@ -25,7 +25,7 @@ import { SportSwitch } from "@/components/dashboard/sport-switch";
 import { SportToggle } from "@/components/dashboard/sport-toggle";
 import { WeekPicker } from "@/components/dashboard/week-picker";
 import { ActivityHeatmap } from "@/components/heatmap/heatmaps";
-import { InsightCard, ShowTheNumbers } from "@/components/insights/insight-card";
+import { InsightCard } from "@/components/insights/insight-card";
 import { HoursChart } from "@/components/progress/hours-chart";
 import { IntensityCard } from "@/components/progress/intensity-card";
 import { MoodCard } from "@/components/progress/mood-card";
@@ -120,16 +120,14 @@ export function TrainingTab({ data, urlRange, canEdit }: { data: DashboardData; 
             <BodyBatteryChart data={data} />
           </Cell>
         </CardGrid>
-        <ShowTheNumbers label="Sleep and mood over the range">
-          <CardGrid>
-            <Cell span={12}>
-              <SleepChart data={data} />
-            </Cell>
-            <Cell span={12}>
-              <MoodChart data={data} />
-            </Cell>
-          </CardGrid>
-        </ShowTheNumbers>
+        <CardGrid>
+          <Cell span={12}>
+            <SleepChart data={data} />
+          </Cell>
+          <Cell span={12}>
+            <MoodChart data={data} />
+          </Cell>
+        </CardGrid>
       </Section>
 
       {sections.map((sport) => (

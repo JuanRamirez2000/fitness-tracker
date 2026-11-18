@@ -87,7 +87,7 @@ export function WeighInTable({
   const shown = rows.slice(0, visible);
 
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card">
+    <div data-toc="Weigh-in log" className="flex scroll-mt-28 flex-col rounded-xl border border-border bg-card">
       <div className="flex items-baseline justify-between px-4 pt-4 pb-2 md:px-6">
         <span className="font-serif text-[16px]">Weigh-ins</span>
         <span className="font-mono text-[10px] text-muted-3">{rows.length} in range</span>

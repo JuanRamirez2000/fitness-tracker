@@ -197,7 +197,8 @@ export function PageToc({ variant }: { variant: "sidebar" | "button" }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (items.length < 2) return null;
+  // One section is enough when it has cards under it.
+  if (!items.length || (items.length < 2 && !items[0].children.length)) return null;
 
   if (variant === "sidebar") {
     return (
