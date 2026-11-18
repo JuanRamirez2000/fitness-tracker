@@ -43,7 +43,7 @@ export interface SummaryResult {
 
 export interface GenerateOptions {
   /** Which tabs to write (default: all three). */
-  tabs?: readonly TabKey[];
+  tabs?: readonly SummaryTab[];
   dryRun?: boolean;
   log?: (line: string) => void;
   /** Overrides SUMMARY_MODEL. */
@@ -191,7 +191,10 @@ export function parseTrainingAnswer(text: string): { text: string; nextSessions:
   }
 }
 
-const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string; schema?: Record<string, unknown> }> = {
+/** The tabs with a daily summary. Progress gets a weekly review instead (lib/summary/weekly.ts, to come). */
+export type SummaryTab = Exclude<TabKey, "progress">;
+
+const TABS: Record<SummaryTab, { system: string; facts: (rows: Rows, profile: Profile, today: LocalDate) => Record<string, unknown>; enough: (facts: Record<string, unknown>) => boolean; missing: string; schema?: Record<string, unknown> }> = {
   today: {
     system: SUMMARY_SYSTEM,
     facts: (rows, _profile, today) => summaryFacts({ today, ...rows }),
@@ -213,7 +216,7 @@ const TABS: Record<TabKey, { system: string; facts: (rows: Rows, profile: Profil
   },
 };
 
-export const SUMMARY_TABS = Object.keys(TABS) as TabKey[];
+export const SUMMARY_TABS = Object.keys(TABS) as SummaryTab[];
 
 /** Writes (or, with dryRun, prints) today's summary for each tab. One tab failing to have
  * enough data, or whose Gemini call fails, skips only that tab. */
@@ -233,7 +236,7 @@ export async function generateSummaries(options: GenerateOptions = {}): Promise<
 
   // The tabs run side by side: a press of Refresh waits for the slowest Gemini call, not the
   // sum of three. Results keep the order of `tabs`.
-  async function writeTab(tab: TabKey): Promise<SummaryResult> {
+  async function writeTab(tab: SummaryTab): Promise<SummaryResult> {
     const spec = TABS[tab];
     const facts = spec.facts(rows, profile, today);
     log(`[${tab}] facts for ${today}: ${JSON.stringify(facts)}`);

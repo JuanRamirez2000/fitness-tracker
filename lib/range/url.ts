@@ -71,3 +71,11 @@ export function sportToSearchParams(sport: SportFilter, range: UrlRange | null):
   if (sport !== DEFAULT_SPORT) params.set("sport", sport);
   return params.toString();
 }
+
+/** The query string for the Progress tab's week picker: the week's Monday, the range riding along
+ * like a tab link's (the range doesn't drive Progress, but switching back to another tab keeps it). */
+export function weekToSearchParams(week: string, range: UrlRange | null): string {
+  const params = new URLSearchParams(tabToSearchParams("progress", range));
+  params.set("week", week);
+  return params.toString();
+}

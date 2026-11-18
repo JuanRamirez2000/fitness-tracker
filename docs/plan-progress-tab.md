@@ -73,7 +73,9 @@ soreness is 3 or more.
 3. **Progress tab, numbers.** `TAB_KEYS` + label, week picker, the three top cards, hours by sport
    (stacked bars, last 12 weeks ending on the chosen week, 4–7 h band), a Mon–Sun strip of
    planned vs done (`planned_workouts` vs activities: done / missed / swapped), the week's
-   recovery (sleep, HRV, readiness per day) and the week's mood log.
+   recovery (sleep, HRV, readiness per day) and the week's mood log. **Built 11-17**
+   (lib/progress/): the current week's load compares with the same days of last week; a
+   planned session counts as done another day when the same sport happens within two days.
 4. **Weekly review.** `lib/summary/weekly.ts`: facts for the week (+ the week before for
    comparison, next week's planned sessions), Gemini structured output → `weekly_summaries`.
    The morning cron writes "so far" Tue–Sun and the final one on Monday for the week before.

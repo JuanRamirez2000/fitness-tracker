@@ -22,6 +22,8 @@ function data(over: Partial<DashboardData>): DashboardData {
     training: [],
     runEfforts: [],
     brickRuns: [],
+    week: "2026-09-14",
+    planned: [],
     planner: null,
     summary: null,
     steps: [],

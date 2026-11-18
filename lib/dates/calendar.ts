@@ -73,6 +73,11 @@ export function startOfWeek(date: LocalDate): LocalDate {
   return addDays(date, -weekdayOf(date));
 }
 
+/** The Monday on or before `date`; the Progress tab's weeks run Monday to Sunday. */
+export function mondayOf(date: LocalDate): LocalDate {
+  return addDays(date, -((weekdayOf(date) + 6) % 7));
+}
+
 /** Every day from `from` to `to`, inclusive. Empty when `to` is before `from`. */
 export function eachDay(from: LocalDate, to: LocalDate): LocalDate[] {
   const count = diffDays(to, from) + 1;

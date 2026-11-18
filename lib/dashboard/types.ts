@@ -14,19 +14,21 @@ import type { DayWindow, LocalDate } from "@/lib/dates/calendar";
 import type { WeightMode } from "@/lib/heatmap/weight-rules";
 import type { Palette } from "@/lib/theme/palette";
 import type { SportFilter } from "@/lib/sport";
+import type { PlannedWorkout } from "@/lib/data/planned";
 import type { PlannerData } from "@/lib/workouts/service";
 
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
 
 /** The dashboard's tabs, in display order (`?tab=`). The first is the default. */
-export const TAB_KEYS = ["today", "weight", "training"] as const;
+export const TAB_KEYS = ["today", "weight", "training", "progress"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 export const DEFAULT_TAB: TabKey = "today";
 export const TAB_LABELS: Record<TabKey, string> = {
   today: "Daily feel",
   weight: "Weight",
   training: "Training",
+  progress: "Progress",
 };
 
 /** The window that drives the charts and the table. Both ends are inclusive local dates. */
@@ -77,7 +79,7 @@ export interface DashboardData {
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */
   weighIns: WeighIn[];
   /** Daily recovery rows from dateRange.from through max(dateRange.to, today), oldest first
-   * (Daily feel tab). Today is always included: the hero is about today. */
+   * (Daily feel tab; on Progress, its week and the week before instead). Today is always included: the hero is about today. */
   recovery: DailyRecovery[];
   /** Nights (by wake-up day) over the same span as `recovery`, oldest first. */
   sleep: SleepNight[];
@@ -85,6 +87,11 @@ export interface DashboardData {
   bodyComposition: BodyCompositionDay[];
   /** Today's AI-written summary for the active tab, or null when none was written today. */
   summary: DailySummary | null;
+  /** The Progress tab's week: its Monday (`?week=`, lib/progress/week.ts). Every tab has one;
+   * only Progress reads it. */
+  week: LocalDate;
+  /** Planned sessions (Coach and own) for the Progress tab's week; empty elsewhere. */
+  planned: PlannedWorkout[];
   /** The workout planner's week (lib/workouts/service.ts): Training tab only, null elsewhere. */
   planner: PlannerData | null;
   /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
@@ -95,7 +102,7 @@ export interface DashboardData {
 
 /** What's known after the page's first query, before the tab's rows: enough for the header
  * (lib/dashboard/load.ts, resolveShell). */
-export type DashboardShell = Pick<DashboardData, "tab" | "sport" | "profile" | "today" | "programStart" | "firstWeighIn" | "dateRange">;
+export type DashboardShell = Pick<DashboardData, "tab" | "sport" | "profile" | "today" | "programStart" | "firstWeighIn" | "dateRange" | "week">;
 
 export type HeatmapCellState = "data" | "none" | "future" | "pre_program" | "warming_up";
 

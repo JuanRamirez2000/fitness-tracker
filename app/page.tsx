@@ -7,6 +7,7 @@ import { NavStatusProvider, TabBodyFrame } from "@/components/dashboard/nav-stat
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
 import { SummaryStatusProvider } from "@/components/dashboard/summary-status";
 import { TodayTab } from "@/components/tabs/today-tab";
+import { ProgressTab } from "@/components/tabs/progress-tab";
 import { TrainingTab } from "@/components/tabs/training-tab";
 import { WeightTab } from "@/components/tabs/weight-tab";
 import { getRole } from "@/lib/auth/session";
@@ -54,6 +55,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     custom: parsedRange?.custom,
     tab: parsedTab ?? DEFAULT_TAB,
     sport: parseSportParam(firstOf(rawParams.sport)),
+    week: firstOf(rawParams.week),
   });
   // Started here, awaited inside the Suspense below, so the header doesn't wait on it. The mood
   // logs feed both the tab (charts, markers) and the header's Log feel button.
@@ -107,6 +109,7 @@ async function TabBody({ data: pending, canEdit, urlRange }: { data: Promise<Das
       {data.tab === "today" && <TodayTab data={data} />}
       {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
       {data.tab === "training" && <TrainingTab data={data} urlRange={urlRange} canEdit={canEdit} />}
+      {data.tab === "progress" && <ProgressTab data={data} />}
     </>
   );
 }

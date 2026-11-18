@@ -7,9 +7,8 @@
  *   npm run summary:generate -- --dry-run              # print facts and text, write nothing
  */
 import { parseArgs } from "node:util";
-import type { TabKey } from "../lib/dashboard/types";
 import { db } from "../lib/db";
-import { SUMMARY_TABS, generateSummaries } from "../lib/summary/generate";
+import { SUMMARY_TABS, generateSummaries, type SummaryTab } from "../lib/summary/generate";
 
 const { values } = parseArgs({
   options: {
@@ -25,7 +24,7 @@ if (unknown.length) {
   process.exit(1);
 }
 
-generateSummaries({ tabs: tabs as TabKey[], dryRun: values["dry-run"], log: console.log })
+generateSummaries({ tabs: tabs as SummaryTab[], dryRun: values["dry-run"], log: console.log })
   .then((results) => {
     for (const r of results) console.log(`${r.tab}: ${r.text ? "written" : `nothing written (${r.skipped})`}`);
   })

@@ -8,11 +8,12 @@ import { GarminRefreshButton } from "./dashboard/garmin-refresh-button";
 import { RangeControl } from "./dashboard/range-control";
 import { SettingsDialog } from "./dashboard/settings-dialog";
 import { TabRow } from "./dashboard/tab-row";
+import { WeekPicker } from "./dashboard/week-picker";
 import { ThemeToggle } from "./theme-toggle";
 
 /**
  * The sticky header: brand and owner actions, the range control (beside the brand at lg,
- * on its own row below that), and the tab row.
+ * on its own row below that; the week picker on Progress), and the tab row.
  */
 export function AppHeader({
   data,
@@ -37,7 +38,11 @@ export function AppHeader({
         </span>
 
         <div className="order-last w-full min-w-0 lg:order-none lg:ml-auto lg:w-auto">
-          <RangeControl current={data.dateRange} tab={data.tab} sport={data.sport} today={data.today} />
+          {data.tab === "progress" ? (
+            <WeekPicker week={data.week} today={data.today} programStart={data.programStart} range={urlRange} />
+          ) : (
+            <RangeControl current={data.dateRange} tab={data.tab} sport={data.sport} today={data.today} />
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2.5 lg:ml-3">

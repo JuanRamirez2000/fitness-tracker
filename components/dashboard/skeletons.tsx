@@ -112,11 +112,30 @@ function TrainingSkeleton() {
   );
 }
 
+function ProgressSkeleton() {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-[135px] animate-pulse rounded-[10px] border border-border bg-card" />
+        ))}
+      </div>
+      <Section>
+        <SectionHeading n="01">Did I do the plan?</SectionHeading>
+        <CardGrid>
+          <CardBone span={12} height={330} />
+        </CardGrid>
+      </Section>
+    </>
+  );
+}
+
 /** The active tab's body while its rows load. Only the top of the page: below the fold
  * nothing shows before the content does. */
 export function TabSkeleton({ tab }: { tab: TabKey }) {
   if (tab === "weight") return <WeightSkeleton />;
   if (tab === "training") return <TrainingSkeleton />;
+  if (tab === "progress") return <ProgressSkeleton />;
   return <TodaySkeleton />;
 }
 

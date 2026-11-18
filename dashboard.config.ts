@@ -54,7 +54,8 @@ export const KPIS: KpiDefinition[] = [
 
 // Which KPI cards each tab shows, by id. Each tab fills one row of six units (a wide card,
 // span 2, takes two), so keep a tab's spans adding up to 6.
-export const TAB_KPIS: Record<Exclude<TabKey, "training">, readonly string[]> = {
+// Training's are per sport (below); Progress builds its own for the chosen week (lib/progress/).
+export const TAB_KPIS: Record<Exclude<TabKey, "training" | "progress">, readonly string[]> = {
   today: ["sleep-score", "sleep-debt", "hrv", "resting-hr", "steps-today"],
   weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"],
 };

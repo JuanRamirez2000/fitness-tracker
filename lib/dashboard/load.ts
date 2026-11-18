@@ -23,7 +23,9 @@ import { todayIn } from "@/lib/dates/timezone";
 import { heatmapWindow } from "@/lib/heatmap/window";
 import { resolveRange } from "@/lib/range/resolve";
 import { DEFAULT_SPORT, type SportFilter } from "@/lib/sport";
+import { parseWeekParam } from "@/lib/progress/week";
 import { loadPlanner } from "@/lib/workouts/service";
+import { fetchPlannedWorkouts } from "@/lib/workouts/store";
 import type { DashboardData, DashboardShell, RangeKey, TabKey } from "./types";
 
 /** Recovery and sleep load at least this far back, for the Daily feel cards' baselines. */
@@ -43,6 +45,8 @@ export interface LoadDashboardDataOptions {
   custom?: DayWindow;
   tab: TabKey;
   sport?: SportFilter;
+  /** The Progress tab's `?week=`, raw. */
+  week?: string;
 }
 
 /** Which of the optional loads each tab renders. weightTrend and injections are always
@@ -56,10 +60,10 @@ export function tabNeeds(tab: TabKey): {
   training: boolean;
 } {
   return {
-    activities: tab === "weight" || tab === "training", // run ticks on the weight trend; every running view
+    activities: tab === "weight" || tab === "training" || tab === "progress", // run ticks on the weight trend; every running view; Progress's load and hours
     steps: tab === "today" || tab === "training", // the Steps card (Daily feel); the steps heatmap (Training)
     weighIns: tab === "weight",
-    recovery: tab === "today", // daily_recovery and sleep_nights
+    recovery: tab === "today" || tab === "progress", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
     training: tab === "training" || tab === "weight", // daily_training (Weight: Garmin's FTP, for watts per kilo)
   };
@@ -77,7 +81,8 @@ export function resolveShell(
 ): DashboardShell {
   const programStart = resolveProgramStart(profile, firstWeighIn, today);
   const dateRange = resolveRange(options.rangeKey, today, programStart, options.custom);
-  return { tab: options.tab, sport: options.sport ?? DEFAULT_SPORT, profile, today, programStart, firstWeighIn, dateRange };
+  const week = parseWeekParam(options.week, today, programStart);
+  return { tab: options.tab, sport: options.sport ?? DEFAULT_SPORT, profile, today, programStart, firstWeighIn, dateRange, week };
 }
 
 /** Loads what the active tab renders, every query in one parallel batch (the range is already
@@ -102,15 +107,16 @@ export async function loadDashboardData(
   const historyFrom = addDays(today, -RECOVERY_HISTORY_DAYS);
   // And the heatmap's year, for the recovery calendar.
   const earliest = [dateRange.from, historyFrom, window.from].sort()[0];
-  const recoverySpan = {
-    from: earliest,
-    to: dateRange.to > today ? dateRange.to : today,
-  };
+  // Progress needs only its week and the week before (its readiness comparison).
+  const recoverySpan =
+    shell.tab === "progress"
+      ? { from: addDays(shell.week, -7), to: addDays(shell.week, 6) }
+      : { from: earliest, to: dateRange.to > today ? dateRange.to : today };
   const activityRows = needs.activities ? fetchActivities(profile.id) : Promise.resolve([]);
   // The brick runs' detail waits on the activities (the pairing is by start and end times).
   const brickRunRows =
     shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
-  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner] =
+  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
@@ -123,9 +129,11 @@ export async function loadDashboardData(
       needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
       needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
       needs.training ? fetchTraining(profile.id, recoverySpan.to) : [],
-      fetchDailySummary(profile.id, today, shell.tab),
+      // Progress's own weekly review comes later (docs/plan-progress-tab.md, step 4).
+      shell.tab === "progress" ? null : fetchDailySummary(profile.id, today, shell.tab),
       needs.training ? fetchRunEfforts(profile.id) : [],
       shell.tab === "training" ? loadPlanner(profile, today) : null,
+      shell.tab === "progress" ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: addDays(shell.week, 6) }) : [],
     ]);
 
   return {
@@ -145,5 +153,6 @@ export async function loadDashboardData(
     runEfforts,
     brickRuns,
     planner,
+    planned,
   };
 }

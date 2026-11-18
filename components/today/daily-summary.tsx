@@ -5,7 +5,7 @@ import { addDays } from "@/lib/dates/calendar";
 import { fmtDate } from "@/lib/dates/format";
 import { clockTimeIn } from "@/lib/dates/timezone";
 
-const LABEL = { today: "Daily summary", weight: "Weight summary", training: "Training summary" } as const;
+const LABEL = { today: "Daily summary", weight: "Weight summary", training: "Training summary", progress: "Weekly review" } as const;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** "Today", "Tomorrow" or "Fri, Nov 14". */
