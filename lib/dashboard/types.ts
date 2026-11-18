@@ -2,7 +2,7 @@ import type { FC } from "react";
 import type { BrickRunDetail } from "@/lib/charts/bricks";
 import type { Activity } from "@/lib/data/activities";
 import type { RunEfforts } from "@/lib/data/activity-details";
-import type { DailyRecovery, DailySummary, SleepNight } from "@/lib/data/recovery";
+import type { DailyRecovery, DailySummary, SleepNight, WeeklySummary } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
@@ -90,6 +90,8 @@ export interface DashboardData {
   /** The Progress tab's week: its Monday (`?week=`, lib/progress/week.ts). Every tab has one;
    * only Progress reads it. */
   week: LocalDate;
+  /** The Progress tab's weekly review for its week, or null (and null on the other tabs). */
+  weeklySummary: WeeklySummary | null;
   /** Planned sessions (Coach and own) for the Progress tab's week; empty elsewhere. */
   planned: PlannedWorkout[];
   /** The workout planner's week (lib/workouts/service.ts): Training tab only, null elsewhere. */

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { TabKey } from "@/lib/dashboard/types";
 import { useSummaryStatus } from "./summary-status";
 
 type Status = "idle" | "importing" | "writing" | "error";
@@ -13,10 +14,11 @@ type Status = "idle" | "importing" | "writing" | "error";
  * rather than waiting.
  *
  * Two steps, so the new numbers never wait on Gemini: /api/garmin/refresh imports today and
- * the page reloads with it; then /api/summary/refresh rewrites today's AI summaries (the
- * summary shows a skeleton meanwhile, via SummaryStatus) and the page reloads again.
+ * the page reloads with it; then /api/summary/refresh rewrites today's AI summaries, or on the
+ * Progress tab the weekly review (the summary shows a skeleton meanwhile, via SummaryStatus),
+ * and the page reloads again.
  */
-export function GarminRefreshButton() {
+export function GarminRefreshButton({ tab }: { tab: TabKey }) {
   const router = useRouter();
   const { setWriting } = useSummaryStatus();
   const [status, setStatus] = useState<Status>("idle");
@@ -45,7 +47,7 @@ export function GarminRefreshButton() {
     setWriting(true);
     let summaryFailed = true;
     try {
-      const res = await fetch("/api/summary/refresh", { method: "POST" });
+      const res = await fetch(`/api/summary/refresh${tab === "progress" ? "?scope=weekly" : ""}`, { method: "POST" });
       const body = (await res.json()) as { ok?: boolean; summaryFailed?: boolean };
       summaryFailed = !body.ok || body.summaryFailed === true;
     } catch {
@@ -57,7 +59,7 @@ export function GarminRefreshButton() {
       router.refresh();
       setWriting(false);
       setStatus("idle");
-      setMessage(summaryFailed ? "Summary didn’t update" : null);
+      setMessage(summaryFailed ? (tab === "progress" ? "Review didn’t update" : "Summary didn’t update") : null);
     });
   }
 
@@ -71,7 +73,7 @@ export function GarminRefreshButton() {
         aria-label="Refresh today's data from Garmin"
         className="rounded-lg border border-border-strong px-3 py-[7px] text-[12.5px] text-muted-1 disabled:opacity-50"
       >
-        {status === "importing" ? "Refreshing…" : status === "writing" ? "Writing summary…" : "↻ Refresh"}
+        {status === "importing" ? "Refreshing…" : status === "writing" ? (tab === "progress" ? "Writing review…" : "Writing summary…") : "↻ Refresh"}
       </button>
       {status === "error" && (
         <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>

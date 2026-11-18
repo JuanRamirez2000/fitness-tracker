@@ -44,6 +44,7 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     brickRuns: [],
     week: "2026-09-14",
     planned: [],
+    weeklySummary: null,
     planner: null,
     summary: null,
     steps: [],

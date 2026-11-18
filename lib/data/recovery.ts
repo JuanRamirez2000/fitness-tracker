@@ -68,3 +68,23 @@ export const dailySummaryRowSchema = z.object({
 });
 
 export type DailySummary = z.infer<typeof dailySummaryRowSchema>;
+
+/** The Progress tab's weekly review (db/schema.sql weekly_summaries, lib/summary/weekly.ts). */
+export const weeklySectionsSchema = z.object({
+  wins: z.array(z.string()),
+  watch: z.array(z.string()),
+  next: z.array(z.string()),
+});
+
+export type WeeklySections = z.infer<typeof weeklySectionsSchema>;
+
+export const weeklySummaryRowSchema = z.object({
+  week_start: localDateSchema,
+  final: z.boolean(),
+  headline: z.string(),
+  sections: weeklySectionsSchema,
+  model: z.string().nullable(),
+  generated_at: timestampSchema,
+});
+
+export type WeeklySummary = z.infer<typeof weeklySummaryRowSchema>;

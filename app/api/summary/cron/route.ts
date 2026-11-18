@@ -5,14 +5,18 @@ import { addDays } from "@/lib/dates/calendar";
 import { todayIn } from "@/lib/dates/timezone";
 import { importGarmin } from "@/lib/garmin/import";
 import { generateSummaries } from "@/lib/summary/generate";
+import { writeWeeklySummary, type WeeklyResult } from "@/lib/summary/weekly";
 
-// Three tab summaries plus one per new activity, each of which may wait out a busy Gemini.
+// Three tab summaries, the weekly review and one per new activity, each of which may wait out a
+// busy Gemini.
 export const maxDuration = 180;
 
 /**
  * The morning job, called by Vercel Cron (vercel.json) after the athlete has woken: imports
  * today's sleep, recovery, weigh-in and fitness age from the Personal API (the 1 AM nightly
- * run is too early for last night's sleep), then writes the AI summaries, one per tab, and one for each of yesterday's and today's activities. Readiness comes
+ * run is too early for last night's sleep), then writes the AI summaries, one per tab, the
+ * Progress tab's weekly review (the week so far; on Monday, last week's final one), and one for
+ * each of yesterday's and today's activities. Readiness comes
  * from the unofficial import, scheduled shortly before this (.github/workflows/garmin-unofficial.yml).
  *
  * Same auth as the nightly cron: Vercel sends `Authorization: Bearer $CRON_SECRET`.
@@ -36,7 +40,14 @@ export async function GET(request: NextRequest) {
     imported = { error: err instanceof Error ? err.message : String(err) };
   }
   try {
-    const summaries = await generateSummaries({ log: console.log });
+    // The tab summaries and the weekly review side by side; a weekly failure doesn't undo the tabs.
+    const [summaries, weekly] = await Promise.all([
+      generateSummaries({ log: console.log }),
+      writeWeeklySummary({ log: console.log }).catch((err): WeeklyResult | { error: string } => {
+        console.error("Weekly review failed:", err);
+        return { error: err instanceof Error ? err.message : String(err) };
+      }),
+    ]);
     // Then each activity from yesterday and today without one (the nightly import brought in
     // yesterday's, detail included). A failure here doesn't undo the tab summaries.
     let activitySummaries: { written: number; failed: number } | { error: string } = { written: 0, failed: 0 };
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest) {
         activitySummaries = { error: err instanceof Error ? err.message : String(err) };
       }
     }
-    return NextResponse.json({ ok: !("error" in imported), imported, summaries, activitySummaries });
+    return NextResponse.json({ ok: !("error" in imported), imported, summaries, weekly, activitySummaries });
   } catch (err) {
     console.error("Morning summary failed:", err);
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

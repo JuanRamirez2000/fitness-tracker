@@ -14,6 +14,7 @@ import {
   fetchSteps,
   fetchTraining,
   fetchWeighIns,
+  fetchWeeklySummary,
   fetchWeightTrend,
 } from "@/lib/data/queries";
 import type { DailyWeight } from "@/lib/data/weight-trend";
@@ -116,7 +117,7 @@ export async function loadDashboardData(
   // The brick runs' detail waits on the activities (the pairing is by start and end times).
   const brickRunRows =
     shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
-  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned] =
+  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, training, summary, runEfforts, planner, planned, weeklySummary] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
@@ -134,6 +135,7 @@ export async function loadDashboardData(
       needs.training ? fetchRunEfforts(profile.id) : [],
       shell.tab === "training" ? loadPlanner(profile, today) : null,
       shell.tab === "progress" ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: addDays(shell.week, 6) }) : [],
+      shell.tab === "progress" ? fetchWeeklySummary(profile.id, shell.week) : null,
     ]);
 
   return {
@@ -154,5 +156,6 @@ export async function loadDashboardData(
     brickRuns,
     planner,
     planned,
+    weeklySummary,
   };
 }

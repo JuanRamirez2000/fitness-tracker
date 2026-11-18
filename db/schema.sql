@@ -279,6 +279,19 @@ create table mood_logs (
   primary key (user_id, local_date)
 );
 
+-- The Progress tab's weekly review (migration 018): "so far" Tuesday to Sunday, final on Monday.
+create table weekly_summaries (
+  user_id uuid not null references profiles(id) on delete cascade,
+  week_start date not null,                  -- the Monday
+  final boolean not null default false,      -- false = "week so far"
+  headline text not null,
+  sections jsonb not null,                   -- {wins: [], watch: [], next: []}
+  model text,
+  generated_at timestamptz not null default now(),
+  emailed_at timestamptz,
+  primary key (user_id, week_start)
+);
+
 -- The unofficial Garmin login session, shared by a local run and the GitHub Actions job
 -- (scripts/garmin/). Only the Python importer touches it; the app never does.
 create table garmin_token_cache (

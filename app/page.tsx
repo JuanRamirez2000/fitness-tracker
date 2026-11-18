@@ -109,7 +109,7 @@ async function TabBody({ data: pending, canEdit, urlRange }: { data: Promise<Das
       {data.tab === "today" && <TodayTab data={data} />}
       {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
       {data.tab === "training" && <TrainingTab data={data} urlRange={urlRange} canEdit={canEdit} />}
-      {data.tab === "progress" && <ProgressTab data={data} />}
+      {data.tab === "progress" && <ProgressTab data={data} urlRange={urlRange} />}
     </>
   );
 }

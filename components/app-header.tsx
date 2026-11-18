@@ -47,7 +47,7 @@ export function AppHeader({
 
         <div className="ml-auto flex items-center gap-2.5 lg:ml-3">
           {moodButton}
-          {canEdit && <GarminRefreshButton />}
+          {canEdit && <GarminRefreshButton tab={data.tab} />}
           {canEdit && <SettingsDialog profile={data.profile} />}
           <ThemeToggle />
           {canEdit ? (

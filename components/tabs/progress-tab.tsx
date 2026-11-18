@@ -4,19 +4,21 @@ import { HoursChart } from "@/components/progress/hours-chart";
 import { MoodCard } from "@/components/progress/mood-card";
 import { PlanCard } from "@/components/progress/plan-card";
 import { RecoveryCard } from "@/components/progress/recovery-card";
+import { WeeklyReview } from "@/components/progress/weekly-review";
 import type { DashboardData, KpiValue } from "@/lib/dashboard/types";
 import { countdownCard, hoursBySport, loadCard, planVsDone, readinessCard, weekMood, weekRecovery } from "@/lib/progress/build";
 import { progressWeek } from "@/lib/progress/week";
+import type { UrlRange } from "@/lib/range/url";
 
 const signed = (n: number, unit = "") => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}${unit}`;
 
 /**
  * One Monday-to-Sunday week (the header's week picker, `?week=`): how much training against the
  * week before, how recovered, how far to the race; then the plan against what was done, the
- * week's mornings and mood, and weekly hours by sport against the 4–7 h band. The weekly AI
- * review lands above these (docs/plan-progress-tab.md, step 4).
+ * week's mornings and mood, and weekly hours by sport against the 4–7 h band, under the week's
+ * AI review.
  */
-export function ProgressTab({ data }: { data: DashboardData }) {
+export function ProgressTab({ data, urlRange }: { data: DashboardData; urlRange: UrlRange | null }) {
   const week = progressWeek(data.week, data.today);
   const load = loadCard(data.activities, week);
   const readiness = readinessCard(data, week);
@@ -24,6 +26,7 @@ export function ProgressTab({ data }: { data: DashboardData }) {
 
   return (
     <>
+      <WeeklyReview summary={data.weeklySummary} week={week} timezone={data.profile.timezone} range={urlRange} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard
           label={week.current ? "Load so far" : "Training load"}

@@ -11,9 +11,11 @@ import {
   dailyRecoveryRowSchema,
   dailySummaryRowSchema,
   sleepNightRowSchema,
+  weeklySummaryRowSchema,
   type DailyRecovery,
   type DailySummary,
   type SleepNight,
+  type WeeklySummary,
 } from "./recovery";
 import { dailyTrainingRowSchema, type DailyTraining } from "./training";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
@@ -275,6 +277,14 @@ export async function fetchTraining(userId: string, to: string): Promise<DailyTr
 }
 
 /** The AI summary written for `tab` on `date`, if any. */
+/** The weekly review for the week starting on `monday`, or null before one is written. */
+export async function fetchWeeklySummary(userId: string, monday: string): Promise<WeeklySummary | null> {
+  const [row] = await db()`
+    select week_start, final, headline, sections, model, generated_at from weekly_summaries
+    where user_id = ${userId} and week_start = ${monday}`;
+  return row ? weeklySummaryRowSchema.parse(row) : null;
+}
+
 export async function fetchDailySummary(userId: string, date: string, tab: string): Promise<DailySummary | null> {
   const [row] = await db()`
     select local_date, tab, text, model, next_sessions, generated_at from daily_summaries

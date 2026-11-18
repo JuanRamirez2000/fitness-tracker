@@ -80,7 +80,9 @@ soreness is 3 or more.
    comparison, next week's planned sessions), Gemini structured output → `weekly_summaries`.
    The morning cron writes "so far" Tue–Sun and the final one on Monday for the week before.
    Refresh on the Progress tab rewrites the current week. Same rules as the other summaries:
-   plain words, effect + what to do, no HRV-ms numbers.
+   plain words, effect + what to do, no HRV-ms numbers. **Built 11-17** (migration 018): Refresh
+   rewrites only the weekly review on Progress and only the tab summaries elsewhere, because
+   the free tier allows 20 calls a day for gemini-3.6-flash. `npm run summary:generate -- --weekly`.
 5. **Emails.** `lib/email/` with Resend (`RESEND_API_KEY`), from `onboarding@resend.dev` to the
    owner's own address (no domain needed). Monday teaser goes out after step 4's final review
    (set `emailed_at` so a retry doesn't send twice). New cron at ~7 pm local: import today's
