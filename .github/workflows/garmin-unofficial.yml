@@ -5,6 +5,11 @@ name: Garmin unofficial import
 # Personal API doesn't serve. The rest
 # of the import is the Vercel Cron job (app/api/garmin/cron). See scripts/garmin/README.md.
 #
+# The morning run then calls the app's summary job (app/api/summary/cron?after=import), so the
+# AI summaries are written after readiness lands rather than at a fixed time GitHub's late starts
+# can beat. Needs the repo secrets APP_URL (the production site, no trailing slash) and
+# CRON_SECRET (the same value as on Vercel); without them Vercel's later fallback cron writes them.
+#
 # The Garmin login session comes from the garmin_token_cache table, shared with local runs.
 
 on:
@@ -15,6 +20,11 @@ on:
     - cron: "30 15 * * *"
     - cron: "30 5 * * *"
   workflow_dispatch:
+    inputs:
+      summaries:
+        description: Write the morning AI summaries afterwards (spends Gemini calls)
+        type: boolean
+        default: false
 
 concurrency:
   # Shared with garmin-push.yml: two runs refreshing the one Garmin session would log each other out.
@@ -44,3 +54,20 @@ jobs:
       - run: python push_workout.py --pending
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # Runs even when the import failed: the summaries still have yesterday's rows to work from.
+      # Only the HTTP status is printed; this repo's Actions logs are public.
+      - name: Write the morning summaries
+        if: always() && (github.event.schedule == '30 15 * * *' || inputs.summaries)
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL or CRON_SECRET isn't set; Vercel's fallback cron writes the summaries later."
+            exit 0
+          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 200 \
+            -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/summary/cron?after=import")
+          echo "Summary job answered $status"
+          test "$status" = 200

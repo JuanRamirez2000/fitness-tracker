@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/summary/cron",
-      "schedule": "45 15 * * *"
+      "schedule": "15 17 * * *"
     }
   ]
 }
