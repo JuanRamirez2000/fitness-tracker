@@ -32,7 +32,8 @@ scripts/garmin/.venv/bin/python scripts/garmin/import_unofficial.py --since 2026
 scripts/garmin/.venv/bin/python scripts/garmin/import_unofficial.py --dry-run
 ```
 
-Scheduled: `.github/workflows/garmin-unofficial.yml`, mornings and late evenings (Pacific),
+Scheduled: `.github/workflows/garmin-unofficial.yml`, mornings and late evenings (Pacific; the
+morning run then calls the app's summary job, see the main README's Schedule),
 with the repo secret `DATABASE_URL`. Run it by hand from the Actions tab or
 `gh workflow run garmin-unofficial.yml`.
 

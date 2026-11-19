@@ -7,10 +7,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import type { Activity } from "@/lib/data/activities";
 import { eachDay, type LocalDate } from "@/lib/dates/calendar";
 import { isInRange } from "@/lib/heatmap/cell-state";
-import { median } from "@/lib/running/runs";
 import { inSport, sportOf, SPORTS, type ActiveSport, type SportFilter } from "@/lib/sport";
-import { buildRideEfficiency } from "./ride-efficiency";
-import { buildRunEfficiency } from "./run-efficiency";
 import { weeklyBuckets } from "./weekly-buckets";
 
 type Data = Pick<DashboardData, "activities" | "dateRange" | "today"> & { sport?: SportFilter };
@@ -114,48 +111,6 @@ export function buildWeeklyVolume(data: Data): WeeklyVolumeData | null {
   };
 }
 
-// ---------- Engine trend ----------
-
-export interface EnginePoint {
-  date: LocalDate;
-  dateMs: number;
-  /** Percent better than the sport's first trend value in the range. */
-  pct: number;
-}
-
-export interface EngineSeries {
-  sport: ActiveSport;
-  /** What "better" means for this sport, for the hover: "watts per heartbeat". */
-  measure: string;
-  points: EnginePoint[];
-  latestPct: number;
-}
-
-/**
- * Each sport's easy-session efficiency trend (the rolling medians behind the Ride and Run
- * efficiency cards) as percent change from its own first value in the range, so sports measured
- * in different units share one axis. Up is better for every sport: more watts per beat, or a
- * faster pace at the same heart rate. Swimming gets a series when its own efficiency measure exists.
- */
-export function buildEngineTrend(data: DashboardData): EngineSeries[] {
-  const series: EngineSeries[] = [];
-  const wants = (sport: ActiveSport) => data.sport === "all" || data.sport === sport;
-  const ride = wants("ride") ? buildRideEfficiency(data) : null;
-  if (ride && ride.points.length >= 2) {
-    const first = ride.points[0].trend;
-    const points = ride.points.map((p) => ({ date: p.local_date, dateMs: p.dateMs, pct: ((p.trend - first) / first) * 100 }));
-    series.push({ sport: "ride", measure: "watts per heartbeat", points, latestPct: points.at(-1)!.pct });
-  }
-  const run = wants("run") ? buildRunEfficiency(data) : null;
-  if (run && run.points.length >= 2) {
-    const first = run.points[0].trend;
-    // Pace is seconds per mile, lower is faster: speed-at-130-bpm change is first / now - 1.
-    const points = run.points.map((p) => ({ date: p.local_date, dateMs: p.dateMs, pct: (first / p.trend - 1) * 100 }));
-    series.push({ sport: "run", measure: "pace at 130 bpm", points, latestPct: points.at(-1)!.pct });
-  }
-  return series;
-}
-
 // ---------- What your sessions trained ----------
 
 /** Garmin's primary training benefit labels, easiest first, with the words shown. */
@@ -214,51 +169,4 @@ export function buildSessionMix(data: Data): SessionMixData | null {
   }
   const seen = new Set(sessions.map((a) => sportOf(a.activity_type)));
   return { weeks, rows, counts, sports: SPORTS.filter((s) => seen.has(s)) };
-}
-
-// ---------- What each session cost you ----------
-
-export interface CostPoint {
-  id: string;
-  name: string;
-  date: LocalDate;
-  sport: ActiveSport;
-  load: number;
-  /** Body Battery drained (positive). */
-  drain: number;
-}
-
-export interface SessionCostData {
-  points: CostPoint[];
-  /** Per sport with at least 2 sessions: the median Body Battery drained per 10 load. */
-  costPer10: { sport: ActiveSport; value: number; sessions: number }[];
-  maxLoad: number;
-  maxDrain: number;
-}
-
-/** Every session in range with both a training load and a Body Battery change: how much each
- * one took out of you for the load it put in. */
-export function buildSessionCost(data: Data): SessionCostData | null {
-  const points: CostPoint[] = inRangeFor(data)
-    .filter((a) => a.training_load !== null && a.training_load > 0 && a.body_battery_change !== null)
-    .map((a) => ({
-      id: a.id,
-      name: a.name ?? "Workout",
-      date: a.local_date,
-      sport: sportOf(a.activity_type) as ActiveSport,
-      load: a.training_load!,
-      drain: Math.max(0, -a.body_battery_change!),
-    }));
-  if (points.length === 0) return null;
-  const costPer10 = SPORTS.flatMap((sport) => {
-    const mine = points.filter((p) => p.sport === sport);
-    if (mine.length < 2) return [];
-    return [{ sport, value: median(mine.map((p) => (p.drain / p.load) * 10))!, sessions: mine.length }];
-  });
-  return {
-    points,
-    costPer10,
-    maxLoad: Math.max(...points.map((p) => p.load)),
-    maxDrain: Math.max(...points.map((p) => p.drain)),
-  };
 }

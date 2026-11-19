@@ -1,6 +1,7 @@
 # Plan: split the Training tab into quick, grouped views
 
-Status: approved 2026-11-17, being built.
+Status: built 2026-11-17 (commit c160a2b). **This is the current layout**; the other plan docs
+in this folder are history.
 
 ## Why
 
@@ -34,7 +35,7 @@ Quick-look strip; Weight AI summary; today's weight, 7-day avg, weekly rate, pro
 
 - **Daily stress average.** It's stored but no view reads it.
 - **Fitness age factors.** Only fitness age itself is charted.
-- **Several kept-out cards.** HRV and resting HR charts, sleep timing, the recovery calendar, fat and lean mass, watts per kg, engine trend and session cost were taken off on 11-17. The code still exists.
+- **Several kept-out cards.** HRV and resting HR charts, sleep timing, fat and lean mass, watts per kg, engine trend and session cost were taken off on 11-17, and their code deleted on 11-18 (git history has it). The recovery calendar came back on Recovery.
 
 ### Overlap: cards answering the same question
 

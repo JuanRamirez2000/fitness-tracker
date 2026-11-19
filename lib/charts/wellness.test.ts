@@ -4,7 +4,6 @@ import type { DateRange } from "@/lib/dashboard/types";
 import { eachDay } from "@/lib/dates/calendar";
 import { testNight, testRecovery } from "@/lib/today/testing";
 import { buildBodyBattery } from "./body-battery";
-import { buildHeartChart } from "./heart";
 import { bedtimeMinutes, buildSleepChart, fmtBedtime } from "./sleep";
 
 const PROFILE = { timezone: "America/Los_Angeles" } as Profile;
@@ -52,26 +51,6 @@ describe("buildSleepChart", () => {
 
   it("is null with no nights in range", () => {
     expect(buildSleepChart({ sleep: [testNight({ local_date: "2026-10-01" })], dateRange: WEEK, profile: PROFILE })).toBeNull();
-  });
-});
-
-describe("buildHeartChart", () => {
-  it("marks HRV outside its band and reports latest values and deltas", () => {
-    const recovery = [
-      testRecovery({ local_date: "2026-10-28", resting_hr: 52, hrv_ms: 43, hrv_baseline_low: 39, hrv_baseline_high: 50 }),
-      testRecovery({ local_date: "2026-10-29", resting_hr: 50, hrv_ms: 36, hrv_baseline_low: 39, hrv_baseline_high: 50 }),
-      testRecovery({ local_date: "2026-11-03", resting_hr: 51, hrv_ms: 44, hrv_baseline_low: null, hrv_baseline_high: null }),
-    ];
-    const chart = buildHeartChart({ recovery, dateRange: WEEK })!;
-    expect(chart.hrv.map((p) => p.inBand)).toEqual([true, false, true]);
-    expect(chart.hrvOutOfBand).toBe(1);
-    expect(chart.rhrLatest).toBe(51);
-    expect(chart.rhrDelta).toBe(-1);
-    expect(chart.hrvDelta).toBe(1);
-  });
-
-  it("is null with neither series in range", () => {
-    expect(buildHeartChart({ recovery: [testRecovery({ local_date: "2026-11-03" })], dateRange: WEEK })).toBeNull();
   });
 });
 

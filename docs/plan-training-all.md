@@ -1,5 +1,8 @@
 # Plan: All tab, all-activity charts, simpler summaries
 
+> **Superseded.** The All / Ride / Run Training tab described here was replaced on 11-17 by the
+> grouped Training tab in `docs/plan-training-split.md`.
+
 Agreed 2026-11-11 and built the same day (steps 1–3 and the swim-ready work). Builds on Phase 1 (commit 026f530: All is the default Training filter, sport badges).
 
 **Gear:** Garmin Enduro 4, HRM 200 strap, Wahoo Kickr Core 2. Heart rate is chest-strap quality in every sport, swims included. Every indoor ride has power.

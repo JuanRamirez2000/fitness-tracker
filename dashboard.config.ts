@@ -20,7 +20,6 @@ import { vo2maxCycling } from "@/lib/kpis/vo2max-cycling";
 import { weeklyMiles } from "@/lib/kpis/weekly-miles";
 import { weeklyRate } from "@/lib/kpis/weekly-rate";
 import type { KpiDefinition, TabKey } from "@/lib/dashboard/types";
-import type { SportFilter } from "@/lib/sport";
 
 // The cards across the top of the dashboard, in order. Adding one = one new file exporting a
 // KpiDefinition plus one line here.
@@ -62,14 +61,6 @@ export const TAB_KPIS: Partial<Record<TabKey, readonly string[]>> = {
 
 // The Training tab's recovery row, under the readiness hero.
 export const RECOVERY_KPIS: readonly string[] = ["sleep-score", "sleep-debt", "steps-today"];
-
-// The Training tab's cards under each sport filter (lib/sport.ts), the same six units a row.
-export const TRAINING_KPIS: Record<SportFilter, readonly string[]> = {
-  ride: ["ride-miles", "ride-hours", "ftp", "load-ratio", "vo2max-cycling"],
-  run: ["weekly-miles", "easy-pace", "vo2max", "load-ratio", "race-5k"],
-  swim: ["swim-hours", "training-hours", "load-ratio"],
-  all: ["training-hours", "load-ratio", "vo2max-cycling", "vo2max", "ftp"],
-};
 
 // The Training tab's group tiles, one row each (docs/plan-training-split.md).
 export const GROUP_KPIS = {

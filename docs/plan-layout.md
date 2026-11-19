@@ -1,5 +1,8 @@
 # Layout plan: one training dashboard, a quick-look strip, fewer tabs
 
+> **Superseded.** Built 2026-11-17 (commit f3ca2eb), then replaced the same day by the five-tab
+> layout in `docs/plan-training-split.md`. Kept for the questionnaire scores below.
+
 From the 2026-11-17 questionnaire. How much each area matters (0–10):
 
 | Area | Score |

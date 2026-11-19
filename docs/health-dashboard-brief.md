@@ -1,7 +1,7 @@
 # Health dashboard: data plan and design brief
 
-Status: planning. Phase 1 (runs, efficiency, weekly miles, VO2 max) is live. This covers the
-next batch and the redesign that should come before it is built.
+> **History.** The original brief (early November 2026). Most of these metrics are now imported
+> and shown; the current layout is `docs/plan-training-split.md`.
 
 ## Metrics in scope
 

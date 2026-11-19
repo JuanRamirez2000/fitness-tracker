@@ -7,7 +7,7 @@
  * again after each press of the owner's Refresh button (app/api/summary/refresh/route.ts), or by
  * hand (`npm run summary:generate`). Never per page view.
  *
- * Free tier terms: no card, a daily request quota far above the one call made here, and Google
+ * Free tier terms: no card, about 20 requests a day for this model (README, "AI text"), and Google
  * may use free-tier prompts and responses (these summary facts) to improve its products, with
  * human review. Paid-tier keys don't; switching is only a billing change in AI Studio.
  *

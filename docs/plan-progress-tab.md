@@ -1,6 +1,10 @@
 # Plan: Progress tab, weekly review, mood log, bricks
 
-Agreed with the owner 2026-11-16 (Q&A in session). Not built yet. Priorities: Progress tab +
+> **Superseded.** Built 2026-11-16; the Progress tab was merged into Training on 11-17
+> (`docs/plan-layout.md`) and is now the Home tab (`docs/plan-training-split.md`). The weekly
+> review, mood log and bricks card still work as described here.
+
+Agreed with the owner 2026-11-16 (Q&A in session). Priorities: Progress tab +
 weekly review + mood log high, brick card a quick add. Records feed (medium), race checklist
 (February 2027) and "plan my week" (backup to Stamina) are out of scope here.
 

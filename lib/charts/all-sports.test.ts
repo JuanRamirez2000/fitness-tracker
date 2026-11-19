@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { testDashboardData, testRide, testRun } from "@/lib/kpis/testing";
-import { buildPowerZones, buildSessionCost, buildSessionMix, buildWeeklyVolume, sportsInRange } from "./all-sports";
+import { buildPowerZones, buildSessionMix, buildWeeklyVolume, sportsInRange } from "./all-sports";
 import { buildSportLoad } from "./training";
 
 const RANGE = { key: "custom" as const, from: "2026-11-01", to: "2026-11-14" };
@@ -112,23 +112,5 @@ describe("buildSessionMix", () => {
     expect(chart.rows.find((r) => r.key === "AEROBIC_BASE")!.cells[0].map((s) => s.sport)).toEqual(["ride"]);
     expect(chart.rows.find((r) => r.key === "LACTATE_THRESHOLD")!.cells[0].map((s) => s.sport)).toEqual(["run"]);
     expect(chart.counts).toEqual({ easy: 1, tempo: 1, hard: 1 });
-  });
-});
-
-describe("buildSessionCost", () => {
-  it("pairs load with Body Battery drained and gives each sport's median cost per 10 load", () => {
-    const data = testDashboardData({
-      sport: "all",
-      dateRange: RANGE,
-      activities: [
-        testRide({ local_date: "2026-11-02", training_load: 40, body_battery_change: -4 }),
-        testRide({ local_date: "2026-11-03", training_load: 20, body_battery_change: -4 }),
-        testRun({ local_date: "2026-11-04", training_load: 100, body_battery_change: -11 }),
-        testRun({ local_date: "2026-11-05", training_load: 10, body_battery_change: null }),
-      ],
-    });
-    const chart = buildSessionCost(data)!;
-    expect(chart.points).toHaveLength(3);
-    expect(chart.costPer10).toEqual([{ sport: "ride", value: 1.5, sessions: 2 }]);
   });
 });
