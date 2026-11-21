@@ -22,10 +22,10 @@ describe("POST /api/garmin/refresh", () => {
     expect(importGarmin).not.toHaveBeenCalled();
   });
 
-  it("imports today and answers without waiting on summaries", async () => {
+  it("imports today and yesterday and answers without waiting on summaries", async () => {
     const res = await POST();
     expect(await res.json()).toEqual({ ok: true, result: { imported: 3 } });
-    expect(importGarmin).toHaveBeenCalledWith({ window: { kind: "today" } });
+    expect(importGarmin).toHaveBeenCalledWith({ window: { kind: "days", days: 2 } });
   });
 
   it("reports a failed import", async () => {

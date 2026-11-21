@@ -19,7 +19,8 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: "Only the owner can refresh." }, { status: 403 });
   }
   try {
-    const result = await importGarmin({ window: { kind: "today" } });
+    // Today and yesterday, so the button also rescues a workout that synced after last night's run.
+    const result = await importGarmin({ window: { kind: "days", days: 2 } });
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     console.error("Garmin refresh failed:", err);
