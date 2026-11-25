@@ -2,20 +2,15 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { DayWindow } from "@/lib/dates/calendar";
 import { activityRowSchema, type Activity } from "./activities";
-import { activityDetailRowSchema, activityEffortsSchema, mileSplitSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
-import type { BrickRunDetail } from "@/lib/charts/bricks";
+import { activityDetailRowSchema, activityEffortsSchema, type ActivityDetail, type RunEfforts } from "./activity-details";
 import { injectionRowSchema, type Injection } from "./injections";
 import { isEmptyLog, moodLogRowSchema, type MoodLog, type MoodLogInput } from "./mood";
 import { profileSchema, type Profile, type ProfileSettings } from "./profiles";
 import {
   dailyRecoveryRowSchema,
-  dailySummaryRowSchema,
   sleepNightRowSchema,
-  weeklySummaryRowSchema,
   type DailyRecovery,
-  type DailySummary,
   type SleepNight,
-  type WeeklySummary,
 } from "./recovery";
 import { dailyTrainingRowSchema, type DailyTraining } from "./training";
 import { dailyStepsRowSchema, type DailySteps } from "./steps";
@@ -172,21 +167,6 @@ export async function fetchRunEfforts(userId: string): Promise<RunEfforts[]> {
   }));
 }
 
-/** The brick runs' splits and their samples' time and distance (lib/charts/bricks.ts firstMileDrop). */
-export async function fetchBrickRunDetails(userId: string, activityIds: string[]): Promise<BrickRunDetail[]> {
-  if (!activityIds.length) return [];
-  const rows = await db()`
-    select activity_id, mile_splits, series->'t' as t, series->'d' as d
-    from activity_details where user_id = ${userId} and activity_id = any(${activityIds}::uuid[])`;
-  const nums = (v: unknown) => (Array.isArray(v) ? v.map((x) => (typeof x === "number" ? x : null)) : null);
-  return rows.map((r) => ({
-    activity_id: String(r.activity_id),
-    mile_splits: Array.isArray(r.mile_splits) ? r.mile_splits.map((x: unknown) => mileSplitSchema.parse(x)) : null,
-    t: Array.isArray(r.t) ? r.t.map(Number) : null,
-    d: nums(r.d),
-  }));
-}
-
 /** An activity's samples and splits (migration 010), or null if never fetched. */
 export async function fetchActivityDetail(userId: string, activityId: string): Promise<ActivityDetail | null> {
   const [row] = await db()`select * from activity_details where user_id = ${userId} and activity_id = ${activityId}`;
@@ -277,17 +257,4 @@ export async function fetchTraining(userId: string, to: string): Promise<DailyTr
 }
 
 /** The AI summary written for `tab` on `date`, if any. */
-/** The weekly review for the week starting on `monday`, or null before one is written. */
-export async function fetchWeeklySummary(userId: string, monday: string): Promise<WeeklySummary | null> {
-  const [row] = await db()`
-    select week_start, final, headline, sections, model, generated_at from weekly_summaries
-    where user_id = ${userId} and week_start = ${monday}`;
-  return row ? weeklySummaryRowSchema.parse(row) : null;
-}
 
-export async function fetchDailySummary(userId: string, date: string, tab: string): Promise<DailySummary | null> {
-  const [row] = await db()`
-    select local_date, tab, text, model, next_sessions, generated_at from daily_summaries
-    where user_id = ${userId} and local_date = ${date} and tab = ${tab}`;
-  return row ? dailySummaryRowSchema.parse(row) : null;
-}

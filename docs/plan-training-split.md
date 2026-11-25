@@ -1,6 +1,8 @@
 # Plan: split the Training tab into quick, grouped views
 
-Status: built 2026-11-17 (commit c160a2b). **This is the current layout**; the other plan docs
+> **Superseded** 2026-11-24 by the four-tab layout in `docs/plan-four-tabs.md`.
+
+Status: built 2026-11-17 (commit c160a2b), replaced 2026-11-24. The other plan docs
 in this folder are history.
 
 ## Why

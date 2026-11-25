@@ -1,117 +1,13 @@
 import type { DashboardData } from "@/lib/dashboard/types";
-import type { Profile } from "@/lib/data/profiles";
 import { LOAD_FOCUS_KEYS, type DailyTraining, type LoadFocusKey } from "@/lib/data/training";
 import { addDays, eachDay, type LocalDate } from "@/lib/dates/calendar";
 import { isInRange } from "@/lib/heatmap/cell-state";
-import { runMiles } from "@/lib/running/runs";
-import { activitiesFor, inSport, type ActiveSport, type SportFilter } from "@/lib/sport";
-import { weeklyBuckets } from "./weekly-buckets";
+import { inSport, type ActiveSport } from "@/lib/sport";
 
-// ---------- Time in HR zones ----------
+// ---------- Easy vs hard ----------
 
 /** The design's target: 80% of training time easy (zones 1 and 2), riding or running. */
 export const EASY_SHARE_AIM = 0.8;
-/** Ranges up to this long show one bar per day; longer ones one per week. */
-const DAILY_ZONE_BARS_MAX_DAYS = 7;
-
-export interface ZoneBar {
-  /** A day, or a week's first day. */
-  label: LocalDate;
-  /** Minutes in Z1..Z5. */
-  minutes: [number, number, number, number, number];
-  /** Miles covered in this bar's day or week (every activity, with or without HR). */
-  miles: number;
-  /** Hours of activity in this bar (moving time, every activity): the label under All and Swim. */
-  hours: number;
-}
-
-export interface ZoneChartData {
-  weekly: boolean;
-  bars: ZoneBar[];
-  /** (Z1 + Z2) / all, over the range and over the last 7 days ending today. */
-  easyShare: number;
-  easyShareLast7: number | null;
-  totalMinutes: number;
-  /** Miles and activities in the range (every one, with or without HR), folded in from the old running volume card. */
-  totalMiles: number;
-  count: number;
-  /** Hours of activity in the range (moving time, every activity). */
-  totalHours: number;
-  /** What each bar is labelled with: miles for one land sport, hours under All (a ride mile and
-   * a run mile don't add up) and for swims (measured in yards). */
-  per: "miles" | "hours";
-  /** Garmin's own zone bounds, [low, high] bpm, when imported: its cycling zones under Ride. */
-  bounds: [number, number][] | null;
-}
-
-type Zones = [number, number, number, number, number];
-const ZERO: Zones = [0, 0, 0, 0, 0];
-const add = (a: Zones, b: readonly number[]): Zones => a.map((v, i) => v + (b[i] ?? 0)) as Zones;
-const easyShareOf = (z: Zones) => {
-  const total = z.reduce((s, v) => s + v, 0);
-  return total > 0 ? (z[0] + z[1]) / total : null;
-};
-
-/**
- * Time in each HR zone across the sport filter's activities, stacked per day (a week or less) or
- * per week, with the miles covered. Each activity's seconds are Garmin's, in that sport's zones.
- */
-export function buildZoneChart(
-  data: Pick<DashboardData, "activities" | "dateRange" | "today"> & {
-    sport: SportFilter;
-    profile: Pick<Profile, "hr_zone_bounds" | "hr_zone_bounds_cycling">;
-  },
-): ZoneChartData | null {
-  const allRuns = activitiesFor(data);
-  const runs = allRuns.filter((r) => r.hr_zone_s !== null);
-  const inRange = runs.filter((r) => isInRange(r.local_date, data.dateRange));
-  const runsInRange = allRuns.filter((r) => isInRange(r.local_date, data.dateRange));
-  if (runsInRange.length === 0) return null;
-
-  const secondsByDate = new Map<LocalDate, Zones>();
-  for (const r of inRange) secondsByDate.set(r.local_date, add(secondsByDate.get(r.local_date) ?? ZERO, r.hr_zone_s!));
-  const milesByDate = new Map<LocalDate, number>();
-  for (const r of runsInRange) milesByDate.set(r.local_date, (milesByDate.get(r.local_date) ?? 0) + runMiles(r));
-  const hoursByDate = new Map<LocalDate, number>();
-  for (const r of runsInRange) hoursByDate.set(r.local_date, (hoursByDate.get(r.local_date) ?? 0) + (r.moving_duration_s ?? r.duration_s) / 3600);
-  const toMinutes = (z: Zones) => z.map((s) => s / 60) as Zones;
-  const milesOf = (days: LocalDate[]) => days.reduce((sum, d) => sum + (milesByDate.get(d) ?? 0), 0);
-  const hoursOf = (days: LocalDate[]) => days.reduce((sum, d) => sum + (hoursByDate.get(d) ?? 0), 0);
-
-  const weekly = eachDay(data.dateRange.from, data.dateRange.to).length > DAILY_ZONE_BARS_MAX_DAYS;
-  const bars: ZoneBar[] = weekly
-    ? weeklyBuckets(data.dateRange).map((week) => ({
-        label: week[0],
-        minutes: toMinutes(week.reduce((acc, d) => add(acc, secondsByDate.get(d) ?? ZERO), ZERO)),
-        miles: milesOf(week),
-        hours: hoursOf(week),
-      }))
-    : eachDay(data.dateRange.from, data.dateRange.to).map((d) => ({
-        label: d,
-        minutes: toMinutes(secondsByDate.get(d) ?? ZERO),
-        miles: milesOf([d]),
-        hours: hoursOf([d]),
-      }));
-
-  const rangeTotal = inRange.reduce((acc, r) => add(acc, r.hr_zone_s!), ZERO);
-  const last7 = { from: addDays(data.today, -6), to: data.today };
-  const last7Total = runs.filter((r) => isInRange(r.local_date, last7)).reduce((acc, r) => add(acc, r.hr_zone_s!), ZERO);
-
-  return {
-    weekly,
-    bars,
-    easyShare: easyShareOf(rangeTotal) ?? 0,
-    easyShareLast7: easyShareOf(last7Total),
-    totalMinutes: rangeTotal.reduce((s, v) => s + v, 0) / 60,
-    totalMiles: milesOf([...milesByDate.keys()]),
-    count: runsInRange.length,
-    totalHours: hoursOf([...hoursByDate.keys()]),
-    per: data.sport === "ride" || data.sport === "run" ? "miles" : "hours",
-    // Under All, rides and runs use different zones, so no single set of bpm labels is right.
-    bounds: data.sport === "ride" ? data.profile.hr_zone_bounds_cycling ?? data.profile.hr_zone_bounds : data.sport === "run" ? data.profile.hr_zone_bounds : null,
-  };
-}
-
 // ---------- Training load ----------
 
 export type StatusTone = "good" | "neutral" | "bad";

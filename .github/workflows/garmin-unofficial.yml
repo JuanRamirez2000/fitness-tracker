@@ -5,10 +5,10 @@ name: Garmin unofficial import
 # Personal API doesn't serve. The rest
 # of the import is the Vercel Cron job (app/api/garmin/cron). See scripts/garmin/README.md.
 #
-# The morning run then calls the app's summary job (app/api/summary/cron?after=import), so the
-# AI summaries are written after readiness lands rather than at a fixed time GitHub's late starts
-# can beat. Needs the repo secrets APP_URL (the production site, no trailing slash) and
-# CRON_SECRET (the same value as on Vercel); without them Vercel's later fallback cron writes them.
+# The morning run then calls the app's morning job (app/api/summary/cron?after=import): today's
+# sleep and recovery, and notes for new activities. Needs the repo secrets APP_URL (the
+# production site, no trailing slash) and CRON_SECRET (the same value as on Vercel); without them
+# Vercel's later fallback cron does it.
 #
 # The Garmin login session comes from the garmin_token_cache table, shared with local runs.
 

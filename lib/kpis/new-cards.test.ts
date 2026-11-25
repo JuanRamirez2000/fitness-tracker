@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
 import type { BodyCompositionDay } from "@/lib/data/weigh-ins";
 import { addDays } from "@/lib/dates/calendar";
-import { TAB_KPIS, KPIS } from "@/dashboard.config";
+import { HOME_KPIS, TRAINING_KPIS, WEIGHT_KPIS, KPIS } from "@/dashboard.config";
+import { climbGainPct } from "./climb-gain";
 import { bodyFat } from "./body-fat";
 import { hrv } from "./hrv";
 import { loadRatio } from "./load-ratio";
@@ -18,11 +19,18 @@ const day = (daysAgo: number, over: Partial<DailyRecovery> = {}): DailyRecovery 
   ({ local_date: addDays(TODAY, -daysAgo), resting_hr: 52, hrv_ms: 45, hrv_baseline_low: 40, hrv_baseline_high: 50, ...over }) as DailyRecovery;
 
 describe("tab rows", () => {
-  it("fills exactly one six-unit row on every tab", () => {
-    for (const [tab, ids] of Object.entries(TAB_KPIS)) {
-      const units = ids.reduce((sum, id) => sum + (KPIS.find((k) => k.id === id)?.span ?? 1), 0);
-      expect(units, tab).toBe(6);
-    }
+  it("fills whole rows: Weight one row of six units, Training two rows of three", () => {
+    const units = (ids: readonly string[]) => ids.reduce((sum, id) => sum + (KPIS.find((k) => k.id === id)?.span ?? 1), 0);
+    expect(units(WEIGHT_KPIS)).toBe(6);
+    expect(units(TRAINING_KPIS)).toBe(6);
+  });
+
+  it("names only cards that exist", () => {
+    for (const id of [...HOME_KPIS, ...TRAINING_KPIS, ...WEIGHT_KPIS]) expect(KPIS.some((k) => k.id === id), id).toBe(true);
+  });
+
+  it("puts a number on climbing at the same power", () => {
+    expect(climbGainPct(288, 267.2)).toBeCloseTo((1 - 289.2 / 310) * 100, 6);
   });
 });
 

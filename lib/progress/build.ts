@@ -3,9 +3,9 @@ import type { Activity } from "@/lib/data/activities";
 import type { MoodLog } from "@/lib/data/mood";
 import type { PlannedWorkout } from "@/lib/data/planned";
 import { addDays, diffDays, eachDay, mondayOf, type LocalDate } from "@/lib/dates/calendar";
-import { fmtDate, fmtPointTitle } from "@/lib/dates/format";
+import { fmtPointTitle } from "@/lib/dates/format";
 import { sportOf, SPORTS, type ActiveSport } from "@/lib/sport";
-import { phaseOn, sessionSport } from "@/lib/workouts/plan";
+import { sessionSport } from "@/lib/workouts/plan";
 import type { ProgressWeek } from "./week";
 
 /**
@@ -64,52 +64,6 @@ export function loadCard(activities: readonly Activity[], week: ProgressWeek): K
 }
 
 const readinessOf = (r: DashboardData["recovery"][number]) => r.readiness_morning_score ?? r.readiness_score;
-
-/** The week's average readiness (against the week before) and how the mood log read. */
-export function readinessCard(data: Pick<DashboardData, "recovery" | "moodLogs">, week: ProgressWeek): KpiValue | null {
-  const scores = (from: LocalDate, to: LocalDate) =>
-    data.recovery.flatMap((r) => {
-      const s = readinessOf(r);
-      return s !== null && inDays(r.local_date, from, to) ? [{ date: r.local_date, value: s }] : [];
-    });
-  const days = scores(week.monday, week.through);
-  const avg = mean(days.map((d) => d.value));
-  if (avg === null) return null;
-  const prev = mean(scores(addDays(week.monday, -7), addDays(week.monday, -1)).map((d) => d.value));
-  const logs = data.moodLogs.filter((l) => inDays(l.local_date, week.monday, week.through));
-  const mood = mean(logs.flatMap((l) => (l.mood === null ? [] : [l.mood])));
-  const sick = logs.filter((l) => l.sick).length;
-  const injured = logs.filter((l) => l.injured).length;
-  const span = diffDays(week.through, week.monday) + 1;
-  const feel = [
-    mood === null ? "no mood logged" : `mood ${mood.toFixed(1)} of 5 (${logs.length} of ${span} days logged)`,
-    sick ? `sick ${sick} ${sick === 1 ? "day" : "days"}` : null,
-    injured ? `injured ${injured} ${injured === 1 ? "day" : "days"}` : null,
-  ].filter(Boolean);
-  return {
-    value: Math.round(avg),
-    unit: "avg",
-    delta: prev === null ? undefined : Math.round(avg - prev),
-    tone: avg >= 75 ? "good" : avg >= 50 ? "neutral" : "warn",
-    sub: feel.join(" · "),
-    points: days.map((d) => ({ date: d.date, value: d.value, text: String(d.value) })),
-  };
-}
-
-/** Weeks to the A race as of the week's last day so far, with the training phase. */
-export function countdownCard(data: Pick<DashboardData, "profile">, week: ProgressWeek): KpiValue | null {
-  const race = data.profile.workout_settings.race;
-  if (!race) return null;
-  const phase = phaseOn(week.through, race);
-  const days = diffDays(race.date, week.through);
-  return {
-    value: days >= 0 ? (phase.weeksToRace ?? 0) : null,
-    unit: days >= 0 ? (phase.weeksToRace === 1 ? "week" : "weeks") : "",
-    deltaText: phase.label,
-    tone: "neutral",
-    sub: `${race.name} · ${fmtDate(race.date)}${days >= 0 && days % 7 ? ` (${days} days)` : ""}`,
-  };
-}
 
 // ---------- Hours by sport ----------
 
@@ -389,28 +343,3 @@ export function intensitySplit(data: Pick<DashboardData, "activities">, week: Pr
 
 // ---------- Weight ----------
 
-const WEIGHT_WEEKS = 8;
-
-/** The week's weight: the 7-day average at its last day against the end of the week before
- * (down is good: the goal is losing), with the last 8 weeks' ends as the sparkline. */
-export function weekWeightCard(data: Pick<DashboardData, "weightTrend">, week: ProgressWeek): KpiValue | null {
-  const at = (date: LocalDate) => [...data.weightTrend].reverse().find((r) => r.local_date <= date) ?? null;
-  const now = at(week.through);
-  if (!now || now.local_date < week.monday) return null;
-  const before = at(addDays(week.monday, -1));
-  const delta = before ? Math.round((now.avg7_lb - before.avg7_lb) * 10) / 10 : undefined;
-  const points = Array.from({ length: WEIGHT_WEEKS }, (_, i) => {
-    const end = i === WEIGHT_WEEKS - 1 ? week.through : addDays(week.monday, -1 - 7 * (WEIGHT_WEEKS - 2 - i));
-    const row = at(end);
-    return row ? [{ date: end, value: row.avg7_lb, text: `${row.avg7_lb.toFixed(1)} lb`, title: fmtPointTitle(mondayOf(end), true) }] : [];
-  }).flat();
-  return {
-    value: Math.round(now.avg7_lb * 10) / 10,
-    unit: "lb",
-    delta,
-    deltaUnit: "lb",
-    tone: delta === undefined ? "neutral" : delta < 0 ? "good" : delta > 0.5 ? "warn" : "neutral",
-    sub: before ? `7-day average, vs ${before.avg7_lb.toFixed(1)} at the end of last week` : "7-day average",
-    points,
-  };
-}

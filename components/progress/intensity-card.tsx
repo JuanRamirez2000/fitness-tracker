@@ -9,10 +9,10 @@ const HELP =
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-/** Weekly easy / moderate / hard bars, each scaled to its own week's total, with the 80% aim marked. */
+/** Weekly easy / moderate / hard columns, each scaled to its own week's total, with the 80% aim marked. */
 export function IntensityCard({ split }: { split: IntensitySplit | null }) {
   const title = "Easy vs hard";
-  const subtitle = "Share of each week's time by heart rate, against the 80% easy aim";
+  const subtitle = "Each week's time by heart rate, 8 weeks";
   if (!split) {
     return (
       <ChartCard help={HELP} title={title} subtitle={subtitle}>
@@ -40,26 +40,35 @@ export function IntensityCard({ split }: { split: IntensitySplit | null }) {
       note={split.priorShare !== null ? `The 4 weeks before: ${pct(split.priorShare)} easy` : undefined}
     >
       <p className={`text-[12.5px] ${split.share !== null && split.share < EASY_SHARE_AIM ? "text-warn" : "text-muted-1"}`}>{verdict}</p>
-      <ul className="flex flex-col gap-1.5">
-        {split.weeks.map((w) => {
-          const total = w.easy + w.moderate + w.hard;
-          return (
-            <li key={w.monday} className="grid grid-cols-[64px_minmax(0,1fr)_40px] items-center gap-2 font-mono text-[10px] text-muted-2">
-              <span>{fmtDate(w.monday)}{w.partial ? "*" : ""}</span>
-              <div className="relative h-3 overflow-hidden rounded-[3px] bg-track" role="img" aria-label={total ? `${w.easy} min easy, ${w.moderate} moderate, ${w.hard} hard` : "no heart rate data"}>
-                {total > 0 && (
-                  <div className="flex h-full">
-                    <div className="bg-z2" style={{ width: `${(w.easy / total) * 100}%` }} />
-                    <div className="bg-z3" style={{ width: `${(w.moderate / total) * 100}%` }} />
-                    <div className="bg-z5" style={{ width: `${(w.hard / total) * 100}%` }} />
-                  </div>
-                )}
-                <div className="absolute inset-y-0 w-px bg-ink" style={{ left: `${EASY_SHARE_AIM * 100}%` }} />
-              </div>
-              <span className="text-right">{w.easyShare === null ? "–" : pct(w.easyShare)}</span>
-            </li>
-          );
-        })}
+      {/* A column per week, oldest on the left: easy at the bottom, hard on top, each scaled to its
+          own week's total, with the 80% aim as a line across. */}
+      <ul className="flex items-end gap-1.5">
+          {split.weeks.map((w) => {
+            const total = w.easy + w.moderate + w.hard;
+            return (
+              <li key={w.monday} className="flex min-w-0 flex-1 flex-col items-center gap-1 font-mono text-[9.5px] text-muted-2">
+                <span className={w.easyShare !== null && w.easyShare < EASY_SHARE_AIM ? "text-warn" : undefined}>{w.easyShare === null ? "–" : pct(w.easyShare)}</span>
+                <div
+                  className="relative flex h-[120px] w-full max-w-[28px] flex-col-reverse overflow-hidden rounded-[3px] bg-track"
+                  role="img"
+                  aria-label={total ? `Week of ${fmtDate(w.monday)}: ${w.easy} min easy, ${w.moderate} moderate, ${w.hard} hard` : `Week of ${fmtDate(w.monday)}: no heart rate data`}
+                >
+                  {total > 0 && (
+                    <>
+                      <div className="bg-z2" style={{ height: `${(w.easy / total) * 100}%` }} />
+                      <div className="bg-z3" style={{ height: `${(w.moderate / total) * 100}%` }} />
+                      <div className="bg-z5" style={{ height: `${(w.hard / total) * 100}%` }} />
+                    </>
+                  )}
+                  <div className="absolute inset-x-0 h-px bg-ink" style={{ bottom: `${EASY_SHARE_AIM * 100}%` }} />
+                </div>
+                <span className="whitespace-nowrap">
+                  {fmtDate(w.monday)}
+                  {w.partial ? "*" : ""}
+                </span>
+              </li>
+            );
+          })}
       </ul>
     </ChartCard>
   );

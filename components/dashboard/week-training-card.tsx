@@ -1,3 +1,4 @@
+import { ChartCard } from "@/components/charts/chart-card";
 import type { WeekTile } from "@/lib/dashboard/week-so-far";
 import { fmtDate } from "@/lib/dates/format";
 import { toneColor } from "@/lib/kpis/tone-color";
@@ -27,18 +28,14 @@ function Tile({ tile }: { tile: WeekTile }) {
 }
 
 /**
- * The top of every tab: the picked week so far (the header's week picker), as a row of small
- * tiles about that tab. Two across on a phone, three on a tablet, one row on a laptop.
+ * Home's "This week's training": the picked week (the header's week picker) as a few small
+ * tiles: time against the aim, sessions done, load, and the next session.
  */
-export function WeekSoFar({ week, tiles }: { week: ProgressWeek; tiles: WeekTile[] }) {
-  const label = week.current ? "This week so far" : `Week of ${fmtDate(week.monday)}`;
+export function WeekTrainingCard({ week, tiles }: { week: ProgressWeek; tiles: WeekTile[] }) {
   return (
-    <section id="week-so-far" aria-label={label} className="flex scroll-mt-28 flex-col gap-2.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">
-        {label} · {fmtDate(week.monday)} – {fmtDate(week.sunday)}
-      </span>
+    <ChartCard title={week.current ? "This week's training" : "That week's training"} subtitle={`${fmtDate(week.monday)} – ${fmtDate(week.sunday)}`}>
       {tiles.length > 0 ? (
-        <div className={`grid grid-cols-2 gap-2.5 md:grid-cols-3 ${tiles.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        <div className="grid grid-cols-2 gap-2.5">
           {tiles.map((t) => (
             <Tile key={t.key} tile={t} />
           ))}
@@ -46,6 +43,6 @@ export function WeekSoFar({ week, tiles }: { week: ProgressWeek; tiles: WeekTile
       ) : (
         <p className="text-[12.5px] text-muted-2">Nothing recorded this week yet.</p>
       )}
-    </section>
+    </ChartCard>
   );
 }

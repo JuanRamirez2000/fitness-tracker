@@ -1,11 +1,8 @@
-import { findBricks } from "@/lib/charts/bricks";
 import type { MoodLog } from "@/lib/data/mood";
 import type { Profile } from "@/lib/data/profiles";
 import {
   fetchActivities,
-  fetchBrickRunDetails,
   fetchBodyComposition,
-  fetchDailySummary,
   fetchInjections,
   fetchMoodLogs,
   fetchRecovery,
@@ -14,7 +11,6 @@ import {
   fetchSteps,
   fetchTraining,
   fetchWeighIns,
-  fetchWeeklySummary,
   fetchWeightTrend,
 } from "@/lib/data/queries";
 import type { DailyWeight } from "@/lib/data/weight-trend";
@@ -63,25 +59,25 @@ export function tabNeeds(tab: TabKey): {
   recovery: boolean;
   bodyComposition: boolean;
   training: boolean;
-  /** The plans, the planner, the week's sessions and its review (Home); plan rows for Log's day table. */
+  /** The plan rows: Home's next session and Log's day table. */
   plans: boolean;
-  /** Run best efforts: records (Home, Log) and the best efforts card (Training). */
+  /** The Next 7 days planner (Home, Training). */
+  planner: boolean;
+  /** Run best efforts: Log's records and Training's best efforts card. */
   runEfforts: boolean;
 } {
   return {
     activities: true, // every training view; run ticks on the weight trend; Log's tables
-    steps: tab === "recovery" || tab === "log", // average steps, the Steps card, the steps heatmap
+    steps: tab === "log", // the steps heatmap and day table
     weighIns: tab === "weight",
-    recovery: tab === "recovery" || tab === "log", // daily_recovery and sleep_nights
+    recovery: tab === "home" || tab === "log", // daily_recovery and sleep_nights
     bodyComposition: tab === "weight",
-    training: tab !== "recovery", // daily_training: VO2 max, load, plans, records; Garmin's FTP for watts per kilo
+    training: true, // daily_training: VO2 max, load, race predictions, records; Garmin's FTP
     plans: tab === "home" || tab === "log",
-    runEfforts: tab === "home" || tab === "training" || tab === "log",
+    planner: tab === "home" || tab === "training",
+    runEfforts: tab === "training" || tab === "log",
   };
 }
-
-/** The daily summary each tab shows, by its stored key: Home shows the Training one. */
-const SUMMARY_FOR: Partial<Record<TabKey, "training" | "weight">> = { home: "training", weight: "weight" };
 
 /**
  * The part of the page known after the first query (profile and first weigh-in): the tab, the
@@ -127,32 +123,25 @@ export async function loadDashboardData(
   const rangeTo = dateRange.to > today ? dateRange.to : today;
   const recoverySpan = { from: weekFrom < earliest ? weekFrom : earliest, to: weekTo > rangeTo ? weekTo : rangeTo };
   const activityRows = needs.activities ? fetchActivities(profile.id) : Promise.resolve([]);
-  // The brick runs' detail waits on the activities (the pairing is by start and end times).
-  const brickRunRows =
-    shell.tab === "training" ? activityRows.then((rows) => fetchBrickRunDetails(profile.id, findBricks(rows).map((b) => b.run.id))) : Promise.resolve([]);
   // Log's day table shows planned vs done over the range too.
   const planBase = [shell.week < today ? shell.week : today, dateRange.from].sort()[0];
   const planFrom = addDays(planBase, -PLAN_HISTORY_BACK_DAYS);
   const home = shell.tab === "home";
-  const summaryKey = SUMMARY_FOR[shell.tab];
-  const [weightTrend, injections, moodLogRows, activities, brickRuns, weighIns, allSteps, recovery, sleep, bodyComposition, trainingRows, summary, runEfforts, planner, planned, weeklySummary, planHistory] =
+  const [weightTrend, injections, moodLogRows, activities, weighIns, allSteps, recovery, sleep, bodyComposition, trainingRows, runEfforts, planner, planned, planHistory] =
     await Promise.all([
       fetchWeightTrend(profile.id),
       fetchInjections(profile.id),
       moodLogs,
       activityRows,
-      brickRunRows,
       needs.weighIns ? fetchWeighIns(profile.id, dateRange) : [],
       needs.steps ? fetchSteps(profile.id, stepsSpan) : [],
       needs.recovery ? fetchRecovery(profile.id, recoverySpan) : [],
       needs.recovery ? fetchSleepNights(profile.id, recoverySpan) : [],
       needs.bodyComposition ? fetchBodyComposition(profile.id) : [],
       needs.training ? fetchTraining(profile.id, recoverySpan.to > today ? recoverySpan.to : today) : [],
-      summaryKey ? fetchDailySummary(profile.id, today, summaryKey) : null,
       needs.runEfforts ? fetchRunEfforts(profile.id) : [],
-      home ? loadPlanner(profile, today) : null,
+      needs.planner ? loadPlanner(profile, today) : null,
       home ? fetchPlannedWorkouts(profile.id, { from: shell.week, to: weekTo }) : [],
-      home ? fetchWeeklySummary(profile.id, shell.week) : null,
       needs.plans ? fetchPlannedWorkouts(profile.id, { from: planFrom, to: addDays(today, PLAN_HISTORY_AHEAD_DAYS) }) : [],
     ]);
 
@@ -169,12 +158,9 @@ export async function loadDashboardData(
     sleep,
     bodyComposition,
     training: trainingRows,
-    summary,
     runEfforts,
-    brickRuns,
     planner,
     planned,
-    weeklySummary,
     planHistory,
   };
 }

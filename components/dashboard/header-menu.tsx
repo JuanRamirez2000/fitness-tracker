@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { signOut } from "@/lib/auth/actions";
-import type { TabKey } from "@/lib/dashboard/types";
 import type { Profile } from "@/lib/data/profiles";
 import { ThemeToggle } from "../theme-toggle";
 import { GarminRefreshButton } from "./garmin-refresh-button";
 import { SettingsDialog } from "./settings-dialog";
 
 /** The phone header's menu with its contents: what the lg header shows in a row. */
-export function PhoneHeaderMenu({ tab, profile, canEdit }: { tab: TabKey; profile: Profile; canEdit: boolean }) {
+export function PhoneHeaderMenu({ profile, canEdit }: { profile: Profile; canEdit: boolean }) {
   const [busy, setBusy] = useState(false);
   return (
     <HeaderMenu busy={busy}>
-      {canEdit && <GarminRefreshButton tab={tab} onBusyChange={setBusy} stacked />}
+      {canEdit && <GarminRefreshButton onBusyChange={setBusy} stacked />}
       {canEdit && (
         <MenuRow label="Goals and profile">
           <SettingsDialog profile={profile} />

@@ -2,28 +2,19 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { TabKey } from "@/lib/dashboard/types";
-import { useSummaryStatus } from "./summary-status";
 
-type Status = "idle" | "importing" | "writing" | "error";
+type Status = "idle" | "importing" | "error";
 
 /**
- * Sits right next to "+ Log today" (frame 2A's header, extended past the design — no frame
- * covers this). Pulls today only from Garmin, on demand — the nightly cron already covers
- * yesterday, so this exists for "I just logged a run/weighed in and want it to show up now"
- * rather than waiting.
- *
- * Two steps, so the new numbers never wait on Gemini: /api/garmin/refresh imports today and
- * the page reloads with it; then /api/summary/refresh rewrites today's AI summaries, or on the
- * Progress tab the weekly review (the summary shows a skeleton meanwhile, via SummaryStatus),
- * and the page reloads again.
+ * Pulls today only from Garmin, on demand: the nightly cron already covers yesterday, so this
+ * exists for "I just logged a run or weighed in and want it to show up now" rather than waiting.
+ * /api/garmin/refresh imports today, then the page reloads with it.
  */
-export function GarminRefreshButton({ tab, onBusyChange, stacked = false }: { tab: TabKey; onBusyChange?: (busy: boolean) => void; stacked?: boolean }) {
+export function GarminRefreshButton({ onBusyChange, stacked = false }: { onBusyChange?: (busy: boolean) => void; stacked?: boolean }) {
   const router = useRouter();
-  const { setWriting } = useSummaryStatus();
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [refreshing, startTransition] = useTransition();
 
   async function refresh() {
     setStatus("importing");
@@ -41,39 +32,14 @@ export function GarminRefreshButton({ tab, onBusyChange, stacked = false }: { ta
       setMessage(null);
       return;
     }
-
-    // Only Home (the training summary and the weekly review) and Weight have AI text to rewrite.
-    const scope = tab === "home" ? "training" : tab === "weight" ? "weight" : null;
-    if (!scope) {
-      startTransition(() => {
-        router.refresh();
-        setStatus("idle");
-        setMessage(null);
-      });
-      return;
-    }
-    router.refresh();
-    setStatus("writing");
-    setWriting(true);
-    let summaryFailed = true;
-    try {
-      const res = await fetch(`/api/summary/refresh?scope=${scope}`, { method: "POST" });
-      const body = (await res.json()) as { ok?: boolean; summaryFailed?: boolean };
-      summaryFailed = !body.ok || body.summaryFailed === true;
-    } catch {
-      // Network trouble: the data is in, only the summary is stale.
-    }
-    // One transition: the skeleton gives way only once the reloaded page carries the new
-    // summary, never to the old one in between.
+    // One transition: the button stays busy until the reloaded page is in.
     startTransition(() => {
       router.refresh();
-      setWriting(false);
       setStatus("idle");
-      setMessage(summaryFailed ? (tab === "home" ? "Summary or review didn’t update" : "Summary didn’t update") : null);
     });
   }
 
-  const busy = status === "importing" || status === "writing";
+  const busy = status === "importing" || refreshing;
   // The phone menu's ⋯ button shows a running refresh while the menu is closed.
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
   return (
@@ -85,12 +51,9 @@ export function GarminRefreshButton({ tab, onBusyChange, stacked = false }: { ta
         aria-label="Refresh today's data from Garmin"
         className="rounded-lg border border-border-strong px-3 py-[7px] text-[12.5px] text-muted-1 disabled:opacity-50"
       >
-        {status === "importing" ? "Refreshing…" : status === "writing" ? (tab === "home" ? "Writing summaries…" : "Writing summary…") : "↻ Refresh"}
+        {busy ? "Refreshing…" : "↻ Refresh"}
       </button>
-      {status === "error" && (
-        <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>
-      )}
-      {status === "idle" && message && <span className="text-[11px] text-muted-1">{message}</span>}
+      {status === "error" && <span className="text-[11px] text-bad">{message ?? "Couldn’t refresh"}</span>}
     </div>
   );
 }

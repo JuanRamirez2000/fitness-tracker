@@ -1,6 +1,6 @@
 # Plan: four tabs, Recovery folds into Home, no carousels, no AI summaries on the page
 
-Status: agreed 2026-11-24, not built. Replaces the five-tab layout (`docs/plan-training-split.md`)
+Status: built 2026-11-24. Replaces the five-tab layout (`docs/plan-training-split.md`)
 and the carousel and week-strip parts of `docs/plan-home-and-header.md`. That doc's phone header is
 built separately (step 0 below).
 

@@ -3,7 +3,7 @@ import type { DayWindow } from "@/lib/dates/calendar";
 import type { Profile } from "@/lib/data/profiles";
 import { fetchActivityIdsWithoutSummary, saveActivitySummary, type ActivitySummary } from "@/lib/data/queries";
 import { ACTIVITY_SYSTEM, activityFacts, activityUserMessage } from "@/lib/summary/activity";
-import { SUMMARY_MODEL, callGemini } from "@/lib/summary/generate";
+import { SUMMARY_MODEL, callGemini } from "@/lib/summary/gemini";
 import { loadActivityView } from "./load";
 
 /**

@@ -6,13 +6,9 @@ import { importGarmin } from "@/lib/garmin/import";
 export const maxDuration = 60;
 
 /**
- * Step one of the "Refresh" button (components/dashboard/garmin-refresh-button.tsx): imports
- * TODAY from the Garmin Personal API, in this request. The nightly cron
- * (app/api/garmin/cron/route.ts) covers yesterday.
- *
- * The page reloads with the fresh rows as soon as this answers. Only after a successful
- * import does the button ask /api/summary/refresh to rewrite today's AI summaries, so the new
- * numbers never wait on Gemini.
+ * The "Refresh" button (components/dashboard/garmin-refresh-button.tsx): imports TODAY from
+ * the Garmin Personal API, in this request, and the page reloads with the fresh rows. The
+ * nightly cron (app/api/garmin/cron/route.ts) covers yesterday.
  */
 export async function POST() {
   if ((await getRole()) !== "owner") {

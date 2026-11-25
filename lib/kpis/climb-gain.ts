@@ -1,5 +1,13 @@
 import type { DashboardData, KpiDefinition, KpiValue } from "@/lib/dashboard/types";
-import { climbGainPct } from "@/lib/insights/weight";
+
+/** Bike, shoes, bottles and kit: the extra weight that climbs with you (an assumption, shown). */
+export const BIKE_AND_GEAR_LB = 22;
+
+/** Percent faster up a steady climb at the same power going from one rider weight to another:
+ * time scales with total weight, rider plus bike and gear. */
+export function climbGainPct(from: number, to: number, gear = BIKE_AND_GEAR_LB): number {
+  return (1 - (to + gear) / (from + gear)) * 100;
+}
 
 /**
  * What the weight lost so far is worth on a climb: percent faster at the same power than at the

@@ -49,7 +49,7 @@ export function AppHeader({
         <div className="flex items-center gap-2.5 lg:ml-3">
           {moodButton}
           <div className="hidden items-center gap-2.5 lg:flex">
-            {canEdit && <GarminRefreshButton tab={data.tab} />}
+            {canEdit && <GarminRefreshButton />}
             {canEdit && <SettingsDialog profile={data.profile} />}
             <ThemeToggle />
             {canEdit ? (
@@ -65,7 +65,7 @@ export function AppHeader({
             )}
           </div>
           <div className="lg:hidden">
-            <PhoneHeaderMenu tab={data.tab} profile={data.profile} canEdit={canEdit} />
+            <PhoneHeaderMenu profile={data.profile} canEdit={canEdit} />
           </div>
         </div>
       </div>

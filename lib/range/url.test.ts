@@ -57,7 +57,8 @@ describe("rangeToSearchParams", () => {
 
 describe("parseTabParam", () => {
   it("reads each known tab", () => {
-    expect(parseTabParam("today")).toBe("recovery");
+    expect(parseTabParam("today")).toBe("home");
+    expect(parseTabParam("recovery")).toBe("home");
     expect(parseTabParam("progress")).toBe("home");
     expect(parseTabParam("home")).toBe("home");
     expect(parseTabParam("log")).toBe("log");

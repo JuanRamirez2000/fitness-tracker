@@ -4,14 +4,10 @@ import { CardGrid, Cell, Section, SectionHeading, type Span } from "./layout";
 
 /**
  * Placeholders shaped like the real page, shown while a tab's rows load (app/page.tsx's
- * Suspense, app/loading.tsx) and while the Refresh button rewrites a summary. Section headings
+ * Suspense, app/loading.tsx). Section headings
  * are the real text, so only the cards pulse and nothing jumps when the content lands.
  * No hooks: usable from server and client components alike.
  */
-
-function Bone({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded bg-raised ${className}`} />;
-}
 
 /** One card's outline at the height the real card renders on a desktop. */
 function CardBone({ span, height }: { span: Span; height: number }) {
@@ -22,39 +18,12 @@ function CardBone({ span, height }: { span: Span; height: number }) {
   );
 }
 
-/** The AI summary's label line and two and a half lines of text. */
-export function SummarySkeleton({ label }: { label?: string }) {
-  return (
-    <div className="flex max-w-[860px] flex-col gap-2" aria-busy="true">
-      {label ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2">{label}</span>
-      ) : (
-        <Bone className="h-[13px] w-48" />
-      )}
-      <div className="flex flex-col gap-3 py-1">
-        <Bone className="h-[18px] w-full" />
-        <Bone className="h-[18px] w-[94%]" />
-        <Bone className="h-[18px] w-[58%]" />
-      </div>
-    </div>
-  );
-}
-
-
-/** Every tab's shape while its rows load: the week-so-far tiles, the swipeable section, the
- * first cards of the rest. */
+/** Every tab's shape while its rows load: a wide first card (Next 7 days, or Weight's trend),
+ * then the first cards of the rest. */
 function TabShapeSkeleton() {
   return (
     <>
-      <div className="flex flex-col gap-2.5">
-        <div className="h-3 w-48 animate-pulse rounded bg-card" />
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-[76px] animate-pulse rounded-lg border border-border bg-card" />
-          ))}
-        </div>
-      </div>
-      <div className="h-[360px] animate-pulse rounded-xl border border-border bg-card" />
+      <div className="h-[300px] animate-pulse rounded-xl border border-border bg-card" />
       <Section>
         <SectionHeading n="01">{" "}</SectionHeading>
         <CardGrid>

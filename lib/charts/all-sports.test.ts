@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { testDashboardData, testRide, testRun } from "@/lib/kpis/testing";
-import { buildPowerZones, buildSessionMix, buildWeeklyVolume, sportsInRange } from "./all-sports";
+import { buildPowerZones, buildWeeklyVolume, sportsInRange } from "./all-sports";
 import { buildSportLoad } from "./training";
 
 const RANGE = { key: "custom" as const, from: "2026-11-01", to: "2026-11-14" };
@@ -95,22 +95,3 @@ describe("buildPowerZones", () => {
   });
 });
 
-describe("buildSessionMix", () => {
-  it("files each labelled session under its benefit and week", () => {
-    const data = testDashboardData({
-      sport: "all",
-      dateRange: RANGE,
-      activities: [
-        testRide({ local_date: "2026-11-02", training_effect_label: "AEROBIC_BASE" }),
-        testRun({ local_date: "2026-11-03", training_effect_label: "LACTATE_THRESHOLD" }),
-        testRide({ local_date: "2026-11-10", training_effect_label: "TEMPO" }),
-        testRun({ local_date: "2026-11-11", training_effect_label: "UNKNOWN" }),
-      ],
-    });
-    const chart = buildSessionMix(data)!;
-    expect(chart.weeks).toEqual(["2026-11-01", "2026-11-08"]);
-    expect(chart.rows.find((r) => r.key === "AEROBIC_BASE")!.cells[0].map((s) => s.sport)).toEqual(["ride"]);
-    expect(chart.rows.find((r) => r.key === "LACTATE_THRESHOLD")!.cells[0].map((s) => s.sport)).toEqual(["run"]);
-    expect(chart.counts).toEqual({ easy: 1, tempo: 1, hard: 1 });
-  });
-});

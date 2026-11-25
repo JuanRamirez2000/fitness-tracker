@@ -41,13 +41,10 @@ function data(weightTrend: WeightTrendRow[]): DashboardData {
     bodyComposition: [],
     training: [],
     runEfforts: [],
-    brickRuns: [],
     week: "2026-09-14",
     planned: [],
-    weeklySummary: null,
     planHistory: [],
     planner: null,
-    summary: null,
     steps: [],
     dateRange: { key: "week", from: TODAY, to: TODAY },
   };

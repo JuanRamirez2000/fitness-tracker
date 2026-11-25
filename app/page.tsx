@@ -6,10 +6,8 @@ import { TabSkeleton } from "@/components/dashboard/skeletons";
 import { NavStatusProvider, TabBodyFrame } from "@/components/dashboard/nav-status";
 import { PageToc } from "@/components/dashboard/page-toc";
 import { StoredViewRestorer } from "@/components/dashboard/stored-view-restorer";
-import { SummaryStatusProvider } from "@/components/dashboard/summary-status";
 import { HomeTab } from "@/components/tabs/home-tab";
 import { LogTab } from "@/components/tabs/log-tab";
-import { RecoveryTab } from "@/components/tabs/recovery-tab";
 import { TrainingTab } from "@/components/tabs/training-tab";
 import { WeightTab } from "@/components/tabs/weight-tab";
 import { getRole } from "@/lib/auth/session";
@@ -68,45 +66,43 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   return (
     <NavStatusProvider>
-      <SummaryStatusProvider>
-        <StoredViewRestorer
-          range={parsedRange}
-          rangeKey={shell.dateRange.key}
-          tab={shell.tab}
-          sport={shell.sport}
-          tabExplicit={parsedTab !== null}
-        />
-        <AppHeader
-          data={shell}
-          canEdit={canEdit}
-          urlRange={parsedRange}
-          moodButton={
-            canEdit && (
-              <Suspense fallback={<MoodButton />}>
-                <MoodLogButton recent={recentMoodLogs} today={shell.today} />
-              </Suspense>
-            )
-          }
-        />
-        {/* From a wide screen, "On this page" sits in a column beside the content (Tailwind's docs). */}
-        <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-10 px-4 md:px-8 xl:max-w-[1460px]">
-          <aside className="hidden w-[210px] shrink-0 xl:block">
-            <PageToc variant="sidebar" />
-          </aside>
-          <main className="flex min-w-0 flex-1 flex-col gap-12 pt-8 pb-20 md:pt-9">
-            <TabBodyFrame current={shell.tab}>
-              <Suspense fallback={<TabSkeleton tab={shell.tab} />}>
-                <TabBody data={data} canEdit={canEdit} urlRange={parsedRange} />
-              </Suspense>
-            </TabBodyFrame>
-          </main>
-        </div>
-        <PageToc variant="button" />
-        {/* Reads ?activity= on the client (useSearchParams), so opening one needs no server render. */}
-        <Suspense fallback={null}>
-          <ActivityModal timezone={owner.profile.timezone} />
-        </Suspense>
-      </SummaryStatusProvider>
+      <StoredViewRestorer
+        range={parsedRange}
+        rangeKey={shell.dateRange.key}
+        tab={shell.tab}
+        sport={shell.sport}
+        tabExplicit={parsedTab !== null}
+      />
+      <AppHeader
+        data={shell}
+        canEdit={canEdit}
+        urlRange={parsedRange}
+        moodButton={
+          canEdit && (
+            <Suspense fallback={<MoodButton />}>
+              <MoodLogButton recent={recentMoodLogs} today={shell.today} />
+            </Suspense>
+          )
+        }
+      />
+      {/* From a wide screen, "On this page" sits in a column beside the content (Tailwind's docs). */}
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-10 px-4 md:px-8 xl:max-w-[1460px]">
+        <aside className="hidden w-[210px] shrink-0 xl:block">
+          <PageToc variant="sidebar" />
+        </aside>
+        <main className="flex min-w-0 flex-1 flex-col gap-12 pt-8 pb-20 md:pt-9">
+          <TabBodyFrame current={shell.tab}>
+            <Suspense fallback={<TabSkeleton tab={shell.tab} />}>
+              <TabBody data={data} canEdit={canEdit} urlRange={parsedRange} />
+            </Suspense>
+          </TabBodyFrame>
+        </main>
+      </div>
+      <PageToc variant="button" />
+      {/* Reads ?activity= on the client (useSearchParams), so opening one needs no server render. */}
+      <Suspense fallback={null}>
+        <ActivityModal timezone={owner.profile.timezone} />
+      </Suspense>
     </NavStatusProvider>
   );
 }
@@ -116,8 +112,7 @@ async function TabBody({ data: pending, canEdit, urlRange }: { data: Promise<Das
   return (
     <>
       {data.tab === "home" && <HomeTab data={data} urlRange={urlRange} canEdit={canEdit} />}
-      {data.tab === "training" && <TrainingTab data={data} />}
-      {data.tab === "recovery" && <RecoveryTab data={data} />}
+      {data.tab === "training" && <TrainingTab data={data} canEdit={canEdit} />}
       {data.tab === "weight" && <WeightTab data={data} canEdit={canEdit} />}
       {data.tab === "log" && <LogTab data={data} />}
     </>

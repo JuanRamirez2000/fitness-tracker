@@ -36,16 +36,8 @@ export interface DayRow {
 }
 
 export type LogKind = "activities" | "weight" | "mood" | "sleep" | "readiness" | "steps";
-export const LOG_KINDS: { key: LogKind; label: string }[] = [
-  { key: "activities", label: "Activities" },
-  { key: "weight", label: "Weigh-ins" },
-  { key: "sleep", label: "Sleep" },
-  { key: "readiness", label: "Readiness" },
-  { key: "steps", label: "Steps" },
-  { key: "mood", label: "Mood" },
-];
 
-/** Whether a day has one kind of data, for the coverage views and the month grid's markers. */
+/** Whether a day has one kind of data, for the month grid's markers. */
 export function has(row: DayRow, kind: LogKind): boolean {
   switch (kind) {
     case "activities":

@@ -3,8 +3,7 @@ import type { MoodLog } from "@/lib/data/mood";
 import type { PlannedWorkout } from "@/lib/data/planned";
 import type { DailyRecovery } from "@/lib/data/recovery";
 import { testDashboardData, testProfile, testRide, testRun, USER } from "@/lib/kpis/testing";
-import { parseWorkoutSettings } from "@/lib/workouts/settings";
-import { countdownCard, hoursBySport, loadCard, planVsDone, readinessCard, weekMood, weekRecovery } from "./build";
+import { hoursBySport, loadCard, planVsDone, weekMood, weekRecovery } from "./build";
 import { parseWeekParam, progressWeek } from "./week";
 
 const MONDAY = "2026-11-09";
@@ -93,29 +92,6 @@ describe("loadCard", () => {
     const card = loadCard(activities, progressWeek(MONDAY, "2026-11-20"));
     expect(card).toMatchObject({ value: 40, delta: -50, tone: "neutral" });
     expect(card.sub).toBe("vs 80 last week");
-  });
-});
-
-describe("readinessCard", () => {
-  it("averages the week's readiness against the week before, with the mood log", () => {
-    const data = {
-      recovery: [recovery("2026-11-03", 50), recovery(day(0), 70), recovery(day(1), 80, { readiness_morning_score: 90 })],
-      moodLogs: [mood(day(0)), mood(day(1), { mood: 3, sick: true })],
-    };
-    const card = readinessCard(data, progressWeek(MONDAY, day(2)))!;
-    expect(card).toMatchObject({ value: 80, delta: 30, tone: "good" });
-    expect(card.sub).toBe("mood 3.5 of 5 (2 of 3 days logged) · sick 1 day");
-    expect(readinessCard({ recovery: [], moodLogs: [] }, progressWeek(MONDAY, day(2)))).toBeNull();
-  });
-});
-
-describe("countdownCard", () => {
-  it("counts whole weeks to the race from the week's last day so far", () => {
-    const profile = testProfile({ workout_settings: parseWorkoutSettings({ race: { name: "Sprint", date: "2027-04-11" } }) });
-    const card = countdownCard({ profile }, progressWeek(MONDAY, day(2)))!;
-    expect(card.value).toBe(21);
-    expect(card.deltaText).toBe("Base");
-    expect(countdownCard({ profile: testProfile({ workout_settings: parseWorkoutSettings({ race: null }) }) }, progressWeek(MONDAY, day(2)))).toBeNull();
   });
 });
 

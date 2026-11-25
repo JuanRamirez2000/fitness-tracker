@@ -27,11 +27,10 @@ describe("tabNeeds", () => {
     expect(tabNeeds("training")).toMatchObject({ weighIns: false, bodyComposition: false });
   });
 
-  it("loads recovery and steps for Recovery and Log, plans for Home and Log, best efforts where records or the card show", () => {
-    expect(tabNeeds("recovery")).toMatchObject({ recovery: true, steps: true, training: false, plans: false });
-    expect(tabNeeds("log")).toMatchObject({ recovery: true, steps: true, plans: true, runEfforts: true });
-    expect(tabNeeds("home")).toMatchObject({ recovery: false, plans: true, runEfforts: true, training: true });
-    expect(tabNeeds("training")).toMatchObject({ recovery: false, plans: false, runEfforts: true, training: true });
+  it("loads recovery for Home and Log, the planner for Home and Training, best efforts where records or the card show", () => {
+    expect(tabNeeds("home")).toMatchObject({ recovery: true, steps: false, plans: true, planner: true, runEfforts: false, training: true });
+    expect(tabNeeds("training")).toMatchObject({ recovery: false, plans: false, planner: true, runEfforts: true, training: true });
+    expect(tabNeeds("log")).toMatchObject({ recovery: true, steps: true, plans: true, planner: false, runEfforts: true });
   });
 });
 

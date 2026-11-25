@@ -124,9 +124,6 @@ export const BENEFITS = [
   { key: "SPRINT", label: "Sprint" },
 ] as const;
 
-/** Most weeks the grid shows; a longer range keeps its latest. */
-const MIX_MAX_WEEKS = 10;
-
 export interface MixSession {
   id: string;
   name: string;
@@ -143,30 +140,3 @@ export interface SessionMixData {
   sports: ActiveSport[];
 }
 
-/**
- * Each week's sessions, sorted into Garmin's training-benefit label (what the session mostly
- * trained), one dot per session in its sport's color. Sessions Garmin couldn't label are left out.
- */
-export function buildSessionMix(data: Data): SessionMixData | null {
-  const known = new Map<string, number>(BENEFITS.map((b, i) => [b.key, i]));
-  const sessions = inRangeFor(data).filter((a) => a.training_effect_label && known.has(a.training_effect_label));
-  if (sessions.length === 0) return null;
-  const weeks = weeklyBuckets(data.dateRange).map((w) => w[0]).slice(-MIX_MAX_WEEKS);
-  const weekIndex = (d: LocalDate) => {
-    for (let i = weeks.length - 1; i >= 0; i--) if (d >= weeks[i]) return i;
-    return -1;
-  };
-  const rows = BENEFITS.map((b) => ({ key: b.key as string, label: b.label as string, cells: weeks.map(() => [] as MixSession[]) }));
-  const counts = { easy: 0, tempo: 0, hard: 0 };
-  for (const a of sessions) {
-    const w = weekIndex(a.local_date);
-    if (w < 0) continue;
-    const row = known.get(a.training_effect_label!)!;
-    rows[row].cells[w].push({ id: a.id, name: a.name ?? "Workout", sport: sportOf(a.activity_type) as ActiveSport, date: a.local_date });
-    if (row <= 1) counts.easy++;
-    else if (row === 2) counts.tempo++;
-    else counts.hard++;
-  }
-  const seen = new Set(sessions.map((a) => sportOf(a.activity_type)));
-  return { weeks, rows, counts, sports: SPORTS.filter((s) => seen.has(s)) };
-}

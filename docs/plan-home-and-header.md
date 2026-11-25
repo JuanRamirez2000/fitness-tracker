@@ -1,5 +1,7 @@
 # Plan: one week strip on Home, carousels that stop hiding, a shorter phone header
 
+> **Partly superseded** 2026-11-24: the phone header (section 3) was built; the week strip and carousels gave way to `docs/plan-four-tabs.md`.
+
 Status: proposed 2026-11-18, not built. Builds on the five-tab layout (`docs/plan-training-split.md`).
 
 ## 1. Home: one week strip instead of four copies of today

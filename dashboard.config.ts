@@ -19,7 +19,7 @@ import { vo2max } from "@/lib/kpis/vo2max";
 import { vo2maxCycling } from "@/lib/kpis/vo2max-cycling";
 import { weeklyMiles } from "@/lib/kpis/weekly-miles";
 import { weeklyRate } from "@/lib/kpis/weekly-rate";
-import type { KpiDefinition, TabKey } from "@/lib/dashboard/types";
+import type { KpiDefinition } from "@/lib/dashboard/types";
 
 // The cards across the top of the dashboard, in order. Adding one = one new file exporting a
 // KpiDefinition plus one line here.
@@ -53,18 +53,13 @@ export const KPIS: KpiDefinition[] = [
   swimHours,
 ];
 
-// Which KPI cards each tab shows, by id. Each row fills six units (a wide card, span 2, takes
-// two), so keep a row's spans adding up to 6. Training's are per sport (below).
-export const TAB_KPIS: Partial<Record<TabKey, readonly string[]>> = {
-  weight: ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"],
-};
+// Which KPI cards each tab shows, by id (docs/plan-four-tabs.md). A wide card (span 2) takes
+// two columns.
+// Home's key metrics, under the readiness and week's-training cards: weight, sleep, fitness.
+export const HOME_KPIS: readonly string[] = ["seven-day-average", "weekly-rate", "progress-to-goal", "sleep-score", "sleep-debt", "race-10k", "vo2max"];
 
-// The Training tab's recovery row, under the readiness hero.
-export const RECOVERY_KPIS: readonly string[] = ["sleep-score", "sleep-debt", "steps-today"];
+// Training's metrics row, beside the easy vs hard card. Swim hours join once swims sync.
+export const TRAINING_KPIS: readonly string[] = ["load-ratio", "training-hours", "weekly-miles", "ftp", "vo2max-cycling"];
 
-// The Training tab's group tiles, one row each (docs/plan-training-split.md).
-export const GROUP_KPIS = {
-  run: ["race-10k", "vo2max", "easy-pace", "weekly-miles"],
-  ride: ["ftp", "vo2max-cycling", "ride-hours", "ride-miles"],
-  load: ["load-ratio", "training-hours"],
-} as const;
+// Weight's "Where am I today?" row: six units.
+export const WEIGHT_KPIS: readonly string[] = ["todays-weight", "seven-day-average", "weekly-rate", "progress-to-goal", "climb-gain", "logging-streak"];

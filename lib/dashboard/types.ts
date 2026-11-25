@@ -1,8 +1,7 @@
 import type { FC } from "react";
-import type { BrickRunDetail } from "@/lib/charts/bricks";
 import type { Activity } from "@/lib/data/activities";
 import type { RunEfforts } from "@/lib/data/activity-details";
-import type { DailyRecovery, DailySummary, SleepNight, WeeklySummary } from "@/lib/data/recovery";
+import type { DailyRecovery, SleepNight } from "@/lib/data/recovery";
 import type { DailyTraining } from "@/lib/data/training";
 import type { Profile } from "@/lib/data/profiles";
 import type { DailySteps } from "@/lib/data/steps";
@@ -20,21 +19,19 @@ import type { PlannerData } from "@/lib/workouts/service";
 export const RANGE_KEYS = ["week", "month", "6m", "year", "all", "custom"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
 
-/** The dashboard's tabs, in display order (`?tab=`). The first is the default. Each opens on
- * its own week so far, then a swipeable section, then the rest (docs/plan-training-split.md).
- * Older keys open where their content went (LEGACY_TABS). */
-export const TAB_KEYS = ["home", "training", "recovery", "weight", "log"] as const;
+/** The dashboard's tabs, in display order (`?tab=`). The first is the default
+ * (docs/plan-four-tabs.md). Older keys open where their content went (LEGACY_TABS). */
+export const TAB_KEYS = ["home", "training", "weight", "log"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 export const DEFAULT_TAB: TabKey = "home";
 export const TAB_LABELS: Record<TabKey, string> = {
   home: "Home",
   training: "Training",
-  recovery: "Recovery",
   weight: "Weight",
   log: "Log",
 };
 /** Tabs that were renamed or merged away, and the tab that holds them now (old links and saved views). */
-export const LEGACY_TABS: Record<string, TabKey> = { today: "recovery", progress: "home" };
+export const LEGACY_TABS: Record<string, TabKey> = { today: "home", progress: "home", recovery: "home" };
 
 /** `?tab=` or a saved tab -> a tab, or null when it's none (old keys map to where they went). */
 export function toTabKey(value: string | null | undefined): TabKey | null {
@@ -72,14 +69,11 @@ export interface DashboardData {
   /** Every shot, unbounded for the same reason: matchShots needs to see shots outside a
    * window to place a late or early star correctly at its edge. */
   injections: Injection[];
-  /** Every mood log, oldest first, on every tab: one short row a day, read by the Daily feel
-   * chart and the sick/injured markers on the recovery and training charts. */
+  /** Every mood log, oldest first, on every tab: one short row a day, read by the mood card
+   * and chart and the sick/injured markers on the recovery and training charts. */
   moodLogs: MoodLog[];
-  /** Every run's best efforts, oldest first (Training tab only; empty elsewhere). */
+  /** Every run's best efforts, oldest first (Training and Log; empty elsewhere). */
   runEfforts: RunEfforts[];
-  /** The brick runs' splits and samples, for the brick card's first-mile drop (Training tab
-   * only; empty elsewhere). */
-  brickRuns: BrickRunDetail[];
   /** Every Garmin activity, oldest first, unbounded like weightTrend: the running KPIs compare
    * the latest weeks against earlier ones, whatever range is selected. */
   activities: Activity[];
@@ -91,27 +85,22 @@ export interface DashboardData {
   /** Raw weigh-in rows inside dateRange, newest first, for the table. */
   weighIns: WeighIn[];
   /** Daily recovery rows from dateRange.from through max(dateRange.to, today), oldest first
-   * (Daily feel tab; on Progress, its week and the week before instead). Today is always included: the hero is about today. */
+   * (Home and Log), widened to the picked week and the week before. Today is always included: the readiness card is about today. */
   recovery: DailyRecovery[];
   /** Nights (by wake-up day) over the same span as `recovery`, oldest first. */
   sleep: SleepNight[];
   /** Every day's body composition, unbounded, oldest first (Weight tab). */
   bodyComposition: BodyCompositionDay[];
-  /** Today's AI-written summary for the active tab, or null when none was written today. */
-  summary: DailySummary | null;
-  /** The Progress tab's week: its Monday (`?week=`, lib/progress/week.ts). Every tab has one;
-   * only Progress reads it. */
+  /** The header's picked week: its Monday (`?week=`, lib/progress/week.ts). */
   week: LocalDate;
-  /** The Progress tab's weekly review for its week, or null (and null on the other tabs). */
-  weeklySummary: WeeklySummary | null;
-  /** Planned sessions (Coach and own) for the Progress tab's week; empty elsewhere. */
+  /** Planned sessions (Coach and own) for the picked week (Home only; empty elsewhere). */
   planned: PlannedWorkout[];
-  /** Every planned session from half a year back to two months ahead, for the plan progress
-   * cards (lib/progress/plans.ts): Training and Progress only; empty elsewhere. */
+  /** Every planned session from half a year back to two months ahead: Home's next session and
+   * Log's day table; empty elsewhere. */
   planHistory: PlannedWorkout[];
-  /** The workout planner's week (lib/workouts/service.ts): Training tab only, null elsewhere. */
+  /** The Next 7 days planner (lib/workouts/service.ts): Home and Training, null elsewhere. */
   planner: PlannerData | null;
-  /** Every daily training snapshot up to max(dateRange.to, today), oldest first (Training tab):
+  /** Every daily training snapshot up to max(dateRange.to, today), oldest first:
    * unbounded at the start, for VO2 max's history. */
   training: DailyTraining[];
   dateRange: DateRange;
