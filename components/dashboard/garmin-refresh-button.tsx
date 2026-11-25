@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { TabKey } from "@/lib/dashboard/types";
 import { useSummaryStatus } from "./summary-status";
@@ -18,7 +18,7 @@ type Status = "idle" | "importing" | "writing" | "error";
  * Progress tab the weekly review (the summary shows a skeleton meanwhile, via SummaryStatus),
  * and the page reloads again.
  */
-export function GarminRefreshButton({ tab }: { tab: TabKey }) {
+export function GarminRefreshButton({ tab, onBusyChange, stacked = false }: { tab: TabKey; onBusyChange?: (busy: boolean) => void; stacked?: boolean }) {
   const router = useRouter();
   const { setWriting } = useSummaryStatus();
   const [status, setStatus] = useState<Status>("idle");
@@ -74,8 +74,10 @@ export function GarminRefreshButton({ tab }: { tab: TabKey }) {
   }
 
   const busy = status === "importing" || status === "writing";
+  // The phone menu's ⋯ button shows a running refresh while the menu is closed.
+  useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
   return (
-    <div className="flex items-center gap-2">
+    <div className={stacked ? "flex flex-col items-stretch gap-1.5" : "flex items-center gap-2"}>
       <button
         type="button"
         onClick={refresh}

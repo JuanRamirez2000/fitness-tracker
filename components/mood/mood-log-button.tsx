@@ -83,9 +83,11 @@ export function MoodButton({ onClick, logged }: { onClick?: () => void; logged?:
       onClick={onClick}
       disabled={!onClick}
       aria-label={logged ? "Edit today's mood log" : "Log how you feel today"}
-      className="relative rounded-lg border border-border-strong px-3 py-[7px] text-[12.5px] text-muted-1 disabled:opacity-50"
+      className="relative rounded-lg border border-border-strong px-2.5 py-[7px] text-[12.5px] text-muted-1 disabled:opacity-50 lg:px-3"
     >
-      {logged ? "Feel ✓" : "Log feel"}
+      {/* An icon in the phone header; the words from lg up. */}
+      <span className="lg:hidden">{logged ? "✎ ✓" : "✎"}</span>
+      <span className="hidden lg:inline">{logged ? "Feel ✓" : "Log feel"}</span>
       {logged === false && (
         <span aria-hidden className="absolute -top-[3px] -right-[3px] h-2 w-2 rounded-full bg-accent ring-2 ring-bg" />
       )}
