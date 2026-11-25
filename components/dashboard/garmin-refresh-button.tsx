@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 type Status = "idle" | "importing" | "error";
 
 /**
- * Pulls today only from Garmin, on demand: the nightly cron already covers yesterday, so this
- * exists for "I just logged a run or weighed in and want it to show up now" rather than waiting.
- * /api/garmin/refresh imports today, then the page reloads with it.
+ * Pulls today and yesterday from Garmin, on demand, for "I just logged a run or weighed in and
+ * want it to show up now" rather than waiting for the nightly cron. /api/garmin/refresh imports
+ * them, then the page reloads.
  */
 export function GarminRefreshButton({ onBusyChange, stacked = false }: { onBusyChange?: (busy: boolean) => void; stacked?: boolean }) {
   const router = useRouter();

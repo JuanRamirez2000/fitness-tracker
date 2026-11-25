@@ -6,9 +6,9 @@ import { importGarmin } from "@/lib/garmin/import";
 export const maxDuration = 60;
 
 /**
- * The "Refresh" button (components/dashboard/garmin-refresh-button.tsx): imports TODAY from
- * the Garmin Personal API, in this request, and the page reloads with the fresh rows. The
- * nightly cron (app/api/garmin/cron/route.ts) covers yesterday.
+ * The "Refresh" button (components/dashboard/garmin-refresh-button.tsx): imports today and
+ * yesterday from the Garmin Personal API, in this request, and the page reloads with the fresh
+ * rows. The nightly cron (app/api/garmin/cron/route.ts) covers the days before.
  */
 export async function POST() {
   if ((await getRole()) !== "owner") {
