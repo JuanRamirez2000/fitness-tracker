@@ -7,7 +7,8 @@ watch.
 Four tabs, no carousels and nothing folded away (docs/plan-four-tabs.md). One week picker in the
 header drives the week cards; each tab's charts sit under its own range control.
 
-- **Home**: the next 7 days (suggestions, forecast, "Plan a workout"); today's readiness beside
+- **Home**: the next 7 days (suggestions, forecast, "Plan a workout"; a planned session opens
+  its steps and notes, and today's done workouts open their review); today's readiness beside
   the week's training (time against the 4–7 h target, sessions done, load, the next session); key
   numbers for weight, sleep and fitness; the weight trend; then recovery: each morning and mood of
   the week, sleep, Body Battery and mood trends.

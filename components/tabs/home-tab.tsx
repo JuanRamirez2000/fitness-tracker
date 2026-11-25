@@ -20,6 +20,7 @@ import { weekMood, weekRecovery } from "@/lib/progress/build";
 import { progressWeek } from "@/lib/progress/week";
 import { tabToSearchParams, type UrlRange } from "@/lib/range/url";
 import { runRamp } from "@/lib/running/ramp";
+import { doneToday } from "@/lib/workouts/done";
 
 /** The weight trend shows this many weeks to the picked week's end, whatever the range. */
 const TREND_WEEKS = 12;
@@ -39,7 +40,7 @@ export function HomeTab({ data, urlRange, canEdit }: { data: DashboardData; urlR
     <>
       <section id="next-7-days" aria-label="Next 7 days" className="flex scroll-mt-28 flex-col gap-3.5">
         {ramp?.warn && <RampNotice ramp={ramp} />}
-        {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} />}
+        {data.planner && <WeekPlanner planner={data.planner} canEdit={canEdit} done={doneToday(data)} />}
       </section>
 
       <Section id="today">

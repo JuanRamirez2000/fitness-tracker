@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from import_unofficial import calendar_row, chunks, clean_name, ftp_rows, is_key, plan_rows, workout_seconds, race_rows, readiness_row, training_row, vo2_rows, window
+from import_unofficial import calendar_row, chunks, compact_steps, clean_name, ftp_rows, is_key, plan_rows, workout_seconds, race_rows, readiness_row, training_row, vo2_rows, window
 
 FIXTURES = Path(__file__).resolve().parents[2] / "lib" / "garmin" / "fixtures" / "unofficial"
 
@@ -211,6 +211,21 @@ class CalendarRowTest(unittest.TestCase):
         self.assertEqual((row["name"], row["description"]), ("Easy Run", "3mi Easy Run (3mi)"))
         self.assertEqual(row["duration_s"], round(3 * 1609.344 * 0.4))
         self.assertFalse(row["key_workout"])
+
+    def test_keeps_the_steps_for_the_workout_modal(self):
+        steps = compact_steps(RUNNA_TEMPO)
+        self.assertEqual(len(steps), 6)
+        self.assertEqual(steps[0], {"kind": "warmup", "end": "lap.button", "note": "OWU: 0.75mi warm up"})
+        self.assertEqual(steps[1], {"kind": "interval", "end": "distance", "value": 804.67, "target": "pace.zone", "lo": 2.3494015, "hi": 2.1601879})
+        self.assertEqual(steps[4], {"kind": "rest", "end": "time", "value": 90.0})
+        repeats = {"workoutSegments": [{"workoutSteps": [{"type": "RepeatGroupDTO", "numberOfIterations": 4, "workoutSteps": [
+            step("interval", "time", 60, "power.zone", 200, 220), step("recovery", "time", 120)]}]}]}
+        self.assertEqual(compact_steps(repeats), [{"repeat": 4, "steps": [
+            {"kind": "interval", "end": "time", "value": 60, "target": "power.zone", "lo": 200, "hi": 220},
+            {"kind": "recovery", "end": "time", "value": 120}]}])
+        self.assertIsNone(compact_steps(None))
+        item = {"itemType": "workout", "date": "2026-11-21", "title": RUNNA_TEMPO["workoutName"], "sportTypeKey": "running", "workoutId": 9}
+        self.assertEqual(calendar_row(item, RUNNA_TEMPO, self.PACES)["steps"], steps)
 
     def test_names_steps_and_keys(self):
         self.assertEqual(clean_name("Long Run"), ("Long Run", None))

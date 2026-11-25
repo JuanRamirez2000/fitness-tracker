@@ -13,7 +13,7 @@ Datasets:
   ftp        the cycling FTP set in Garmin, on each day it changed -> daily_training.ftp_w.
   plan       planned sessions: a Garmin Coach plan's tasks (name, workout, estimated time,
              benefit, rest days) plus every other workout on the Garmin calendar, read with its
-             detail (the app that sent it, e.g. Runna; its text; a time from its steps), from a week
+             detail (the app that sent it, e.g. Runna; its text; its steps, and a time from them), from a week
              back to about two months ahead -> planned_workouts (future Garmin rows replaced;
              the tracker's own workouts, source = 'self', are left alone: push_workout.py).
 
@@ -292,6 +292,32 @@ def step_seconds(step: dict[str, Any], pace: float) -> float | None:
     return meters * pace
 
 
+def compact_step(step: dict[str, Any]) -> dict[str, Any]:
+    """One Garmin workout step, cut down to what the planner's workout modal shows
+    (lib/workouts/plan-steps.ts): its kind, how it ends, its target and its text. A repeat keeps
+    its count and its own steps."""
+    if step.get("type") == "RepeatGroupDTO" or step.get("workoutSteps"):
+        return {"repeat": step.get("numberOfIterations") or 1, "steps": [compact_step(x) for x in step.get("workoutSteps") or []]}
+    target = ((step.get("targetType") or {}).get("workoutTargetTypeKey")) or None
+    fields = {
+        "kind": ((step.get("stepType") or {}).get("stepTypeKey")),
+        "end": ((step.get("endCondition") or {}).get("conditionTypeKey")),
+        "value": step.get("endConditionValue"),
+        "target": None if target == "no.target" else target,
+        "lo": step.get("targetValueOne"),
+        "hi": step.get("targetValueTwo"),
+        "zone": step.get("zoneNumber"),
+        "note": (step.get("description") or "").strip() or None,
+    }
+    return {k: v for k, v in fields.items() if v is not None}
+
+
+def compact_steps(detail: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """A calendar workout's steps for display, or None without a detail or steps."""
+    steps = [compact_step(x) for seg in (detail or {}).get("workoutSegments") or [] for x in seg.get("workoutSteps") or []]
+    return steps or None
+
+
 def workout_seconds(detail: dict[str, Any], pace: float) -> float | None:
     """A whole workout's time from its steps, or None when any step's time can't be told."""
     steps = [x for seg in detail.get("workoutSegments") or [] for x in seg.get("workoutSteps") or []]
@@ -331,8 +357,8 @@ def plan_name_of(description: str | None, provider: str | None) -> str | None:
 def calendar_row(item: dict[str, Any], detail: dict[str, Any] | None, paces: dict[str, float]) -> dict[str, Any]:
     """One planned_workouts row from a calendar workout and, when it could be fetched, its detail:
     who planned it (the workout's provider app; None when made in Garmin Connect), the plan,
-    the session text, a time (Garmin's, else worked out from the steps or the distance), and
-    whether it's a key session."""
+    the session text, its steps, a time (Garmin's, else worked out from the steps or the
+    distance), and whether it's a key session."""
     title = item.get("title") or (detail or {}).get("workoutName")
     name, title_detail = clean_name(title)
     sport_key = item.get("sportTypeKey") or ((detail or {}).get("sportType") or {}).get("sportTypeKey")
@@ -365,6 +391,7 @@ def calendar_row(item: dict[str, Any], detail: dict[str, Any] | None, paces: dic
         "plan_name": plan_name_of(text, provider),
         "provider": provider,
         "duration_estimated": estimated,
+        "steps": compact_steps(detail),
     }
 
 
@@ -406,6 +433,7 @@ def plan_rows(
             "plan_name": plan_name,
             "provider": COACH_PROVIDER,
             "duration_estimated": False,
+            "steps": None,
         }
     for item in calendar_items:
         if item.get("itemType") not in PLANNED_ITEM_TYPES or not item.get("date") or item["date"] < earliest:
@@ -587,18 +615,23 @@ def upsert_training(conn, user_id: str, rows: list[dict[str, Any]], dry_run: boo
 
 PLAN_COLUMNS = (
     "local_date", "sport", "name", "description", "duration_s", "benefit", "rest_day", "key_workout", "status", "plan_name",
-    "provider", "duration_estimated",
+    "provider", "duration_estimated", "steps",
 )
 
 
 def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry_run: bool) -> None:
     """Today's and later planned rows are replaced wholesale (an adaptive plan reshuffles and
-    drops sessions); earlier ones are upserted, so a session's status can still change."""
+    drops sessions); earlier ones are upserted, so a session's status can still change. Steps
+    come only with a workout's detail, fetched for today onward, so an earlier row keeps the
+    steps it had."""
     if dry_run:
         print(f"  plan: would replace planned sessions from {today} with {len(rows)} row(s) (dry run)")
         for row in rows[:8]:
             print(f"    {row}")
         return
+    from psycopg.types.json import Jsonb
+
+    updates = ", ".join("steps = coalesce(excluded.steps, planned_workouts.steps)" if c == "steps" else f"{c} = excluded.{c}" for c in PLAN_COLUMNS)
     with conn.cursor() as cur:
         cur.execute(
             "delete from planned_workouts where user_id = %s and local_date >= %s and source = 'garmin'",
@@ -608,9 +641,8 @@ def replace_plan(conn, user_id: str, rows: list[dict[str, Any]], today: str, dry
             cur.execute(
                 f"""insert into planned_workouts (user_id, workout_uuid, {", ".join(PLAN_COLUMNS)})
                     values (%(user_id)s, %(workout_uuid)s, {", ".join(f"%({c})s" for c in PLAN_COLUMNS)})
-                    on conflict (user_id, workout_uuid) do update set
-                      {", ".join(f"{c} = excluded.{c}" for c in PLAN_COLUMNS)}, updated_at = now()""",
-                {**row, "user_id": user_id},
+                    on conflict (user_id, workout_uuid) do update set {updates}, updated_at = now()""",
+                {**row, "user_id": user_id, "steps": Jsonb(row["steps"]) if row.get("steps") is not None else None},
             )
     conn.commit()
     print(f"  plan: wrote {len(rows)} planned session(s)")

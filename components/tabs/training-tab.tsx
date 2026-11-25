@@ -21,6 +21,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import { intensitySplit } from "@/lib/progress/build";
 import { progressWeek } from "@/lib/progress/week";
 import type { ActiveSport, SportFilter } from "@/lib/sport";
+import { doneToday } from "@/lib/workouts/done";
 
 /**
  * Training: am I getting fitter? (docs/plan-four-tabs.md) The next 7 days to plan in, the key
@@ -36,7 +37,7 @@ export function TrainingTab({ data, canEdit }: { data: DashboardData; canEdit: b
     <>
       {data.planner && (
         <section id="next-7-days" aria-label="Next 7 days" className="scroll-mt-28">
-          <WeekPlanner planner={data.planner} canEdit={canEdit} />
+          <WeekPlanner planner={data.planner} canEdit={canEdit} done={doneToday(data)} />
         </section>
       )}
 
